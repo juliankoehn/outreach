@@ -1,0 +1,374 @@
+/* ============================================================
+   Outreach — "Publishing console" design system
+   Builder / structural: hairlines, mono prompts, one amber signal.
+   ============================================================ */
+
+/* ---- Reset ---- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html, body { height: 100%; }
+body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+input, button { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: none; }
+a { color: inherit; text-decoration: none; }
+
+/* ---- Tokens: light (default) ---- */
+:root {
+  --bg:            #FAFAF7;
+  --grid:          #ECECE5;
+  --surface:       #FFFFFF;
+  --hairline:      #E4E4DC;
+  --hairline-2:    #D3D3C9;
+  --ink:           #17191C;
+  --muted:         #6B7079;
+  --faint:         #9CA1A8;
+  --accent:        #B8791A;   /* transmit amber (AA on light) */
+  --accent-ink:    #7A4E08;
+  --accent-weak:   #F4E7CE;
+  --btn-bg:        #17191C;
+  --btn-fg:        #FAFAF7;
+  --btn-bg-hover:  #000000;
+  --danger:        #AF2E24;
+  --danger-weak:   #F6E2DF;
+  --focus:         #B8791A;
+
+  --radius:        6px;
+  --font-display:  var(--f-display), "Space Grotesk", system-ui, sans-serif;
+  --font-body:     var(--f-body), "Inter", system-ui, sans-serif;
+  --font-mono:     var(--f-mono), "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ---- Tokens: dark ---- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:           #0B0C0E;
+    --grid:         #14161A;
+    --surface:      #131519;
+    --hairline:     #24272E;
+    --hairline-2:   #333843;
+    --ink:          #E7E9EC;
+    --muted:        #8A9099;
+    --faint:        #565C65;
+    --accent:       #EBB24A;
+    --accent-ink:   #F4CE7E;
+    --accent-weak:  #2A2416;
+    --btn-bg:       #ECEDEF;
+    --btn-fg:       #0B0C0E;
+    --btn-bg-hover: #FFFFFF;
+    --danger:       #E9756A;
+    --danger-weak:  #2A1715;
+    --focus:        #EBB24A;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:           #0B0C0E;
+  --grid:         #14161A;
+  --surface:      #131519;
+  --hairline:     #24272E;
+  --hairline-2:   #333843;
+  --ink:          #E7E9EC;
+  --muted:        #8A9099;
+  --faint:        #565C65;
+  --accent:       #EBB24A;
+  --accent-ink:   #F4CE7E;
+  --accent-weak:  #2A2416;
+  --btn-bg:       #ECEDEF;
+  --btn-fg:       #0B0C0E;
+  --btn-bg-hover: #FFFFFF;
+  --danger:       #E9756A;
+  --danger-weak:  #2A1715;
+  --focus:        #EBB24A;
+}
+
+/* ---- Base ---- */
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 46px 46px;
+  background-position: center;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Layout shell
+   ============================================================ */
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+/* ============================================================
+   Console card + registration (crop) marks
+   ============================================================ */
+.console {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 30px 32px 34px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.02), 0 24px 60px -30px rgba(0,0,0,.28);
+}
+/* corner registration marks */
+.console::before,
+.console::after,
+.console__mark::before,
+.console__mark::after {
+  content: "";
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-color: var(--hairline-2);
+  border-style: solid;
+  pointer-events: none;
+}
+.console::before  { top: -1px;   left: -1px;   border-width: 1px 0 0 1px; }
+.console::after   { top: -1px;   right: -1px;  border-width: 1px 1px 0 0; }
+.console__mark::before { bottom: -1px; left: -1px;  border-width: 0 0 1px 1px; }
+.console__mark::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+/* ---- Head: brand + controls ---- */
+.console__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 22px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--hairline);
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: -0.01em;
+}
+.brand__name {
+  color: var(--ink);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.brand__vendor { color: var(--faint); font-size: 11px; }
+.transmit {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 0 var(--accent);
+  animation: pulse 2.4s ease-out infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.controls { display: flex; align-items: center; gap: 6px; }
+.ctrl {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 7px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: color .14s, border-color .14s, background .14s;
+}
+.ctrl:hover { color: var(--ink); border-color: var(--hairline); }
+.ctrl[aria-pressed="true"] { color: var(--ink); }
+.ctrl--seg { display: inline-flex; padding: 0; overflow: hidden; }
+.ctrl--seg button {
+  font-family: var(--font-mono); font-size: 11px;
+  padding: 4px 7px; color: var(--faint);
+  transition: color .14s, background .14s;
+}
+.ctrl--seg button[aria-pressed="true"] { color: var(--ink); background: var(--accent-weak); }
+.ctrl--seg button:hover { color: var(--ink); }
+.ctrl--seg .sep { color: var(--hairline-2); padding: 4px 0; align-self: center; }
+
+/* ---- Kicker + title ---- */
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  text-transform: lowercase;
+  margin-bottom: 12px;
+}
+.title {
+  font-family: var(--font-display);
+  font-size: 27px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.subtitle {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 34ch;
+}
+
+/* ============================================================
+   Form
+   ============================================================ */
+.form { margin-top: 26px; display: flex; flex-direction: column; gap: 18px; }
+
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field__label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.field__box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--hairline-2);
+  padding: 8px 2px;
+  transition: border-color .16s;
+}
+.field__box:focus-within { border-color: var(--accent); }
+.field__prompt {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--faint);
+  transition: color .16s;
+  user-select: none;
+}
+.field__box:focus-within .field__prompt { color: var(--accent); }
+.field__input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink);
+}
+.field__input::placeholder { color: var(--faint); }
+.field__reveal {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--faint); padding: 2px 4px; border-radius: 3px;
+}
+.field__reveal:hover { color: var(--ink); }
+.field--error .field__box { border-color: var(--danger); }
+.field__error {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--danger);
+}
+
+/* ---- Form-level alert ---- */
+.alert {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: 13px;
+  color: var(--danger);
+  background: var(--danger-weak);
+  border: 1px solid color-mix(in srgb, var(--danger) 34%, transparent);
+  border-radius: 5px;
+  padding: 10px 12px;
+}
+.alert__tick { font-family: var(--font-mono); line-height: 1.4; }
+
+/* ---- Primary button ---- */
+.btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  color: var(--btn-fg);
+  background: var(--btn-bg);
+  border-radius: 5px;
+  padding: 13px 16px;
+  margin-top: 4px;
+  transition: background .16s, transform .06s, opacity .16s;
+}
+.btn:hover { background: var(--btn-bg-hover); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .6; cursor: progress; }
+.btn__arrow { transition: transform .16s; }
+.btn:hover:not(:disabled) .btn__arrow { transform: translateX(3px); }
+
+/* ---- Divider ---- */
+.divider {
+  display: flex; align-items: center; gap: 14px;
+  margin: 22px 0 4px;
+  color: var(--faint);
+  font-family: var(--font-mono); font-size: 11px;
+}
+.divider::before, .divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--hairline);
+}
+
+/* ---- Switch link (login <-> signup) ---- */
+.switch {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex; gap: 7px; align-items: baseline;
+}
+.switch a {
+  color: var(--ink);
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 1px;
+  transition: color .14s;
+}
+.switch a:hover { color: var(--accent-ink); }
+
+/* ---- Footer statement ---- */
+.console__foot {
+  margin-top: 26px; padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+  display: flex; align-items: center; gap: 8px;
+}
+.console__foot .dash { color: var(--hairline-2); }
+
+/* ============================================================
+   Landing
+   ============================================================ */
+.landing { max-width: 560px; }
+.landing .title { font-size: 40px; line-height: 1.05; }
+.landing__actions { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+.btn--ghost {
+  width: auto; color: var(--ink); background: transparent;
+  border: 1px solid var(--hairline-2);
+}
+.btn--ghost:hover { background: transparent; border-color: var(--ink); }
+.btn--solid { width: auto; }
+
+/* ============================================================
+   Accessibility + motion
+   ============================================================ */
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.field__box:focus-within { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 480px) {
+  .shell { padding: 14px; }
+  .console { padding: 24px 20px 26px; }
+  .title { font-size: 24px; }
+  .landing .title { font-size: 30px; }
+}

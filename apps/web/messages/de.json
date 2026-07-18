@@ -1,0 +1,59 @@
+{
+  "brand": {
+    "vendorPrefix": "von"
+  },
+  "common": {
+    "email": "E-Mail",
+    "password": "Passwort",
+    "name": "Name",
+    "or": "oder",
+    "loading": "Moment…"
+  },
+  "login": {
+    "kicker": "zugang / anmelden",
+    "title": "Anmelden",
+    "subtitle": "Willkommen zurück in deiner Outreach-Konsole.",
+    "emailPlaceholder": "du@firma.com",
+    "passwordPlaceholder": "Dein Passwort",
+    "submit": "Anmelden",
+    "submitting": "Anmeldung läuft…",
+    "switchPrompt": "Neu hier?",
+    "switchAction": "Konto erstellen",
+    "statement": "Deine Stimme, nach Plan."
+  },
+  "signup": {
+    "kicker": "zugang / neues konto",
+    "title": "Konto erstellen",
+    "subtitle": "Fang an, deine Präsenz zu gestalten.",
+    "namePlaceholder": "Dein Name",
+    "emailPlaceholder": "du@firma.com",
+    "passwordPlaceholder": "Mindestens 8 Zeichen",
+    "submit": "Konto erstellen",
+    "submitting": "Wird erstellt…",
+    "switchPrompt": "Schon ein Konto?",
+    "switchAction": "Anmelden",
+    "statement": "Für Menschen, die öffentlich liefern."
+  },
+  "landing": {
+    "kicker": "linkedin content engine",
+    "title": "Gestalte deine Präsenz — nach Plan.",
+    "subtitle": "Verbinde LinkedIn, lerne aus deinen besten Posts und lass die Konsole entwerfen, was als Nächstes kommt.",
+    "signIn": "Anmelden",
+    "getStarted": "Konto erstellen"
+  },
+  "errors": {
+    "nameRequired": "Gib deinen Namen ein.",
+    "emailRequired": "Gib deine E-Mail ein.",
+    "emailInvalid": "Das sieht nicht nach einer E-Mail-Adresse aus.",
+    "passwordRequired": "Gib ein Passwort ein.",
+    "passwordShort": "Verwende mindestens 8 Zeichen.",
+    "invalidCredentials": "E-Mail oder Passwort ist falsch.",
+    "emailTaken": "Mit dieser E-Mail existiert bereits ein Konto.",
+    "generic": "Etwas ist schiefgelaufen. Versuch es erneut.",
+    "network": "Server nicht erreichbar. Läuft die API?"
+  },
+  "meta": {
+    "theme": "Design",
+    "language": "Sprache"
+  }
+}

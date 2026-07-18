@@ -1,0 +1,59 @@
+{
+  "brand": {
+    "vendorPrefix": "by"
+  },
+  "common": {
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "or": "or",
+    "loading": "Working…"
+  },
+  "login": {
+    "kicker": "access / sign in",
+    "title": "Sign in",
+    "subtitle": "Welcome back to your outreach console.",
+    "emailPlaceholder": "you@company.com",
+    "passwordPlaceholder": "Your password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "switchPrompt": "New here?",
+    "switchAction": "Create account",
+    "statement": "Your voice, on schedule."
+  },
+  "signup": {
+    "kicker": "access / new account",
+    "title": "Create your account",
+    "subtitle": "Start composing your presence.",
+    "namePlaceholder": "Your name",
+    "emailPlaceholder": "you@company.com",
+    "passwordPlaceholder": "At least 8 characters",
+    "submit": "Create account",
+    "submitting": "Creating…",
+    "switchPrompt": "Already have an account?",
+    "switchAction": "Sign in",
+    "statement": "Built for people who ship in public."
+  },
+  "landing": {
+    "kicker": "linkedin content engine",
+    "title": "Compose your presence, on a schedule.",
+    "subtitle": "Connect LinkedIn, learn from your best posts, and let the console draft what comes next.",
+    "signIn": "Sign in",
+    "getStarted": "Create account"
+  },
+  "errors": {
+    "nameRequired": "Enter your name.",
+    "emailRequired": "Enter your email.",
+    "emailInvalid": "That doesn't look like an email address.",
+    "passwordRequired": "Enter a password.",
+    "passwordShort": "Use at least 8 characters.",
+    "invalidCredentials": "Email or password is incorrect.",
+    "emailTaken": "An account with this email already exists.",
+    "generic": "Something went wrong. Try again.",
+    "network": "Can't reach the server. Is the API running?"
+  },
+  "meta": {
+    "theme": "Theme",
+    "language": "Language"
+  }
+}
