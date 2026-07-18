@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { BRAND } from "@/config/brand";
 import { ConsoleControls } from "@/components/console-controls";
 
@@ -11,6 +11,14 @@ interface Account {
   displayName: string;
   memberUrn: string;
   status: string;
+}
+
+interface Analytics {
+  impressions: number;
+  membersReached: number;
+  reactions: number;
+  comments: number;
+  reshares: number;
 }
 
 export default function AccountsPage() {
@@ -96,9 +104,10 @@ function AccountsInner() {
           </a>
         </div>
 
+        {!loaded && <AccountsSkeleton />}
         {loaded && accounts.length === 0 && <div className="empty">{t("accounts.empty")}</div>}
 
-        {accounts.length > 0 && (
+        {loaded && accounts.length > 0 && (
           <div className="stack">
             {accounts.map((a) => (
               <AccountCard key={a.id} account={a} />
@@ -110,10 +119,50 @@ function AccountsInner() {
   );
 }
 
+function AccountsSkeleton() {
+  return (
+    <div className="stack" aria-hidden="true">
+      {[0, 1].map((i) => (
+        <div className="sk-card" key={i}>
+          <div className="sk-row">
+            <span className="sk" style={{ width: 6, height: 6, borderRadius: "50%" }} />
+            <span className="sk sk-line" style={{ width: 140 }} />
+            <span className="sk sk-line" style={{ width: 48, marginLeft: "auto" }} />
+          </div>
+          <span className="sk sk-line" style={{ width: "70%", height: 10, display: "block" }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AccountCard({ account }: { account: Account }) {
   const t = useTranslations();
+  const locale = useLocale();
+  const nf = new Intl.NumberFormat(locale);
+
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ text: string; muted?: boolean } | null>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analyticsState, setAnalyticsState] = useState<"loading" | "ok" | "error">("loading");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const res = await fetch(`/api/linkedin/accounts/${account.id}/analytics`, { credentials: "include" });
+      if (!alive) return;
+      if (res.ok) {
+        const d = (await res.json()) as { metrics: Analytics };
+        setAnalytics(d.metrics);
+        setAnalyticsState("ok");
+      } else {
+        setAnalyticsState("error");
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [account.id]);
 
   async function importCsv(file: File) {
     setBusy(true);
@@ -133,23 +182,13 @@ function AccountCard({ account }: { account: Account }) {
     }
   }
 
-  async function tryApi() {
-    setBusy(true);
-    setResult(null);
-    const res = await fetch(`/api/linkedin/accounts/${account.id}/ingest`, {
-      method: "POST",
-      credentials: "include",
-    });
-    setBusy(false);
-    if (res.ok) {
-      const d = (await res.json()) as { inserted: number; skipped: number };
-      setResult({ text: t("accounts.imported", { inserted: d.inserted, skipped: d.skipped }) });
-    } else if (res.status === 409) {
-      setResult({ text: t("accounts.apiUnavailable"), muted: true });
-    } else {
-      setResult({ text: t("errors.generic"), muted: true });
-    }
-  }
+  const metrics: { key: keyof Analytics; label: string }[] = [
+    { key: "impressions", label: t("accounts.impressions") },
+    { key: "membersReached", label: t("accounts.membersReached") },
+    { key: "reactions", label: t("accounts.reactions") },
+    { key: "comments", label: t("accounts.comments") },
+    { key: "reshares", label: t("accounts.reshares") },
+  ];
 
   return (
     <article className="account">
@@ -160,6 +199,34 @@ function AccountCard({ account }: { account: Account }) {
       </div>
       <div className="account__urn">{account.memberUrn}</div>
 
+      {/* Analytics (live from LinkedIn) */}
+      <div className="metrics-block">
+        <div className="metrics-block__title">{t("accounts.metricsTitle")}</div>
+        {analyticsState === "loading" && (
+          <div className="metrics" aria-hidden="true">
+            {metrics.map((m) => (
+              <div className="metric" key={m.key}>
+                <span className="sk sk-line" style={{ width: 46, height: 18, display: "block" }} />
+                <div className="metric__label">{m.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {analyticsState === "ok" && analytics && (
+          <div className="metrics">
+            {metrics.map((m) => (
+              <div className="metric" key={m.key}>
+                <div className="metric__value">{nf.format(analytics[m.key])}</div>
+                <div className="metric__label">{m.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {analyticsState === "error" && <p className="metrics__note">{t("accounts.metricsUnavailable")}</p>}
+        {analyticsState === "ok" && <p className="metrics__note">{t("accounts.metricsNote")}</p>}
+      </div>
+
+      {/* Content import (CSV) */}
       <div className="account__import">
         <div className="account__import-title">{t("accounts.importTitle")}</div>
         <p className="account__import-help">{t("accounts.importHelp")}</p>
@@ -177,9 +244,6 @@ function AccountCard({ account }: { account: Account }) {
               }}
             />
           </label>
-          <button className="linkbtn" onClick={tryApi} disabled={busy}>
-            {t("accounts.tryApi")}
-          </button>
           {result && (
             <span className={result.muted ? "result result--muted" : "result"}>{result.text}</span>
           )}

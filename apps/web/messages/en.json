@@ -54,9 +54,15 @@
     "importing": "Importing…",
     "tryApi": "Try API import",
     "imported": "Imported {inserted} · skipped {skipped}",
-    "apiUnavailable": "API post-read isn't available for this app's permissions — use the CSV import instead.",
     "signOut": "Sign out",
-    "postsCount": "{count} posts"
+    "metricsTitle": "Post analytics",
+    "metricsNote": "Live from LinkedIn (lifetime). Post text comes from the CSV import.",
+    "metricsUnavailable": "Couldn't load analytics.",
+    "impressions": "Impressions",
+    "membersReached": "Reached",
+    "reactions": "Reactions",
+    "comments": "Comments",
+    "reshares": "Reshares"
   },
   "errors": {
     "nameRequired": "Enter your name.",

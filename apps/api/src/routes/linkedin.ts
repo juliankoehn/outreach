@@ -7,6 +7,7 @@ import {
   LinkedInApiIngestor,
   CsvShareIngestor,
   LinkedInReadUnavailableError,
+  MemberAnalyticsClient,
 } from "@outreach/linkedin";
 import type { AppEnv } from "../app.js";
 import { env } from "../env.js";
@@ -71,6 +72,21 @@ export function linkedinRoutes() {
     const profile = await oauth.fetchProfile(tokens.accessToken);
     await saveLinkedInAccount({ userId: verified.userId, profile, tokens });
     return c.redirect(`${env.WEB_ORIGIN}/accounts?connected=1`);
+  });
+
+  r.get("/accounts/:id/analytics", async (c) => {
+    const user = c.get("user")!;
+    const acct = await getDecryptedAccount(c.req.param("id"), user.id);
+    if (!acct || acct.userId !== user.id) return c.json({ error: "not_found" }, 404);
+    const client = new MemberAnalyticsClient({
+      accessToken: acct.accessToken,
+      apiVersion: env.LINKEDIN_API_VERSION,
+    });
+    try {
+      return c.json({ metrics: await client.aggregate() });
+    } catch {
+      return c.json({ error: "analytics_unavailable" }, 502);
+    }
   });
 
   r.get("/accounts", async (c) => {

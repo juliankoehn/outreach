@@ -54,9 +54,15 @@
     "importing": "Import läuft…",
     "tryApi": "API-Import versuchen",
     "imported": "{inserted} importiert · {skipped} übersprungen",
-    "apiUnavailable": "API-Lesen ist mit den Berechtigungen dieser App nicht verfügbar — nutz den CSV-Import.",
     "signOut": "Abmelden",
-    "postsCount": "{count} Posts"
+    "metricsTitle": "Post-Analytics",
+    "metricsNote": "Live von LinkedIn (gesamt). Der Post-Text kommt aus dem CSV-Import.",
+    "metricsUnavailable": "Analytics konnten nicht geladen werden.",
+    "impressions": "Impressions",
+    "membersReached": "Erreicht",
+    "reactions": "Reaktionen",
+    "comments": "Kommentare",
+    "reshares": "Reposts"
   },
   "errors": {
     "nameRequired": "Gib deinen Namen ein.",

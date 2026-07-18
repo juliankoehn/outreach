@@ -5,3 +5,5 @@ export { LinkedInReadUnavailableError } from "./ingestor.js";
 export type { PostIngestor } from "./ingestor.js";
 export { CsvShareIngestor } from "./csv-ingestor.js";
 export { LinkedInApiIngestor } from "./api-ingestor.js";
+export { MemberAnalyticsClient } from "./analytics.js";
+export type { AggregateAnalytics, AggregateMetric } from "./analytics.js";
