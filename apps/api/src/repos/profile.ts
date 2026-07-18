@@ -20,8 +20,15 @@ export async function completeInterview(id: string): Promise<void> {
   await prisma.interviewSession.update({ where: { id }, data: { status: "complete" } });
 }
 
+// A profile is user-owned and linked to one or more accounts via
+// LinkedInAccount.creatorProfileId. Resolve the profile through the account.
 export async function getProfile(accountId: string) {
-  return prisma.creatorProfile.findUnique({ where: { linkedinAccountId: accountId } });
+  const acct = await prisma.linkedInAccount.findUnique({
+    where: { id: accountId },
+    select: { creatorProfileId: true },
+  });
+  if (!acct?.creatorProfileId) return null;
+  return prisma.creatorProfile.findUnique({ where: { id: acct.creatorProfileId } });
 }
 
 export async function upsertProfile(
@@ -44,9 +51,17 @@ export async function upsertProfile(
   if (data.derived !== undefined) payload.derived = data.derived as object;
   if (data.derivedAt !== undefined) payload.derivedAt = data.derivedAt;
 
-  return prisma.creatorProfile.upsert({
-    where: { linkedinAccountId: accountId },
-    create: { linkedinAccountId: accountId, ...payload },
-    update: payload,
+  const acct = await prisma.linkedInAccount.findUniqueOrThrow({
+    where: { id: accountId },
+    select: { userId: true, creatorProfileId: true },
   });
+
+  // Update the account's linked profile if it has one; otherwise create a
+  // user-owned profile and link this account to it.
+  if (acct.creatorProfileId) {
+    return prisma.creatorProfile.update({ where: { id: acct.creatorProfileId }, data: payload });
+  }
+  const profile = await prisma.creatorProfile.create({ data: { userId: acct.userId, ...payload } });
+  await prisma.linkedInAccount.update({ where: { id: accountId }, data: { creatorProfileId: profile.id } });
+  return profile;
 }

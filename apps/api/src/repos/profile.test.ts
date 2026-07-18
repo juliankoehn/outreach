@@ -31,7 +31,7 @@ describe("profile repo", () => {
     expect(p?.brandBrief).toBe("b");
   });
 
-  it("ignores a linkedinAccountId in the body and never writes/reassigns another account's profile", async () => {
+  it("ignores userId/id in the body and never writes/reassigns another account's profile", async () => {
     const otherUserId = `u_other_${(Date.now()+Math.floor(Math.random()*1e9))}`;
     await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@ex.com` } });
     const other = await prisma.linkedInAccount.create({
@@ -47,15 +47,16 @@ describe("profile repo", () => {
     await upsertProfile(accountId, {
       audience: "trusted-account-value",
       // @ts-expect-error -- intentionally passing disallowed fields to prove they're stripped
-      linkedinAccountId: other.id,
+      userId: otherUserId,
       id: "hijacked-id",
     });
 
-    const otherProfile = await getProfile(other.id);
-    expect(otherProfile).toBeNull();
-
+    // The other account got no profile, and the trusted account's profile is
+    // owned by the trusted user (not the attacker-supplied userId).
+    expect(await getProfile(other.id)).toBeNull();
     const ownProfile = await getProfile(accountId);
-    expect(ownProfile?.linkedinAccountId).toBe(accountId);
+    expect(ownProfile?.userId).toBe(userId);
+    expect(ownProfile?.id).not.toBe("hijacked-id");
     expect(ownProfile?.audience).toBe("trusted-account-value");
 
     await prisma.user.delete({ where: { id: otherUserId } });

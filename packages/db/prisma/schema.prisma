@@ -19,6 +19,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   linkedin      LinkedInAccount[]
+  creatorProfiles CreatorProfile[]
 }
 
 model Session {
@@ -77,8 +78,9 @@ model LinkedInAccount {
   updatedAt      DateTime @updatedAt
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts          Post[]
-  creatorProfile CreatorProfile?
-  interviews     InterviewSession[]
+  creatorProfileId String?
+  creatorProfile   CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: SetNull)
+  interviews       InterviewSession[]
   drafts         Draft[]
 
   @@unique([userId, memberUrn])
@@ -104,22 +106,25 @@ model Post {
 }
 
 model CreatorProfile {
-  id                String   @id @default(cuid())
-  linkedinAccountId String   @unique
-  status            String   @default("draft") // draft | ready
-  goals             String[]
-  audience          String   @default("")
-  pillars           String[]
-  noGos             String[]
-  toneWords         String[]
-  languages         String[]
-  positioning       String   @default("")
-  derived           Json?
-  derivedAt         DateTime?
-  brandBrief        String   @default("")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  account           LinkedInAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  userId      String
+  status      String   @default("draft") // draft | ready
+  goals       String[]
+  audience    String   @default("")
+  pillars     String[]
+  noGos       String[]
+  toneWords   String[]
+  languages   String[]
+  positioning String   @default("")
+  derived     Json?
+  derivedAt   DateTime?
+  brandBrief  String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts    LinkedInAccount[] // a profile can be used by one or more accounts
+
+  @@index([userId])
 }
 
 model InterviewSession {

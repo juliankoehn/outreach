@@ -29,7 +29,8 @@ beforeAll(async () => {
     data: { userId, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9))}`, displayName: "T", accessToken: "enc", scopes: [] },
   });
   accountId = acc.id;
-  await prisma.creatorProfile.create({ data: { linkedinAccountId: accountId, status: "ready", brandBrief: "Write as X." } });
+  const prof = await prisma.creatorProfile.create({ data: { userId, status: "ready", brandBrief: "Write as X." } });
+  await prisma.linkedInAccount.update({ where: { id: accountId }, data: { creatorProfileId: prof.id } });
 });
 afterAll(async () => { await prisma.user.delete({ where: { id: userId } }); await prisma.$disconnect(); });
 
