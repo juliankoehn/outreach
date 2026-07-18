@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Better Auth core tables ---
+model User {
+  id            String           @id
+  email         String           @unique
+  name          String?
+  emailVerified Boolean          @default(false)
+  image         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  linkedin      LinkedInAccount[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// --- Domain tables ---
+model LinkedInAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  memberUrn      String
+  displayName    String
+  avatarUrl      String?
+  accessToken    String   // AES-GCM encrypted
+  refreshToken   String?  // AES-GCM encrypted
+  tokenExpiresAt DateTime?
+  scopes         String[]
+  status         String   @default("active") // active | expired | revoked
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts          Post[]
+
+  @@unique([userId, memberUrn])
+}
+
+model Post {
+  id                String   @id @default(cuid())
+  linkedinAccountId String
+  source            String   // linkedin_api | csv_import
+  externalId        String?
+  dedupeHash        String
+  text              String
+  mediaType         String   @default("none")
+  publishedAt       DateTime
+  metrics           Json?
+  raw               Json?
+  createdAt         DateTime @default(now())
+  ingestedAt        DateTime @default(now())
+  account           LinkedInAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([linkedinAccountId, dedupeHash])
+  @@index([linkedinAccountId, publishedAt])
+}
