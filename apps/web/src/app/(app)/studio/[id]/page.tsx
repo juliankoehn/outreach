@@ -5,9 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, ImagePlus, RefreshCw, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -57,8 +55,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
     setImagePrompt((prev) => {
       if (prev.trim()) return prev;
       if (d.imagePrompt) return d.imagePrompt;
-      const firstLine = d.text.split("\n").find((line) => line.trim().length > 0) ?? "";
-      return firstLine.trim();
+      return (d.text.split("\n").find((line) => line.trim().length > 0) ?? "").trim();
     });
     setChat(d.chat);
   }, []);
@@ -68,39 +65,19 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
     (async () => {
       const accRes = await fetch("/api/linkedin/accounts", { credentials: "include" });
       if (!alive) return;
-      if (accRes.status === 401) {
-        router.push("/login");
-        return;
-      }
-      if (!accRes.ok) {
-        setState("not-found");
-        return;
-      }
+      if (accRes.status === 401) return router.push("/login");
+      if (!accRes.ok) return setState("not-found");
       const { accounts } = (await accRes.json()) as { accounts: Account[] };
       const first = accounts[0];
-      if (!first) {
-        setState("not-found");
-        return;
-      }
+      if (!first) return setState("not-found");
       setAccountId(first.id);
 
       const res = await fetch(`/api/studio/${first.id}/drafts/${id}`, { credentials: "include" });
       if (!alive) return;
-      if (res.status === 401) {
-        router.push("/login");
-        return;
-      }
-      if (res.status === 404) {
-        setState("not-found");
-        return;
-      }
-      if (res.ok) {
-        const d = (await res.json()) as { draft: Draft };
-        applyDraft(d.draft);
-        setState("ready");
-        return;
-      }
-      setState("not-found");
+      if (res.status === 401) return router.push("/login");
+      if (!res.ok) return setState("not-found");
+      applyDraft(((await res.json()) as { draft: Draft }).draft);
+      setState("ready");
     })();
     return () => {
       alive = false;
@@ -111,11 +88,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
   }, [chat, thinking]);
 
-  useEffect(() => {
-    return () => {
-      if (savedTimeout.current) clearTimeout(savedTimeout.current);
-    };
-  }, []);
+  useEffect(() => () => savedTimeout.current && clearTimeout(savedTimeout.current), []);
 
   function flashSaved() {
     setSaved(true);
@@ -133,13 +106,9 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       body: JSON.stringify(patch),
     });
     setSaving(false);
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
+    if (res.status === 401) return router.push("/login");
     if (res.ok) {
-      const d = (await res.json()) as { draft: Draft };
-      setDraft(d.draft);
+      setDraft(((await res.json()) as { draft: Draft }).draft);
       flashSaved();
     }
   }
@@ -157,14 +126,8 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       body: JSON.stringify({ instruction }),
     });
     setThinking(false);
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
-    if (res.ok) {
-      const d = (await res.json()) as { draft: Draft };
-      applyDraft(d.draft);
-    }
+    if (res.status === 401) return router.push("/login");
+    if (res.ok) applyDraft(((await res.json()) as { draft: Draft }).draft);
   }
 
   async function generateImage() {
@@ -177,10 +140,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       body: JSON.stringify({ prompt: imagePrompt.trim(), postText: postText.trim() || undefined }),
     });
     setGeneratingImage(false);
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
+    if (res.status === 401) return router.push("/login");
     if (res.ok) {
       const d = (await res.json()) as { imageUrl: string };
       setImageUrl(d.imageUrl);
@@ -199,238 +159,202 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       body: JSON.stringify({ topic: topic.trim() || undefined }),
     });
     setRegenerating(false);
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
+    if (res.status === 401) return router.push("/login");
     if (res.status === 400) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (body?.error === "no_profile") {
-        setNoProfile(true);
-        return;
-      }
+      if (body?.error === "no_profile") return setNoProfile(true);
     }
-    if (res.ok) {
-      const d = (await res.json()) as { draft: Draft };
-      applyDraft(d.draft);
-    }
+    if (res.ok) applyDraft(((await res.json()) as { draft: Draft }).draft);
   }
 
   async function deleteDraft() {
     if (!accountId || deleting) return;
     setDeleting(true);
-    const res = await fetch(`/api/studio/${accountId}/drafts/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    const res = await fetch(`/api/studio/${accountId}/drafts/${id}`, { method: "DELETE", credentials: "include" });
     setDeleting(false);
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
-    if (res.ok) {
-      router.push("/studio");
-    }
+    if (res.status === 401) return router.push("/login");
+    if (res.ok) router.push("/studio");
+  }
+
+  if (state === "loading") {
+    return (
+      <div className="flex h-full">
+        <div className="hidden w-[340px] shrink-0 border-r p-4 lg:block">
+          <Skeleton className="h-8 w-full" />
+        </div>
+        <div className="flex-1 p-8">
+          <Skeleton className="mx-auto h-full max-w-2xl rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (state === "not-found") {
+    return (
+      <div className="mx-auto max-w-md p-10 text-center">
+        <p className="text-muted-foreground text-sm">{t("studio.notFound")}</p>
+        <Button asChild variant="outline" className="mt-4">
+          <a href="/studio">{t("studio.back")}</a>
+        </Button>
+      </div>
+    );
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
-      <a
-        href="/studio"
-        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        {t("studio.back")}
-      </a>
-
-      {state === "loading" && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <Skeleton className="h-96 w-full rounded-xl" />
-          <Skeleton className="h-96 w-full rounded-xl" />
+    <div className="flex h-full flex-col-reverse lg:flex-row">
+      {/* Chat pane */}
+      <aside className="bg-sidebar/40 flex h-[42vh] w-full shrink-0 flex-col border-t lg:h-full lg:w-[340px] lg:border-t-0 lg:border-r">
+        <div className="flex items-center gap-2 border-b px-4 py-3">
+          <span className="text-sm font-medium">{t("studio.chatTitle")}</span>
         </div>
-      )}
-
-      {state === "not-found" && (
-        <div className="text-muted-foreground mt-6 rounded-xl border border-dashed py-10 text-center text-sm">
-          <p>{t("studio.notFound")}</p>
-          <Button asChild variant="outline" className="mt-4">
-            <a href="/studio">{t("studio.back")}</a>
+        <div ref={transcriptRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+          {chat.length === 0 && !thinking && (
+            <p className="text-muted-foreground text-sm">{t("studio.chatHint")}</p>
+          )}
+          {chat.map((m, i) => (
+            <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+              <div
+                className={cn(
+                  "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap",
+                  m.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    : "bg-muted rounded-bl-sm",
+                )}
+              >
+                {m.content}
+              </div>
+            </div>
+          ))}
+          {thinking && (
+            <div className="flex justify-start">
+              <div className="bg-muted text-muted-foreground rounded-2xl rounded-bl-sm px-3.5 py-2 text-sm">
+                {t("studio.thinking")}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 border-t p-3">
+          <Input
+            value={chatDraft}
+            onChange={(e) => setChatDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void sendChat();
+              }
+            }}
+            placeholder={t("studio.chatPlaceholder")}
+            disabled={thinking}
+          />
+          <Button onClick={() => void sendChat()} disabled={thinking || !chatDraft.trim()} size="icon">
+            <Send className="size-4" />
           </Button>
         </div>
-      )}
+      </aside>
 
-      {state === "ready" && draft && (
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <Card className="gap-0 overflow-hidden py-0">
-            <CardHeader className="border-b px-5 py-3">
-              <CardTitle className="text-sm">{t("studio.chatTitle")}</CardTitle>
-              <p className="text-muted-foreground text-xs">{t("studio.chatHint")}</p>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div ref={transcriptRef} className="max-h-[28rem] min-h-[16rem] space-y-3 overflow-y-auto p-5">
-                {chat.length === 0 && !thinking && (
-                  <p className="text-muted-foreground text-sm">{t("studio.chatEmpty")}</p>
-                )}
-                {chat.map((m, i) => (
-                  <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap",
-                        m.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : "bg-muted rounded-bl-sm",
-                      )}
-                    >
-                      {m.content}
-                    </div>
-                  </div>
-                ))}
-                {thinking && (
-                  <div className="flex justify-start">
-                    <div className="bg-muted text-muted-foreground rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm">
-                      {t("studio.thinking")}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2 border-t p-3">
-                <Input
-                  value={chatDraft}
-                  onChange={(e) => setChatDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void sendChat();
-                    }
-                  }}
-                  placeholder={t("studio.chatPlaceholder")}
-                  disabled={thinking}
-                />
-                <Button
-                  onClick={() => void sendChat()}
-                  disabled={thinking || !chatDraft.trim()}
-                  size="icon"
-                >
-                  <Send className="size-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">{t("studio.canvasTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {noProfile && (
-                  <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-2.5 text-sm">
-                    {t("studio.noProfile")}{" "}
-                    <a href="/profile" className="font-medium underline underline-offset-2">
-                      {t("studio.noProfileLink")}
-                    </a>
-                  </div>
-                )}
-
-                <Textarea
-                  value={postText}
-                  onChange={(e) => {
-                    setPostText(e.target.value);
-                  }}
-                  onBlur={() => {
-                    if (postText !== draft.text) void savePatch({ text: postText });
-                  }}
-                  placeholder={t("studio.postPlaceholder")}
-                  className="min-h-56"
-                />
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder={t("studio.topicPlaceholder")}
-                    className="max-w-xs"
-                  />
-                  <Button variant="outline" onClick={() => void regenerate()} disabled={regenerating}>
-                    <RefreshCw className={cn("size-4", regenerating && "animate-spin")} />
-                    {regenerating ? t("studio.regenerating") : t("studio.regenerate")}
-                  </Button>
-                  <div className="ml-auto flex items-center gap-2">
-                    {saved && <span className="text-success text-sm">{t("studio.saved")}</span>}
-                    <Button
-                      variant="outline"
-                      onClick={() => void savePatch({ text: postText })}
-                      disabled={saving || postText === draft.text}
-                    >
-                      {saving ? t("studio.saving") : t("studio.save")}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-3 border-t pt-4">
-                  {imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={imageUrl}
-                      alt=""
-                      className="max-h-72 w-full rounded-lg border object-contain"
-                    />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={imagePrompt}
-                      onChange={(e) => setImagePrompt(e.target.value)}
-                      placeholder={t("studio.imagePromptPlaceholder")}
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => void generateImage()}
-                      disabled={generatingImage || !imagePrompt.trim()}
-                      className="shrink-0"
-                    >
-                      <ImagePlus className={cn("size-4", generatingImage && "animate-spin")} />
-                      {generatingImage ? t("studio.generatingImage") : t("studio.generateImage")}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-sm">{t("studio.metaTitle")}</CardTitle>
-                <Badge variant={statusVariant(draft.status)} className="capitalize">
-                  {draft.status}
-                </Badge>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="text-muted-foreground flex justify-between">
-                  <span>{t("studio.created")}</span>
-                  <span>{new Date(draft.createdAt).toLocaleString()}</span>
-                </div>
-                <div className="text-muted-foreground flex justify-between">
-                  <span>{t("studio.updated")}</span>
-                  <span>{new Date(draft.updatedAt).toLocaleString()}</span>
-                </div>
-                <p className="text-muted-foreground border-t pt-3 text-xs">
-                  {t("studio.publishingSoon")}
-                </p>
-                <div className="border-t pt-3">
-                  <Button
-                    variant="ghost"
-                    onClick={() => void deleteDraft()}
-                    disabled={deleting}
-                    className="text-muted-foreground hover:text-destructive -ml-2"
-                  >
-                    <Trash2 className="size-4" />
-                    {t("studio.delete")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+      {/* Canvas pane */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* Toolbar */}
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+          <a
+            href="/studio"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            {t("studio.back")}
+          </a>
+          <Badge variant={statusVariant(draft?.status ?? "draft")} className="capitalize">
+            {draft?.status}
+          </Badge>
+          <div className="ml-auto flex items-center gap-2">
+            {saved && <span className="text-success text-xs">{t("studio.saved")}</span>}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void savePatch({ text: postText })}
+              disabled={saving || postText === draft?.text}
+            >
+              {saving ? t("studio.saving") : t("studio.save")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => void deleteDraft()}
+              disabled={deleting}
+              aria-label={t("studio.delete")}
+              className="text-muted-foreground hover:text-destructive size-8"
+            >
+              <Trash2 className="size-4" />
+            </Button>
           </div>
         </div>
-      )}
+
+        {/* Document */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-2xl px-6 py-8">
+            {noProfile && (
+              <div className="border-destructive/30 bg-destructive/10 text-destructive mb-4 rounded-lg border px-3 py-2.5 text-sm">
+                {t("studio.noProfile")}{" "}
+                <a href="/profile" className="font-medium underline underline-offset-2">
+                  {t("studio.noProfileLink")}
+                </a>
+              </div>
+            )}
+
+            <div className="bg-card rounded-xl border shadow-sm">
+              <textarea
+                value={postText}
+                onChange={(e) => setPostText(e.target.value)}
+                onBlur={() => {
+                  if (draft && postText !== draft.text) void savePatch({ text: postText });
+                }}
+                placeholder={t("studio.postPlaceholder")}
+                className="min-h-[46vh] w-full resize-none bg-transparent p-6 text-[15px] leading-relaxed outline-none"
+              />
+              {imageUrl && (
+                <div className="border-t p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageUrl} alt="" className="w-full rounded-lg border object-contain" />
+                </div>
+              )}
+            </div>
+
+            {/* Compose controls */}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Input
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder={t("studio.topicPlaceholder")}
+                className="w-44"
+              />
+              <Button variant="outline" size="sm" onClick={() => void regenerate()} disabled={regenerating}>
+                <RefreshCw className={cn("size-4", regenerating && "animate-spin")} />
+                {regenerating ? t("studio.regenerating") : t("studio.regenerate")}
+              </Button>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Input
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                placeholder={t("studio.imagePromptPlaceholder")}
+                className="min-w-0 flex-1"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void generateImage()}
+                disabled={generatingImage || !imagePrompt.trim()}
+                className="shrink-0"
+              >
+                <ImagePlus className={cn("size-4", generatingImage && "animate-spin")} />
+                {generatingImage ? t("studio.generatingImage") : t("studio.generateImage")}
+              </Button>
+            </div>
+
+            <p className="text-muted-foreground mt-6 border-t pt-4 text-xs">{t("studio.publishingSoon")}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
