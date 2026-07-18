@@ -11,8 +11,15 @@ export interface DerivedInsights {
   topPatterns: string[];
 }
 
+export interface ProfileAccountRef {
+  id: string;
+  displayName: string;
+}
+
 export interface CreatorProfile {
-  status: string;
+  id: string;
+  name: string;
+  status: "draft" | "ready";
   goals: string[];
   audience: string;
   pillars: string[];
@@ -22,4 +29,5 @@ export interface CreatorProfile {
   positioning: string;
   brandBrief: string;
   derived?: DerivedInsights | null;
+  accounts?: ProfileAccountRef[];
 }

@@ -80,6 +80,17 @@
   },
   "profile": {
     "kicker": "konsole / profil",
+    "profilesTitle": "Profile",
+    "profilesSubtitle": "Erstelle und verwalte die Stimm-Profile, die die KI für deine Accounts nutzt.",
+    "newProfile": "Neues Profil",
+    "untitled": "Unbenanntes Profil",
+    "emptyLibrary": "Noch keine Profile — erstelle eins, damit die KI deine Stimme lernt.",
+    "usedBy": "Verwendet von: {names}",
+    "notAssigned": "Nicht zugewiesen",
+    "nameLabel": "Name",
+    "namePlaceholder": "Profil benennen…",
+    "backToProfiles": "Alle Profile",
+    "notFound": "Profil nicht gefunden.",
     "title": "Creator-Profil",
     "subtitle": "Beantworte ein paar Fragen — wir entwerfen ein Brand Brief, das du bearbeiten kannst.",
     "emptyNoAccount": "Verbinde zuerst ein LinkedIn-Konto, um dein Creator-Profil zu erstellen.",
@@ -113,7 +124,12 @@
     "themes": "Themen",
     "styleTraits": "Stil-Merkmale",
     "cadence": "Rhythmus",
-    "topPatterns": "Top-Muster"
+    "topPatterns": "Top-Muster",
+    "assignTitle": "Verwendet von Accounts",
+    "assignHint": "Jeder Account nutzt genau ein Profil — ein Häkchen hier verschiebt den Account von einem anderen Profil.",
+    "noAccounts": "Verbinde zuerst einen LinkedIn-Account, um dieses Profil zuzuweisen.",
+    "analyzeHint": "Analysiere die Beiträge eines zugewiesenen Accounts, um hier Insights zu sehen.",
+    "delete": "Profil löschen"
   },
   "studio": {
     "kicker": "konsole / studio",

@@ -80,6 +80,17 @@
   },
   "profile": {
     "kicker": "console / profile",
+    "profilesTitle": "Profiles",
+    "profilesSubtitle": "Build and manage the voice profiles the AI uses to write for your accounts.",
+    "newProfile": "New profile",
+    "untitled": "Untitled profile",
+    "emptyLibrary": "No profiles yet — create one to teach the AI your voice.",
+    "usedBy": "Used by: {names}",
+    "notAssigned": "Not assigned",
+    "nameLabel": "Name",
+    "namePlaceholder": "Name this profile…",
+    "backToProfiles": "All profiles",
+    "notFound": "Profile not found.",
     "title": "Creator profile",
     "subtitle": "Answer a few questions and we'll draft a brand brief you can edit.",
     "emptyNoAccount": "Connect a LinkedIn account first to build your creator profile.",
@@ -113,7 +124,12 @@
     "themes": "Themes",
     "styleTraits": "Style traits",
     "cadence": "Cadence",
-    "topPatterns": "Top patterns"
+    "topPatterns": "Top patterns",
+    "assignTitle": "Used by accounts",
+    "assignHint": "Each account uses exactly one profile — checking an account here moves it off any other profile.",
+    "noAccounts": "Connect a LinkedIn account first to assign this profile.",
+    "analyzeHint": "Analyze an assigned account's posts to see insights here.",
+    "delete": "Delete profile"
   },
   "studio": {
     "kicker": "console / studio",
