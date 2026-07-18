@@ -15,6 +15,7 @@ const schema = z.object({
   LINKEDIN_API_VERSION: z.string().regex(/^\d{6}$/).default("202601"),
   AI_PROVIDER: z.string().default("openai"),
   AI_TEXT_MODEL: z.string().default("gpt-4o"),
+  AI_IMAGE_MODEL: z.string().default("gpt-image-1"),
 });
 
 const parsed = schema.safeParse(process.env);

@@ -5,3 +5,4 @@ node_modules/
 dist/
 .turbo/
 .playwright-mcp/
+apps/api/uploads/
