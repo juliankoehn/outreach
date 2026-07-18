@@ -3,6 +3,10 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { ChevronRight, CircleCheck, Plus, TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Account } from "@/lib/accounts";
 
 export default function AccountsPage() {
@@ -38,68 +42,64 @@ function AccountsList() {
   }, [load]);
 
   return (
-    <div className="page">
-      <header className="page__head">
-        <div className="page__head-main">
-          <p className="kicker">{t("accounts.kicker")}</p>
-          <h1 className="title">{t("accounts.title")}</h1>
-          <p className="subtitle">{t("accounts.subtitle")}</p>
+    <div className="mx-auto max-w-4xl p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("accounts.title")}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t("accounts.subtitle")}</p>
         </div>
-        <a className="btn btn--solid" href="/api/linkedin/connect">
-          {t("accounts.connect")}
-          <span className="btn__arrow" aria-hidden="true">→</span>
-        </a>
-      </header>
+        <Button asChild>
+          <a href="/api/linkedin/connect">
+            <Plus className="size-4" />
+            {t("accounts.connect")}
+          </a>
+        </Button>
+      </div>
 
       {connected && (
-        <div className="banner banner--ok">
-          <span className="banner__dot" aria-hidden="true">✓</span>
+        <div className="border-success/30 bg-success/10 text-success mt-6 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
+          <CircleCheck className="size-4" />
           {t("accounts.connectedBanner")}
         </div>
       )}
       {oauthError && (
-        <div className="banner banner--error">
-          <span className="banner__dot" aria-hidden="true">!</span>
+        <div className="border-destructive/30 bg-destructive/10 text-destructive mt-6 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
+          <TriangleAlert className="size-4" />
           {oauthError}
         </div>
       )}
 
-      {!loaded && (
-        <div className="acct-list" aria-hidden="true">
-          {[0, 1].map((i) => (
-            <div className="sk-card" key={i}>
-              <div className="sk-row" style={{ marginBottom: 0 }}>
-                <span className="sk" style={{ width: 6, height: 6, borderRadius: "50%" }} />
-                <span className="sk sk-line" style={{ width: 160 }} />
-                <span className="sk sk-line" style={{ width: 56, marginLeft: "auto" }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-6 grid gap-3">
+        {!loaded &&
+          [0, 1].map((i) => <Skeleton key={i} className="h-[68px] w-full rounded-xl" />)}
 
-      {loaded && accounts.length === 0 && <div className="empty">{t("accounts.empty")}</div>}
+        {loaded && accounts.length === 0 && (
+          <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+            {t("accounts.empty")}
+          </div>
+        )}
 
-      {loaded && accounts.length > 0 && (
-        <div className="acct-list">
-          {accounts.map((a) => (
-            <a className="acct-row" href={`/accounts/${a.id}`} key={a.id}>
-              <div className="acct-row__main">
-                <div className="acct-row__name">
-                  <span className="transmit" aria-hidden="true" />
-                  {a.displayName}
-                  <span className="account__status">{a.status}</span>
+        {loaded &&
+          accounts.map((a) => (
+            <a
+              key={a.id}
+              href={`/accounts/${a.id}`}
+              className="bg-card hover:border-foreground/20 hover:bg-accent/40 group flex items-center gap-4 rounded-xl border px-5 py-4 shadow-sm transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{a.displayName}</span>
+                  <Badge variant="success" className="capitalize">{a.status}</Badge>
                 </div>
-                <div className="acct-row__urn">{a.memberUrn}</div>
+                <div className="text-muted-foreground mt-1 truncate font-mono text-xs">{a.memberUrn}</div>
               </div>
-              <span className="acct-row__open">
+              <div className="text-muted-foreground group-hover:text-foreground ml-auto flex items-center gap-1 text-sm transition-colors">
                 {t("accounts.open")}
-                <span aria-hidden="true">→</span>
-              </span>
+                <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              </div>
             </a>
           ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

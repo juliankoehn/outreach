@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { cookies } from "next/headers";
 import { BRAND } from "@/config/brand";
+import { cn } from "@/lib/utils";
 import "./globals.css";
 
-const display = Space_Grotesk({ subsets: ["latin"], variable: "--f-display", display: "swap" });
-const body = Inter({ subsets: ["latin"], variable: "--f-body", display: "swap" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--f-mono", display: "swap" });
+const sans = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: `${BRAND.name} — LinkedIn content console`,
@@ -18,15 +18,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   const messages = await getMessages();
-  const theme = (await cookies()).get("theme")?.value;
-  const themeAttr = theme === "light" || theme === "dark" ? theme : undefined;
+  const dark = (await cookies()).get("theme")?.value === "dark";
 
   return (
-    <html
-      lang={locale}
-      data-theme={themeAttr}
-      className={`${display.variable} ${body.variable} ${mono.variable}`}
-    >
+    <html lang={locale} className={cn(sans.variable, mono.variable, dark && "dark")} suppressHydrationWarning>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}

@@ -1,6 +1,9 @@
 "use client";
 
 import { useId, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface Props {
   label: string;
@@ -17,38 +20,37 @@ export function AuthField({
   label, name, type = "text", placeholder, value, autoComplete, error, onChange,
 }: Props) {
   const id = useId();
-  const [revealed, setRevealed] = useState(false);
+  const [reveal, setReveal] = useState(false);
   const isPassword = type === "password";
-  const inputType = isPassword && revealed ? "text" : type;
 
   return (
-    <div className={`field${error ? " field--error" : ""}`}>
-      <label className="field__label" htmlFor={id}>{label}</label>
-      <div className="field__box">
-        <span className="field__prompt" aria-hidden="true">&gt;</span>
-        <input
+    <div className="grid gap-2">
+      <label htmlFor={id} className="text-sm font-medium">{label}</label>
+      <div className="relative">
+        <Input
           id={id}
           name={name}
-          className="field__input"
-          type={inputType}
+          type={isPassword && reveal ? "text" : type}
           placeholder={placeholder}
           value={value}
           autoComplete={autoComplete}
           aria-invalid={error ? true : undefined}
           onChange={(e) => onChange(e.target.value)}
+          className={cn(isPassword && "pr-9")}
         />
         {isPassword && (
           <button
             type="button"
-            className="field__reveal"
-            aria-pressed={revealed}
-            onClick={() => setRevealed((r) => !r)}
+            onClick={() => setReveal((r) => !r)}
+            aria-label={reveal ? "Hide password" : "Show password"}
+            aria-pressed={reveal}
+            className="text-muted-foreground hover:text-foreground absolute top-0 right-0 grid h-9 w-9 place-items-center"
           >
-            {revealed ? "hide" : "show"}
+            {reveal ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
         )}
       </div>
-      {error && <span className="field__error" role="alert">{error}</span>}
+      {error && <p className="text-destructive text-xs" role="alert">{error}</p>}
     </div>
   );
 }

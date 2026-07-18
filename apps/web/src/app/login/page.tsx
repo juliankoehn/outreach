@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { ArrowRight, TriangleAlert } from "lucide-react";
 import { AuthConsole } from "@/components/auth-console";
 import { AuthField } from "@/components/auth-field";
+import { Button } from "@/components/ui/button";
 import { authRequest } from "@/lib/auth-client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,10 +50,13 @@ export default function LoginPage() {
       subtitle={t("login.subtitle")}
       statement={t("login.statement")}
     >
-      <form className="form" onSubmit={onSubmit} noValidate>
+      <form className="mt-6 grid gap-4" onSubmit={onSubmit} noValidate>
         {formError && (
-          <div className="alert" role="alert">
-            <span className="alert__tick" aria-hidden="true">!</span>
+          <div
+            className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2 rounded-md border px-3 py-2 text-sm"
+            role="alert"
+          >
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             {formError}
           </div>
         )}
@@ -75,20 +80,17 @@ export default function LoginPage() {
           error={errors.password}
           onChange={setPassword}
         />
-        <button className="btn" type="submit" disabled={loading}>
-          {loading ? (
-            t("login.submitting")
-          ) : (
-            <>
-              {t("login.submit")}
-              <span className="btn__arrow" aria-hidden="true">→</span>
-            </>
-          )}
-        </button>
+        <Button type="submit" disabled={loading} className="mt-1 w-full">
+          {loading ? t("login.submitting") : t("login.submit")}
+          {!loading && <ArrowRight className="size-4" />}
+        </Button>
       </form>
 
-      <p className="switch">
-        {t("login.switchPrompt")} <a href="/signup">{t("login.switchAction")} ↗</a>
+      <p className="text-muted-foreground mt-5 text-sm">
+        {t("login.switchPrompt")}{" "}
+        <a href="/signup" className="text-foreground font-medium underline underline-offset-4">
+          {t("login.switchAction")}
+        </a>
       </p>
     </AuthConsole>
   );

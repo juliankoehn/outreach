@@ -3,22 +3,35 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import {
+  BarChart3,
+  CalendarClock,
+  LayoutGrid,
+  LogOut,
+  PenLine,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
 import { BRAND } from "@/config/brand";
-import { ConsoleControls } from "@/components/console-controls";
+import { AppControls } from "@/components/app-controls";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface NavItem {
   href: string;
   key: "accounts" | "analysis" | "content" | "schedule" | "settings";
-  icon: string;
+  icon: LucideIcon;
   soon?: boolean;
 }
 
 const NAV: NavItem[] = [
-  { href: "/accounts", key: "accounts", icon: "◇" },
-  { href: "/analysis", key: "analysis", icon: "⊹", soon: true },
-  { href: "/content", key: "content", icon: "✎", soon: true },
-  { href: "/schedule", key: "schedule", icon: "◷", soon: true },
-  { href: "/settings", key: "settings", icon: "⚙", soon: true },
+  { href: "/accounts", key: "accounts", icon: LayoutGrid },
+  { href: "/analysis", key: "analysis", icon: BarChart3, soon: true },
+  { href: "/content", key: "content", icon: PenLine, soon: true },
+  { href: "/schedule", key: "schedule", icon: CalendarClock, soon: true },
+  { href: "/settings", key: "settings", icon: Settings, soon: true },
 ];
 
 interface SessionUser {
@@ -57,61 +70,103 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.push("/login");
   }
 
-  if (!ready) return <main className="shell" aria-busy="true" />;
+  if (!ready) {
+    return (
+      <div className="bg-sidebar flex min-h-svh">
+        <div className="hidden w-64 shrink-0 p-3 md:block">
+          <Skeleton className="mb-6 h-9 w-full" />
+          <div className="space-y-2">
+            {NAV.map((n) => (
+              <Skeleton key={n.key} className="h-9 w-full" />
+            ))}
+          </div>
+        </div>
+        <div className="bg-background m-2 flex-1 rounded-xl border" />
+      </div>
+    );
+  }
 
   const active = NAV.find((n) => pathname.startsWith(n.href));
-  const initials = (user?.name ?? user?.email ?? "?").trim().charAt(0).toUpperCase();
+  const label = user?.name ?? user?.email ?? "";
+  const initials = label.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="brand sidebar__brand">
-          <span className="brand__name">
-            <span className="transmit" aria-hidden="true" />
-            {BRAND.name.toLowerCase()}
-          </span>
-          <span className="brand__vendor">{tb("vendorPrefix")} {BRAND.vendor}</span>
+    <div className="bg-sidebar text-sidebar-foreground flex min-h-svh">
+      {/* Sidebar rail */}
+      <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col p-3 md:flex">
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <div className="bg-primary text-primary-foreground grid size-8 place-items-center rounded-lg text-sm font-semibold">
+            {BRAND.name.charAt(0)}
+          </div>
+          <div className="leading-tight">
+            <div className="text-sm font-semibold">{BRAND.name}</div>
+            <div className="text-muted-foreground text-xs">{tb("vendorPrefix")} {BRAND.vendor}</div>
+          </div>
         </div>
 
-        <nav className="nav">
-          {NAV.map((n) =>
-            n.soon ? (
-              <span key={n.key} className="nav__item nav__item--soon" aria-disabled="true">
-                <span className="nav__icon" aria-hidden="true">{n.icon}</span>
-                {t(`nav.${n.key}`)}
-                <span className="nav__soon">{t("nav.soon")}</span>
-              </span>
-            ) : (
+        <nav className="mt-4 flex flex-1 flex-col gap-1">
+          {NAV.map((n) => {
+            const Icon = n.icon;
+            const isActive = active?.key === n.key;
+            const base =
+              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors";
+            if (n.soon) {
+              return (
+                <span
+                  key={n.key}
+                  aria-disabled="true"
+                  className={cn(base, "text-muted-foreground/70 cursor-default")}
+                >
+                  <Icon className="size-4" />
+                  {t(`nav.${n.key}`)}
+                  <Badge variant="muted" className="ml-auto text-[10px]">
+                    {t("nav.soon")}
+                  </Badge>
+                </span>
+              );
+            }
+            return (
               <a
                 key={n.key}
                 href={n.href}
-                className={`nav__item${active?.key === n.key ? " nav__item--active" : ""}`}
-                aria-current={active?.key === n.key ? "page" : undefined}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  base,
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                )}
               >
-                <span className="nav__icon" aria-hidden="true">{n.icon}</span>
+                <Icon className="size-4" />
                 {t(`nav.${n.key}`)}
               </a>
-            ),
-          )}
+            );
+          })}
         </nav>
 
-        <div className="sidebar__foot">
-          <div className="sidebar__user">
-            <span className="sidebar__avatar" aria-hidden="true">{initials}</span>
-            <span className="sidebar__user-name">{user?.name ?? user?.email}</span>
+        <div className="border-sidebar-border mt-2 flex items-center gap-2.5 border-t px-1 pt-3">
+          <div className="bg-sidebar-accent text-sidebar-accent-foreground grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold">
+            {initials}
           </div>
-          <button className="linkbtn" onClick={signOut}>{t("accounts.signOut")}</button>
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="truncate text-sm font-medium">{user?.name ?? user?.email}</div>
+            <div className="text-muted-foreground truncate text-xs">{t("nav.signedInAs")}</div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={signOut} aria-label={t("accounts.signOut")} className="size-8">
+            <LogOut className="size-4" />
+          </Button>
         </div>
       </aside>
 
-      <div className="main">
-        <header className="topbar">
-          <span className="topbar__title">{active ? t(`nav.${active.key}`) : BRAND.name}</span>
-          <div className="topbar__controls">
-            <ConsoleControls />
+      {/* Inset content */}
+      <div className="bg-background m-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm md:ml-0">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-5">
+          <span className="text-sm font-medium">{active ? t(`nav.${active.key}`) : BRAND.name}</span>
+          <div className="ml-auto">
+            <AppControls />
           </div>
         </header>
-        <div className="content">{children}</div>
+        <div className="flex-1 overflow-auto">{children}</div>
       </div>
     </div>
   );
