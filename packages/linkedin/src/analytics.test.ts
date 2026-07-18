@@ -55,4 +55,29 @@ describe("MemberAnalyticsClient", () => {
     const client = new MemberAnalyticsClient({ accessToken: "AT", fetchImpl });
     await expect(client.aggregate()).rejects.toThrow(/analytics/i);
   });
+
+  it("forPost queries q=entity with the URL-encoded post URN", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (input: URL | RequestInfo) => {
+      calls.push(String(input));
+      return metricResponse(5);
+    }) as unknown as typeof fetch;
+    const client = new MemberAnalyticsClient({ accessToken: "AT", fetchImpl });
+    const a = await client.forPost("urn:li:share:999");
+    expect(a.impressions).toBe(5);
+    expect(a.reactions).toBe(5);
+    expect(calls[0]).toContain("q=entity");
+    expect(calls[0]).toContain("entity=(share:urn%3Ali%3Ashare%3A999)");
+  });
+
+  it("forPost uses the ugc entity kind for ugcPost URNs", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (input: URL | RequestInfo) => {
+      calls.push(String(input));
+      return metricResponse(1);
+    }) as unknown as typeof fetch;
+    const client = new MemberAnalyticsClient({ accessToken: "AT", fetchImpl });
+    await client.forPost("urn:li:ugcPost:42");
+    expect(calls[0]).toContain("entity=(ugc:urn%3Ali%3AugcPost%3A42)");
+  });
 });

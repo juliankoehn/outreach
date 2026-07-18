@@ -462,6 +462,35 @@ body {
 .metrics__note { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.4; }
 .metrics__note .accent { color: var(--accent-ink); }
 
+/* ---- External link (in help text) ---- */
+.ext-link {
+  color: var(--ink);
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 1px;
+  transition: color .14s;
+}
+.ext-link:hover { color: var(--accent-ink); }
+
+/* ---- Posts list ---- */
+.posts-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+.posts-block__head { display: flex; align-items: center; gap: 10px; }
+.posts { margin-top: 8px; display: flex; flex-direction: column; }
+.post { padding: 12px 0; border-top: 1px solid var(--hairline); }
+.post:first-child { border-top: none; }
+.post__text {
+  font-size: 13.5px; line-height: 1.5; color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.post__text--empty { color: var(--faint); font-style: italic; }
+.post__foot {
+  margin-top: 8px; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap;
+  font-family: var(--font-mono); font-size: 11px; color: var(--faint);
+}
+.post__metric { color: var(--muted); }
+.post__metric b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.post__date { margin-left: auto; color: var(--faint); }
+.post__pending { color: var(--faint); }
+
 /* ---- Skeleton loading ---- */
 @keyframes shimmer { 100% { background-position: -200% 0; } }
 .sk {

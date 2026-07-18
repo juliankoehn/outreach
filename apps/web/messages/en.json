@@ -49,7 +49,7 @@
     "connectedBanner": "LinkedIn account connected.",
     "empty": "No accounts yet — connect LinkedIn to begin.",
     "importTitle": "Import post history",
-    "importHelp": "Upload the Shares.csv from your LinkedIn data export (Settings → Data privacy → Get a copy of your data).",
+    "importHelp": "Upload the Shares.csv from your LinkedIn data export. Open <link>Get a copy of your data</link>, tick “Posts”, request the archive, then upload the Shares.csv it contains.",
     "importCsv": "Upload Shares.csv",
     "importing": "Importing…",
     "tryApi": "Try API import",
@@ -62,7 +62,14 @@
     "membersReached": "Reached",
     "reactions": "Reactions",
     "comments": "Comments",
-    "reshares": "Reshares"
+    "reshares": "Reshares",
+    "enrich": "Load per-post metrics",
+    "enriching": "Loading metrics…",
+    "enriched": "Enriched {count}/{total} posts with live metrics",
+    "enrichNone": "Import your Shares.csv first — posts need a LinkedIn URN to enrich.",
+    "postsTitle": "Posts",
+    "postsEmpty": "No posts yet — import your Shares.csv.",
+    "noText": "(no text)"
   },
   "errors": {
     "nameRequired": "Enter your name.",

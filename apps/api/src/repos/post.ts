@@ -38,3 +38,32 @@ export async function upsertPosts(
   }
   return { inserted, skipped };
 }
+
+export async function listPosts(accountId: string) {
+  return prisma.post.findMany({
+    where: { linkedinAccountId: accountId },
+    orderBy: { publishedAt: "desc" },
+    select: {
+      id: true,
+      text: true,
+      publishedAt: true,
+      mediaType: true,
+      externalId: true,
+      metrics: true,
+    },
+  });
+}
+
+/** Posts that carry a LinkedIn URN, so their per-post metrics can be fetched. */
+export async function postsToEnrich(accountId: string, limit: number) {
+  return prisma.post.findMany({
+    where: { linkedinAccountId: accountId, externalId: { not: null } },
+    orderBy: { publishedAt: "desc" },
+    take: limit,
+    select: { id: true, externalId: true },
+  });
+}
+
+export async function setPostMetrics(postId: string, metrics: object): Promise<void> {
+  await prisma.post.update({ where: { id: postId }, data: { metrics } });
+}

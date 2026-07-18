@@ -1,8 +1,8 @@
 /**
  * Member post analytics via LinkedIn's `memberCreatorPostAnalytics` endpoint
- * (scope: r_member_postAnalytics). This returns aggregate reporting metrics for
- * the authenticated member — NOT post content. Post text still comes from the
- * CSV export; these metrics enrich it.
+ * (scope: r_member_postAnalytics). Returns reporting metrics — NOT post content.
+ * `aggregate()` sums across all posts (q=me); `forPost()` returns metrics for a
+ * single post URN (q=entity). Post text still comes from the CSV export.
  */
 
 const ANALYTICS_URL = "https://api.linkedin.com/rest/memberCreatorPostAnalytics";
@@ -25,6 +25,12 @@ interface Config {
   fetchImpl?: typeof fetch;
 }
 
+/** Build the Rest.li `entity` param, e.g. `(share:urn%3Ali%3Ashare%3A123)`. */
+function entityParam(urn: string): string {
+  const kind = urn.includes(":ugcPost:") ? "ugc" : "share";
+  return `(${kind}:${encodeURIComponent(urn)})`;
+}
+
 export class MemberAnalyticsClient {
   private readonly fetch: typeof fetch;
   private readonly apiVersion: string;
@@ -33,31 +39,38 @@ export class MemberAnalyticsClient {
     this.apiVersion = cfg.apiVersion ?? "202601";
   }
 
-  private async metric(queryType: string): Promise<number> {
-    const url = new URL(ANALYTICS_URL);
-    url.searchParams.set("q", "me");
-    url.searchParams.set("queryType", queryType);
-    url.searchParams.set("aggregation", "TOTAL");
-    const res = await this.fetch(url, {
+  private async count(query: string): Promise<number> {
+    const res = await this.fetch(`${ANALYTICS_URL}?${query}`, {
       headers: {
         Authorization: `Bearer ${this.cfg.accessToken}`,
         "LinkedIn-Version": this.apiVersion,
         "X-Restli-Protocol-Version": "2.0.0",
       },
     });
-    if (!res.ok) throw new Error(`LinkedIn analytics ${queryType} failed: ${res.status}`);
+    if (!res.ok) throw new Error(`LinkedIn analytics failed: ${res.status}`);
     const json = (await res.json()) as { elements?: Array<{ count?: number }> };
     return json.elements?.[0]?.count ?? 0;
   }
 
-  /** Lifetime aggregate metrics across all of the member's posts. */
-  async aggregate(): Promise<AggregateAnalytics> {
+  private async allMetrics(base: string): Promise<AggregateAnalytics> {
     const entries = Object.entries(METRIC_QUERY) as [AggregateMetric, string][];
-    const counts = await Promise.all(entries.map(([, q]) => this.metric(q)));
+    const counts = await Promise.all(
+      entries.map(([, q]) => this.count(`${base}&queryType=${q}&aggregation=TOTAL`)),
+    );
     const result = {} as AggregateAnalytics;
     entries.forEach(([key], i) => {
       result[key] = counts[i]!;
     });
     return result;
+  }
+
+  /** Lifetime aggregate metrics across all of the member's posts. */
+  aggregate(): Promise<AggregateAnalytics> {
+    return this.allMetrics("q=me");
+  }
+
+  /** Metrics for a single post, given its share/ugcPost URN. */
+  forPost(postUrn: string): Promise<AggregateAnalytics> {
+    return this.allMetrics(`q=entity&entity=${entityParam(postUrn)}`);
   }
 }
