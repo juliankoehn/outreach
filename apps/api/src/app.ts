@@ -68,12 +68,12 @@ export function createApp() {
 
   app.route("/linkedin", linkedinRoutes());
 
-  app.use("/profile/*", async (c, next) => {
+  app.use("/profiles/*", async (c, next) => {
     if (!c.get("user")) return c.json({ error: "unauthorized" }, 401);
     await next();
   });
 
-  app.route("/profile", profileRoutes());
+  app.route("/profiles", profileRoutes());
 
   app.use("/studio/*", async (c, next) => {
     if (!c.get("user")) return c.json({ error: "unauthorized" }, 401);

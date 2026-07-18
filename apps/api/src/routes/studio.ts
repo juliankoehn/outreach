@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { draftPost, refinePost, generateImage } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
-import { getProfile } from "../repos/profile.js";
+import { getAccountProfile } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
 import { saveImage } from "../images.js";
 
@@ -23,7 +23,7 @@ export function studioRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const profile = await getProfile(accountId);
+    const profile = await getAccountProfile(accountId);
     if (!profile || profile.status !== "ready" || !profile.brandBrief) {
       return c.json({ error: "no_profile" }, 400);
     }
@@ -91,7 +91,7 @@ export function studioRoutes() {
       .catch(() => ({ instruction: undefined }));
     if (!instruction) return c.json({ error: "invalid_body" }, 400);
 
-    const profile = await getProfile(accountId);
+    const profile = await getAccountProfile(accountId);
     const text = await refinePost(profile?.brandBrief ?? "", draft.text, instruction);
     const chat = [
       ...(Array.isArray(draft.chat) ? draft.chat : []),
@@ -109,7 +109,7 @@ export function studioRoutes() {
     const draft = await getDraft(c.req.param("id"), accountId);
     if (!draft) return c.json({ error: "not_found" }, 404);
 
-    const profile = await getProfile(accountId);
+    const profile = await getAccountProfile(accountId);
     if (!profile || profile.status !== "ready" || !profile.brandBrief) {
       return c.json({ error: "no_profile" }, 400);
     }

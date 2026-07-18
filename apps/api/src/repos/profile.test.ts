@@ -1,64 +1,122 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@outreach/db";
-import { getOrCreateInterview, appendInterviewMessage, upsertProfile, getProfile } from "./profile.js";
+import {
+  listProfiles,
+  createProfile,
+  getProfileById,
+  updateProfileById,
+  assignProfileToAccount,
+  getAccountProfile,
+  getOrCreateInterview,
+  appendInterviewMessage,
+} from "./profile.js";
 
 let userId = "", accountId = "";
 beforeAll(async () => {
-  userId = `u_${(Date.now()+Math.floor(Math.random()*1e9))}`;
+  userId = `u_${Date.now() + Math.floor(Math.random() * 1e9)}`;
   await prisma.user.create({ data: { id: userId, email: `${userId}@ex.com` } });
   const a = await prisma.linkedInAccount.create({
-    data: { userId, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9))}`, displayName: "T", accessToken: "enc", scopes: [] },
+    data: {
+      userId,
+      memberUrn: `urn:li:person:${Date.now() + Math.floor(Math.random() * 1e9)}`,
+      displayName: "T",
+      accessToken: "enc",
+      scopes: [],
+    },
   });
   accountId = a.id;
 });
-afterAll(async () => { await prisma.user.delete({ where: { id: userId } }); await prisma.$disconnect(); });
+afterAll(async () => {
+  await prisma.user.delete({ where: { id: userId } });
+  await prisma.$disconnect();
+});
 
 describe("profile repo", () => {
-  it("creates + appends an interview", async () => {
-    const iv = await getOrCreateInterview(accountId);
+  it("creates a profile and lists it with its assigned accounts", async () => {
+    const p = await createProfile(userId, "My Voice");
+    expect(p.userId).toBe(userId);
+    expect(p.name).toBe("My Voice");
+    expect(p.status).toBe("draft");
+
+    const assigned = await assignProfileToAccount(p.id, accountId, userId);
+    expect(assigned).toBe(true);
+
+    const profiles = await listProfiles(userId);
+    const found = profiles.find((x) => x.id === p.id);
+    expect(found).toBeDefined();
+    expect(found?.accounts).toEqual([{ id: accountId, displayName: "T" }]);
+  });
+
+  it("creates + appends an interview keyed by profile", async () => {
+    const p = await createProfile(userId);
+    const iv = await getOrCreateInterview(p.id);
     expect(iv.messages).toEqual([]);
     await appendInterviewMessage(iv.id, { role: "assistant", content: "hi" });
     await appendInterviewMessage(iv.id, { role: "user", content: "hello" });
-    const again = await getOrCreateInterview(accountId);
+    const again = await getOrCreateInterview(p.id);
     expect(again.id).toBe(iv.id);
     expect(again.messages).toHaveLength(2);
   });
 
-  it("upserts + reads a profile", async () => {
-    await upsertProfile(accountId, { goals: ["g"], audience: "a", brandBrief: "b", status: "ready" });
-    const p = await getProfile(accountId);
-    expect(p?.status).toBe("ready");
-    expect(p?.brandBrief).toBe("b");
+  it("ignores id/userId in updateProfileById and keeps the profile owned by the right user", async () => {
+    const p = await createProfile(userId);
+
+    const updated = await updateProfileById(p.id, userId, {
+      audience: "trusted-value",
+      // @ts-expect-error -- intentionally passing disallowed fields to prove they're stripped
+      userId: "attacker",
+      id: "hijacked-id",
+    });
+
+    expect(updated.id).toBe(p.id);
+    expect(updated.userId).toBe(userId);
+    expect(updated.audience).toBe("trusted-value");
+
+    const reread = await getProfileById(p.id, userId);
+    expect(reread?.audience).toBe("trusted-value");
   });
 
-  it("ignores userId/id in the body and never writes/reassigns another account's profile", async () => {
-    const otherUserId = `u_other_${(Date.now()+Math.floor(Math.random()*1e9))}`;
+  it("assignProfileToAccount returns false for a cross-user profile or account", async () => {
+    const otherUserId = `u_other_${Date.now() + Math.floor(Math.random() * 1e9)}`;
     await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@ex.com` } });
-    const other = await prisma.linkedInAccount.create({
+    const otherAccount = await prisma.linkedInAccount.create({
       data: {
         userId: otherUserId,
-        memberUrn: `urn:li:person:other:${(Date.now()+Math.floor(Math.random()*1e9))}`,
+        memberUrn: `urn:li:person:other:${Date.now() + Math.floor(Math.random() * 1e9)}`,
         displayName: "O",
         accessToken: "enc",
         scopes: [],
       },
     });
 
-    await upsertProfile(accountId, {
-      audience: "trusted-account-value",
-      // @ts-expect-error -- intentionally passing disallowed fields to prove they're stripped
-      userId: otherUserId,
-      id: "hijacked-id",
-    });
+    const p = await createProfile(userId);
 
-    // The other account got no profile, and the trusted account's profile is
-    // owned by the trusted user (not the attacker-supplied userId).
-    expect(await getProfile(other.id)).toBeNull();
-    const ownProfile = await getProfile(accountId);
-    expect(ownProfile?.userId).toBe(userId);
-    expect(ownProfile?.id).not.toBe("hijacked-id");
-    expect(ownProfile?.audience).toBe("trusted-account-value");
+    // Cross-user account: profile belongs to userId, account belongs to otherUserId.
+    expect(await assignProfileToAccount(p.id, otherAccount.id, userId)).toBe(false);
+
+    // Cross-user profile: account belongs to userId, but profile id doesn't
+    // belong to userId (it's owned by otherUserId's own profile lookup).
+    const otherProfile = await createProfile(otherUserId);
+    expect(await assignProfileToAccount(otherProfile.id, accountId, userId)).toBe(false);
 
     await prisma.user.delete({ where: { id: otherUserId } });
+  });
+
+  it("getAccountProfile resolves the account's assigned profile", async () => {
+    const p = await createProfile(userId);
+    const acc = await prisma.linkedInAccount.create({
+      data: {
+        userId,
+        memberUrn: `urn:li:person:resolve:${Date.now() + Math.floor(Math.random() * 1e9)}`,
+        displayName: "R",
+        accessToken: "enc",
+        scopes: [],
+      },
+    });
+    expect(await getAccountProfile(acc.id)).toBeNull();
+
+    await assignProfileToAccount(p.id, acc.id, userId);
+    const resolved = await getAccountProfile(acc.id);
+    expect(resolved?.id).toBe(p.id);
   });
 });

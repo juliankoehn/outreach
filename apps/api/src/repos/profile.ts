@@ -1,44 +1,39 @@
 import { prisma } from "@outreach/db";
 import type { ChatMessage, SynthesizedProfile, DerivedInsights } from "@outreach/ai";
+import { getAccountSummary } from "./linkedin-account.js";
 
-export async function getOrCreateInterview(accountId: string) {
-  const existing = await prisma.interviewSession.findFirst({
-    where: { linkedinAccountId: accountId, status: "in_progress" },
-    orderBy: { createdAt: "desc" },
+export async function listProfiles(userId: string) {
+  return prisma.creatorProfile.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+    include: { accounts: { select: { id: true, displayName: true } } },
   });
-  const row = existing ?? (await prisma.interviewSession.create({ data: { linkedinAccountId: accountId } }));
-  return { id: row.id, status: row.status, messages: (row.messages as unknown as ChatMessage[]) ?? [] };
 }
 
-export async function appendInterviewMessage(id: string, msg: ChatMessage): Promise<void> {
-  const row = await prisma.interviewSession.findUniqueOrThrow({ where: { id } });
-  const messages = [...((row.messages as unknown as ChatMessage[]) ?? []), msg];
-  await prisma.interviewSession.update({ where: { id }, data: { messages: messages as object } });
+export async function createProfile(userId: string, name?: string) {
+  return prisma.creatorProfile.create({ data: { userId, name: name ?? "", status: "draft" } });
 }
 
-export async function completeInterview(id: string): Promise<void> {
-  await prisma.interviewSession.update({ where: { id }, data: { status: "complete" } });
+export async function getProfileById(id: string, userId: string) {
+  return prisma.creatorProfile.findFirst({ where: { id, userId } });
 }
 
-// A profile is user-owned and linked to one or more accounts via
-// LinkedInAccount.creatorProfileId. Resolve the profile through the account.
-export async function getProfile(accountId: string) {
-  const acct = await prisma.linkedInAccount.findUnique({
-    where: { id: accountId },
-    select: { creatorProfileId: true },
-  });
-  if (!acct?.creatorProfileId) return null;
-  return prisma.creatorProfile.findUnique({ where: { id: acct.creatorProfileId } });
-}
-
-export async function upsertProfile(
-  accountId: string,
-  data: Partial<SynthesizedProfile> & { status?: string; derived?: DerivedInsights; derivedAt?: Date },
+export async function updateProfileById(
+  id: string,
+  userId: string,
+  data: Partial<SynthesizedProfile> & {
+    name?: string;
+    status?: string;
+    derived?: DerivedInsights;
+    derivedAt?: Date;
+  },
 ) {
   // Whitelist mutable fields only -- never trust the caller for
-  // linkedinAccountId/id/createdAt. This is the authoritative boundary that
-  // protects the PATCH /:accountId route (which forwards an arbitrary body).
-  const payload: Partial<SynthesizedProfile> & { status?: string; derived?: object; derivedAt?: Date } = {};
+  // id/userId/createdAt. This is the authoritative boundary that protects
+  // the PATCH /profiles/:id route (which forwards an arbitrary body).
+  const payload: Partial<SynthesizedProfile> & { name?: string; status?: string; derived?: object; derivedAt?: Date } =
+    {};
+  if (data.name !== undefined) payload.name = data.name;
   if (data.goals !== undefined) payload.goals = data.goals;
   if (data.audience !== undefined) payload.audience = data.audience;
   if (data.pillars !== undefined) payload.pillars = data.pillars;
@@ -51,17 +46,61 @@ export async function upsertProfile(
   if (data.derived !== undefined) payload.derived = data.derived as object;
   if (data.derivedAt !== undefined) payload.derivedAt = data.derivedAt;
 
-  const acct = await prisma.linkedInAccount.findUniqueOrThrow({
-    where: { id: accountId },
-    select: { userId: true, creatorProfileId: true },
-  });
+  await prisma.creatorProfile.updateMany({ where: { id, userId }, data: payload });
+  return prisma.creatorProfile.findFirstOrThrow({ where: { id, userId } });
+}
 
-  // Update the account's linked profile if it has one; otherwise create a
-  // user-owned profile and link this account to it.
-  if (acct.creatorProfileId) {
-    return prisma.creatorProfile.update({ where: { id: acct.creatorProfileId }, data: payload });
-  }
-  const profile = await prisma.creatorProfile.create({ data: { userId: acct.userId, ...payload } });
-  await prisma.linkedInAccount.update({ where: { id: accountId }, data: { creatorProfileId: profile.id } });
-  return profile;
+export async function deleteProfileById(id: string, userId: string): Promise<void> {
+  await prisma.creatorProfile.deleteMany({ where: { id, userId } });
+}
+
+export async function assignProfileToAccount(
+  profileId: string,
+  accountId: string,
+  userId: string,
+): Promise<boolean> {
+  const [profile, account] = await Promise.all([
+    getProfileById(profileId, userId),
+    getAccountSummary(accountId, userId),
+  ]);
+  if (!profile || !account) return false;
+  await prisma.linkedInAccount.update({ where: { id: accountId }, data: { creatorProfileId: profileId } });
+  return true;
+}
+
+export async function unassignProfileFromAccount(accountId: string, userId: string): Promise<boolean> {
+  const account = await getAccountSummary(accountId, userId);
+  if (!account) return false;
+  await prisma.linkedInAccount.update({ where: { id: accountId }, data: { creatorProfileId: null } });
+  return true;
+}
+
+// Resolve an account's assigned profile (if any). Used by studio + interview
+// seed, which operate on the account's currently-assigned profile.
+export async function getAccountProfile(accountId: string) {
+  const acct = await prisma.linkedInAccount.findUnique({
+    where: { id: accountId },
+    select: { creatorProfileId: true },
+  });
+  if (!acct?.creatorProfileId) return null;
+  return prisma.creatorProfile.findUnique({ where: { id: acct.creatorProfileId } });
+}
+
+export async function getOrCreateInterview(profileId: string) {
+  const existing = await prisma.interviewSession.findFirst({
+    where: { creatorProfileId: profileId, status: "in_progress" },
+    orderBy: { createdAt: "desc" },
+  });
+  const row = existing ?? (await prisma.interviewSession.create({ data: { creatorProfileId: profileId } }));
+  return { id: row.id, status: row.status, messages: (row.messages as unknown as ChatMessage[]) ?? [] };
+}
+
+export async function appendInterviewMessage(id: string, msg: ChatMessage): Promise<void> {
+  const row = await prisma.interviewSession.findUniqueOrThrow({ where: { id } });
+  const messages = [...((row.messages as unknown as ChatMessage[]) ?? []), msg];
+  await prisma.interviewSession.update({ where: { id }, data: { messages: messages as object } });
+}
+
+export async function completeInterview(id: string): Promise<void> {
+  await prisma.interviewSession.update({ where: { id }, data: { status: "complete" } });
 }

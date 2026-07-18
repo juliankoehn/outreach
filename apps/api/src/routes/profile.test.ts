@@ -41,8 +41,22 @@ beforeAll(async () => {
 afterAll(async () => { await prisma.user.delete({ where: { id: userId } }); await prisma.$disconnect(); });
 
 describe("profile routes", () => {
-  it("runs a reply turn and finalizes a profile", async () => {
-    const reply = await app.request(`/profile/${accountId}/interview/reply`, {
+  it("creates a profile, lists it, runs the interview to finalize, and assigns it to an account", async () => {
+    const create = await app.request("/profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ name: "My Voice" }),
+    });
+    expect(create.status).toBe(200);
+    const { profile } = (await create.json()) as { profile: { id: string; name: string } };
+    expect(profile.name).toBe("My Voice");
+
+    const list = await app.request("/profiles", { headers: { Cookie: cookie } });
+    expect(list.status).toBe(200);
+    const { profiles } = (await list.json()) as { profiles: Array<{ id: string }> };
+    expect(profiles.some((p) => p.id === profile.id)).toBe(true);
+
+    const reply = await app.request(`/profiles/${profile.id}/interview/reply`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: cookie },
       body: JSON.stringify({ message: "I'm a GRC founder." }),
@@ -51,17 +65,40 @@ describe("profile routes", () => {
     const replyBody = (await reply.json()) as { reply: string };
     expect(replyBody.reply).toMatch(/point of view/i);
 
-    const fin = await app.request(`/profile/${accountId}/interview/finalize`, {
+    const fin = await app.request(`/profiles/${profile.id}/interview/finalize`, {
       method: "POST", headers: { Cookie: cookie },
     });
     expect(fin.status).toBe(200);
     const finBody = (await fin.json()) as { profile: { status: string } };
     expect(finBody.profile.status).toBe("ready");
+
+    const assign = await app.request(`/profiles/${profile.id}/assign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ accountId }),
+    });
+    expect(assign.status).toBe(200);
+    expect((await assign.json()) as { ok: boolean }).toEqual({ ok: true });
+
+    const unassign = await app.request(`/profiles/${profile.id}/unassign`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ accountId }),
+    });
+    expect(unassign.status).toBe(200);
+    expect((await unassign.json()) as { ok: boolean }).toEqual({ ok: true });
   });
 
-  it("rejects a cross-user account", async () => {
+  it("rejects a cross-user profile", async () => {
+    const create = await app.request("/profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({}),
+    });
+    const { profile } = (await create.json()) as { profile: { id: string } };
+
     const other = await authedCookie();
-    const res = await app.request(`/profile/${accountId}`, { headers: { Cookie: other.cookie } });
+    const res = await app.request(`/profiles/${profile.id}`, { headers: { Cookie: other.cookie } });
     expect(res.status).toBe(404);
   });
 });
