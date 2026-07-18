@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  BarChart3,
   CalendarClock,
   LayoutGrid,
   LogOut,
   PenLine,
   Settings,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { BRAND } from "@/config/brand";
@@ -28,7 +28,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/accounts", key: "accounts", icon: LayoutGrid },
-  { href: "/analysis", key: "analysis", icon: BarChart3, soon: true },
+  { href: "/profile", key: "analysis", icon: Sparkles },
   { href: "/content", key: "content", icon: PenLine, soon: true },
   { href: "/schedule", key: "schedule", icon: CalendarClock, soon: true },
   { href: "/settings", key: "settings", icon: Settings, soon: true },
