@@ -2,7 +2,10 @@ import { randomBytes } from "node:crypto";
 
 const AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization";
 const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
-const USERINFO_URL = "https://api.linkedin.com/v2/userinfo";
+// /v2/me works with the `r_basicprofile` scope. We deliberately avoid the
+// OpenID `/v2/userinfo` endpoint because it requires the `openid` scope, which
+// isn't part of the Community Management API product.
+const PROFILE_URL = "https://api.linkedin.com/v2/me";
 
 export interface TokenResponse {
   accessToken: string;
@@ -84,15 +87,25 @@ export class LinkedInOAuthClient {
   }
 
   async fetchProfile(accessToken: string): Promise<LinkedInProfile> {
-    const res = await this.fetch(USERINFO_URL, {
+    const res = await this.fetch(PROFILE_URL, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) throw new Error(`LinkedIn userinfo failed: ${res.status}`);
+    if (!res.ok) throw new Error(`LinkedIn profile fetch failed: ${res.status}`);
     const j = (await res.json()) as Record<string, unknown>;
+
+    // Handle both the /v2/me shape (id + localizedFirstName/LastName) and the
+    // OpenID userinfo shape (sub + name + picture), so either token works.
+    const id = String(j.id ?? j.sub ?? "");
+    const first = typeof j.localizedFirstName === "string" ? j.localizedFirstName : "";
+    const last = typeof j.localizedLastName === "string" ? j.localizedLastName : "";
+    const composed = `${first} ${last}`.trim();
+    const displayName =
+      composed || (typeof j.name === "string" ? j.name : "") || "LinkedIn Member";
+
     return {
-      memberUrn: `urn:li:person:${String(j.sub)}`,
-      displayName: String(j.name ?? "LinkedIn Member"),
-      avatarUrl: j.picture ? String(j.picture) : undefined,
+      memberUrn: `urn:li:person:${id}`,
+      displayName,
+      avatarUrl: typeof j.picture === "string" ? j.picture : undefined,
     };
   }
 }

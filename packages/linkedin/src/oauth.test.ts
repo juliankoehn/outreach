@@ -35,7 +35,21 @@ describe("LinkedInOAuthClient", () => {
     await expect(client.exchangeCode("x")).rejects.toThrow(/token exchange failed/i);
   });
 
-  it("maps userinfo to a member profile", async () => {
+  it("maps a /v2/me (r_basicprofile) response to a member profile", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ id: "xyz789", localizedFirstName: "Julian", localizedLastName: "Koehn" }),
+        { status: 200 },
+      ),
+    ) as unknown as typeof fetch;
+    const client = new LinkedInOAuthClient({ ...cfg, fetchImpl });
+    const p = await client.fetchProfile("AT");
+    expect(p.memberUrn).toBe("urn:li:person:xyz789");
+    expect(p.displayName).toBe("Julian Koehn");
+    expect(p.avatarUrl).toBeUndefined();
+  });
+
+  it("still maps an OpenID userinfo response (sub/name/picture) as a fallback", async () => {
     const fetchImpl = vi.fn(async () =>
       new Response(JSON.stringify({ sub: "abc123", name: "Jane Doe", picture: "http://img" }), { status: 200 }),
     ) as unknown as typeof fetch;

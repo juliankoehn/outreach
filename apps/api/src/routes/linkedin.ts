@@ -14,7 +14,11 @@ import { signState, verifyState } from "../oauth-state.js";
 import { saveLinkedInAccount, getDecryptedAccount, listAccounts } from "../repos/linkedin-account.js";
 import { upsertPosts } from "../repos/post.js";
 
-const SCOPES = ["openid", "profile", "email", "w_member_social"];
+// Scopes granted by the Community Management API product:
+//  r_basicprofile        — identity (name, headline, photo) for /v2/me
+//  r_member_postAnalytics — read the member's own posts + reporting data
+//  w_member_social        — create/modify/delete posts (used by the scheduler later)
+const SCOPES = ["r_basicprofile", "r_member_postAnalytics", "w_member_social"];
 
 function client() {
   return new LinkedInOAuthClient({
@@ -44,6 +48,15 @@ export function linkedinRoutes() {
   });
 
   r.get("/callback", async (c) => {
+    // LinkedIn returns ?error=...&error_description=... when the member denies
+    // consent or a scope is not authorized. Surface it in the UI rather than
+    // masking it as an opaque state error.
+    const oauthError = c.req.query("error");
+    if (oauthError) {
+      const desc = c.req.query("error_description") ?? oauthError;
+      return c.redirect(`${env.WEB_ORIGIN}/accounts?error=${encodeURIComponent(desc)}`);
+    }
+
     const code = c.req.query("code");
     const state = c.req.query("state");
     const cookieState = getCookie(c, "li_oauth_state");
