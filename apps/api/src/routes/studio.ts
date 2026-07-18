@@ -38,7 +38,8 @@ export function studioRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const { prompt } = await c.req.json<{ prompt: string }>();
+    const { prompt } = await c.req.json<{ prompt?: string }>().catch(() => ({ prompt: undefined }));
+    if (!prompt) return c.json({ error: "invalid_body" }, 400);
     const { base64, mediaType } = await generateImage(prompt);
     const { url } = await saveImage(base64, mediaType);
     return c.json({ imageUrl: url });
@@ -59,8 +60,11 @@ export function studioRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const body = await c.req.json<{ text: string; imageUrl?: string; imagePrompt?: string }>();
-    return c.json({ draft: await createDraft(accountId, body) });
+    const body = await c
+      .req.json<{ text?: string; imageUrl?: string; imagePrompt?: string }>()
+      .catch(() => ({}) as { text?: string; imageUrl?: string; imagePrompt?: string });
+    if (!body.text) return c.json({ error: "invalid_body" }, 400);
+    return c.json({ draft: await createDraft(accountId, { ...body, text: body.text }) });
   });
 
   r.patch("/:accountId/drafts/:id", async (c) => {
@@ -69,7 +73,7 @@ export function studioRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const body = await c.req.json();
+    const body = await c.req.json().catch(() => ({}));
     return c.json({ draft: await updateDraft(c.req.param("id"), accountId, body) });
   });
 

@@ -24,4 +24,30 @@ describe("draft repo", () => {
     await deleteDraft(d.id, accountId);
     expect(await getDraft(d.id, accountId)).toBeNull();
   });
+
+  it("ignores a linkedinAccountId in the body and always scopes creation to the trusted accountId", async () => {
+    const otherUserId = `u_other_${Date.now()}`;
+    await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@ex.com` } });
+    const other = await prisma.linkedInAccount.create({
+      data: {
+        userId: otherUserId,
+        memberUrn: `urn:li:person:other:${Date.now()}`,
+        displayName: "O",
+        accessToken: "enc",
+        scopes: [],
+      },
+    });
+
+    const d = await createDraft(accountId, {
+      text: "mass-assignment attempt",
+      // @ts-expect-error -- intentionally passing a disallowed field to prove it's stripped
+      linkedinAccountId: other.id,
+    });
+
+    expect(d.linkedinAccountId).toBe(accountId);
+    expect(await getDraft(d.id, other.id)).toBeNull();
+    expect(await getDraft(d.id, accountId)).not.toBeNull();
+
+    await prisma.user.delete({ where: { id: otherUserId } });
+  });
 });

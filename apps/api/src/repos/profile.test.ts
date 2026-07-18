@@ -30,4 +30,34 @@ describe("profile repo", () => {
     expect(p?.status).toBe("ready");
     expect(p?.brandBrief).toBe("b");
   });
+
+  it("ignores a linkedinAccountId in the body and never writes/reassigns another account's profile", async () => {
+    const otherUserId = `u_other_${Date.now()}`;
+    await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@ex.com` } });
+    const other = await prisma.linkedInAccount.create({
+      data: {
+        userId: otherUserId,
+        memberUrn: `urn:li:person:other:${Date.now()}`,
+        displayName: "O",
+        accessToken: "enc",
+        scopes: [],
+      },
+    });
+
+    await upsertProfile(accountId, {
+      audience: "trusted-account-value",
+      // @ts-expect-error -- intentionally passing disallowed fields to prove they're stripped
+      linkedinAccountId: other.id,
+      id: "hijacked-id",
+    });
+
+    const otherProfile = await getProfile(other.id);
+    expect(otherProfile).toBeNull();
+
+    const ownProfile = await getProfile(accountId);
+    expect(ownProfile?.linkedinAccountId).toBe(accountId);
+    expect(ownProfile?.audience).toBe("trusted-account-value");
+
+    await prisma.user.delete({ where: { id: otherUserId } });
+  });
 });

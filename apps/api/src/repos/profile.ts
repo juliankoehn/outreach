@@ -28,8 +28,22 @@ export async function upsertProfile(
   accountId: string,
   data: Partial<SynthesizedProfile> & { status?: string; derived?: DerivedInsights; derivedAt?: Date },
 ) {
-  const { derived, ...rest } = data;
-  const payload = { ...rest, ...(derived ? { derived: derived as object } : {}) };
+  // Whitelist mutable fields only -- never trust the caller for
+  // linkedinAccountId/id/createdAt. This is the authoritative boundary that
+  // protects the PATCH /:accountId route (which forwards an arbitrary body).
+  const payload: Partial<SynthesizedProfile> & { status?: string; derived?: object; derivedAt?: Date } = {};
+  if (data.goals !== undefined) payload.goals = data.goals;
+  if (data.audience !== undefined) payload.audience = data.audience;
+  if (data.pillars !== undefined) payload.pillars = data.pillars;
+  if (data.noGos !== undefined) payload.noGos = data.noGos;
+  if (data.toneWords !== undefined) payload.toneWords = data.toneWords;
+  if (data.languages !== undefined) payload.languages = data.languages;
+  if (data.positioning !== undefined) payload.positioning = data.positioning;
+  if (data.brandBrief !== undefined) payload.brandBrief = data.brandBrief;
+  if (data.status !== undefined) payload.status = data.status;
+  if (data.derived !== undefined) payload.derived = data.derived as object;
+  if (data.derivedAt !== undefined) payload.derivedAt = data.derivedAt;
+
   return prisma.creatorProfile.upsert({
     where: { linkedinAccountId: accountId },
     create: { linkedinAccountId: accountId, ...payload },
