@@ -10,6 +10,9 @@ const schema = z.object({
   LINKEDIN_CLIENT_ID: z.string().min(1),
   LINKEDIN_CLIENT_SECRET: z.string().min(1),
   LINKEDIN_REDIRECT_URI: z.string().url(),
+  // Rolling LinkedIn API version (YYYYMM). LinkedIn keeps only a recent window
+  // active; bump this when calls start returning 426 NONEXISTENT_VERSION.
+  LINKEDIN_API_VERSION: z.string().regex(/^\d{6}$/).default("202601"),
 });
 
 const parsed = schema.safeParse(process.env);

@@ -82,7 +82,11 @@ export function linkedinRoutes() {
     const user = c.get("user")!;
     const acct = await getDecryptedAccount(c.req.param("id"), user.id);
     if (!acct || acct.userId !== user.id) return c.json({ error: "not_found" }, 404);
-    const ingestor = new LinkedInApiIngestor({ accessToken: acct.accessToken, memberUrn: acct.memberUrn });
+    const ingestor = new LinkedInApiIngestor({
+      accessToken: acct.accessToken,
+      memberUrn: acct.memberUrn,
+      apiVersion: env.LINKEDIN_API_VERSION,
+    });
     try {
       const posts = await ingestor.fetch();
       return c.json(await upsertPosts(acct.id, "linkedin_api", posts));
