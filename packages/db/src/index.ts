@@ -1,2 +1,9 @@
 export { prisma } from "./client.js";
-export type { User, LinkedInAccount, Post, Prisma } from "@prisma/client";
+export type {
+	User,
+	LinkedInAccount,
+	Post,
+	CreatorProfile,
+	InterviewSession,
+	Prisma,
+} from "@prisma/client";
