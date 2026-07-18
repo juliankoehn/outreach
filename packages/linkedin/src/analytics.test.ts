@@ -14,7 +14,7 @@ describe("MemberAnalyticsClient", () => {
       COMMENT: 88,
       RESHARE: 12,
     };
-    const fetchImpl = vi.fn(async (input: URL | RequestInfo) => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
       const q = new URL(String(input)).searchParams.get("queryType")!;
       return metricResponse(byMetric[q]!);
     }) as unknown as typeof fetch;
@@ -58,7 +58,7 @@ describe("MemberAnalyticsClient", () => {
 
   it("forPost queries q=entity with the URL-encoded post URN", async () => {
     const calls: string[] = [];
-    const fetchImpl = vi.fn(async (input: URL | RequestInfo) => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
       calls.push(String(input));
       return metricResponse(5);
     }) as unknown as typeof fetch;
@@ -72,7 +72,7 @@ describe("MemberAnalyticsClient", () => {
 
   it("forPost uses the ugc entity kind for ugcPost URNs", async () => {
     const calls: string[] = [];
-    const fetchImpl = vi.fn(async (input: URL | RequestInfo) => {
+    const fetchImpl = vi.fn(async (input: string | URL) => {
       calls.push(String(input));
       return metricResponse(1);
     }) as unknown as typeof fetch;
