@@ -29,6 +29,21 @@ export async function draftPost(
   return text.trim();
 }
 
+export async function refinePost(
+  brandBrief: string,
+  currentText: string,
+  instruction: string,
+  opts?: { model?: LanguageModel },
+): Promise<string> {
+  const model = opts?.model ?? getTextModel();
+  const { text } = await generateText({
+    model,
+    system: `${brandBrief}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
+    prompt: `Current draft:\n"""${currentText}"""\n\nInstruction: ${instruction}`,
+  });
+  return text.trim();
+}
+
 export function getImageModel(): ImageModel {
   const provider = process.env.AI_PROVIDER ?? "openai";
   if (provider !== "openai") throw new Error(`Image generation supports only openai (got ${provider}).`);

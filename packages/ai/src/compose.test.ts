@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { MockLanguageModelV2 } from "ai/test";
-import { draftPost, generateImage } from "./compose.js";
+import { draftPost, refinePost, generateImage } from "./compose.js";
 
 function textMock(text: string) {
   return new MockLanguageModelV2({
@@ -27,6 +27,22 @@ describe("compose", () => {
     const sys = call.prompt.find((m) => m.role === "system");
     expect(JSON.stringify(sys)).toContain("GRC founder");
     expect(JSON.stringify(call.prompt)).toContain("AI governance");
+  });
+
+  it("refines a post from the current text + instruction, keeping the voice", async () => {
+    const spy = vi.fn(async () => ({
+      finishReason: "stop" as const,
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+      content: [{ type: "text" as const, text: "Punchier hook.\n\nBody." }],
+      warnings: [],
+    }));
+    const model = new MockLanguageModelV2({ doGenerate: spy });
+    const out = await refinePost("Write as Julian.", "Original post.", "Make the hook punchier", { model });
+    expect(out).toMatch(/punchier/i);
+    const call = (spy.mock.calls as unknown as [{ prompt: unknown }][])[0]![0];
+    const prompt = JSON.stringify(call.prompt);
+    expect(prompt).toContain("Original post.");
+    expect(prompt).toContain("Make the hook punchier");
   });
 
   it("generates an image and returns base64 + mediaType", async () => {

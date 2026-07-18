@@ -27,13 +27,14 @@ export function getDraft(id: string, accountId: string) {
 export async function updateDraft(
   id: string,
   accountId: string,
-  data: { text?: string; imageUrl?: string | null; imagePrompt?: string | null },
+  data: { text?: string; imageUrl?: string | null; imagePrompt?: string | null; chat?: unknown },
 ) {
   // Whitelist mutable fields only -- never trust the caller for id/linkedinAccountId/status.
-  const payload: { text?: string; imageUrl?: string | null; imagePrompt?: string | null } = {};
+  const payload: { text?: string; imageUrl?: string | null; imagePrompt?: string | null; chat?: object } = {};
   if (data.text !== undefined) payload.text = data.text;
   if (data.imageUrl !== undefined) payload.imageUrl = data.imageUrl;
   if (data.imagePrompt !== undefined) payload.imagePrompt = data.imagePrompt;
+  if (data.chat !== undefined) payload.chat = data.chat as object;
 
   // scope the update to the owning account via updateMany, then return the row
   await prisma.draft.updateMany({ where: { id, linkedinAccountId: accountId }, data: payload });

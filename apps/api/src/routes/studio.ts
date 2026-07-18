@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { draftPost, generateImage } from "@outreach/ai";
+import { draftPost, refinePost, generateImage } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
 import { getProfile } from "../repos/profile.js";
-import { createDraft, listDrafts, updateDraft, deleteDraft } from "../repos/draft.js";
+import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
 import { saveImage } from "../images.js";
 
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
@@ -56,17 +56,66 @@ export function studioRoutes() {
     return c.json({ drafts: await listDrafts(accountId) });
   });
 
+  r.get("/:accountId/drafts/:id", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("accountId");
+    if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const draft = await getDraft(c.req.param("id"), accountId);
+    if (!draft) return c.json({ error: "not_found" }, 404);
+    return c.json({ draft });
+  });
+
   r.post("/:accountId/drafts", async (c) => {
     const user = c.get("user")!;
     const accountId = c.req.param("accountId");
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
+    // A new draft may start empty (workspace-first flow); text is optional.
     const body = await c
       .req.json<{ text?: string; imageUrl?: string; imagePrompt?: string }>()
       .catch(() => ({}) as { text?: string; imageUrl?: string; imagePrompt?: string });
-    if (!body.text) return c.json({ error: "invalid_body" }, 400);
-    return c.json({ draft: await createDraft(accountId, { ...body, text: body.text }) });
+    return c.json({ draft: await createDraft(accountId, { ...body, text: body.text ?? "" }) });
+  });
+
+  // Refine the current draft via a natural-language instruction (canvas chat).
+  r.post("/:accountId/drafts/:id/chat", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("accountId");
+    if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const draft = await getDraft(c.req.param("id"), accountId);
+    if (!draft) return c.json({ error: "not_found" }, 404);
+
+    const { instruction } = await c.req
+      .json<{ instruction?: string }>()
+      .catch(() => ({ instruction: undefined }));
+    if (!instruction) return c.json({ error: "invalid_body" }, 400);
+
+    const profile = await getProfile(accountId);
+    const text = await refinePost(profile?.brandBrief ?? "", draft.text, instruction);
+    const chat = [
+      ...(Array.isArray(draft.chat) ? draft.chat : []),
+      { role: "user", content: instruction },
+      { role: "assistant", content: text },
+    ];
+    return c.json({ draft: await updateDraft(c.req.param("id"), accountId, { text, chat }) });
+  });
+
+  // Regenerate the draft text from scratch (needs a ready profile).
+  r.post("/:accountId/drafts/:id/regenerate", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("accountId");
+    if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const draft = await getDraft(c.req.param("id"), accountId);
+    if (!draft) return c.json({ error: "not_found" }, 404);
+
+    const profile = await getProfile(accountId);
+    if (!profile || profile.status !== "ready" || !profile.brandBrief) {
+      return c.json({ error: "no_profile" }, 400);
+    }
+    const { topic } = await c.req.json<{ topic?: string }>().catch(() => ({ topic: undefined }));
+    const text = await draftPost(profile.brandBrief, { topic });
+    return c.json({ draft: await updateDraft(c.req.param("id"), accountId, { text }) });
   });
 
   r.patch("/:accountId/drafts/:id", async (c) => {

@@ -145,8 +145,12 @@ model Draft {
   text              String   @default("")
   imageUrl          String?
   imagePrompt       String?
-  status            String   @default("draft") // draft (published/scheduled reserved later)
+  status            String   @default("draft") // draft | scheduled | published
   source            String   @default("ai")    // ai | manual
+  chat              Json     @default("[]")     // canvas refine conversation
+  scheduledAt       DateTime? // reserved for the scheduler phase
+  publishedAt       DateTime? // reserved for publishing
+  externalId        String?   // LinkedIn post URN once published
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   account           LinkedInAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)

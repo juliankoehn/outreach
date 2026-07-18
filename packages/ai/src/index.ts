@@ -3,4 +3,4 @@ export type { ChatMessage, PostForAnalysis, DerivedInsights, SynthesizedProfile 
 export { nextTurn, INTERVIEW_SYSTEM } from "./interview.js";
 export { synthesizeProfile, PROFILE_SCHEMA } from "./profile.js";
 export { analyzePosts, DERIVED_SCHEMA } from "./analyze.js";
-export { draftPost, generateImage, getImageModel } from "./compose.js";
+export { draftPost, refinePost, generateImage, getImageModel } from "./compose.js";

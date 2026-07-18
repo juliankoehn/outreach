@@ -41,7 +41,8 @@ export function profileRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const language = langName((await c.req.json<{ locale?: string }>().catch(() => ({}))).locale);
+    const body = await c.req.json<{ locale?: string }>().catch(() => ({}) as { locale?: string });
+    const language = langName(body.locale);
     const iv = await getOrCreateInterview(accountId);
     if (iv.messages.length === 0) {
       const derived = (await getProfile(accountId))?.derived as DerivedInsights | undefined;
