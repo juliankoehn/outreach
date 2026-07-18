@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, RefreshCw, Send, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, RefreshCw, Send, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -543,19 +543,30 @@ export default function ProfileWorkspacePage({ params }: { params: Promise<{ id:
                 accounts.map((a) => {
                   const isAssigned = assignedIds.has(a.id);
                   return (
-                    <label
+                    <button
                       key={a.id}
-                      className="hover:bg-accent/40 flex cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-2.5 text-sm transition-colors"
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isAssigned}
+                      disabled={assigning === a.id}
+                      onClick={() => void toggleAssign(a.id, isAssigned)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-lg border px-3.5 py-2.5 text-left text-sm transition-colors disabled:opacity-60",
+                        isAssigned ? "border-primary/40 bg-primary/5" : "hover:bg-accent/40",
+                      )}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isAssigned}
-                        disabled={assigning === a.id}
-                        onChange={() => void toggleAssign(a.id, isAssigned)}
-                        className="accent-primary size-4"
-                      />
+                      <span
+                        className={cn(
+                          "grid size-[18px] shrink-0 place-items-center rounded-[5px] border transition-colors",
+                          isAssigned
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-input",
+                        )}
+                      >
+                        {isAssigned && <Check className="size-3" strokeWidth={3} />}
+                      </span>
                       <span className="font-medium">{a.displayName}</span>
-                    </label>
+                    </button>
                   );
                 })}
               <p className="text-muted-foreground pt-1 text-xs">{t("profile.assignHint")}</p>
