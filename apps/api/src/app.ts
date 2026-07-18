@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { auth, type AuthUser } from "./auth.js";
 import { env } from "./env.js";
 import { linkedinRoutes } from "./routes/linkedin.js";
+import { profileRoutes } from "./routes/profile.js";
 
 export type AppEnv = { Variables: { user: AuthUser | null } };
 
@@ -28,6 +29,13 @@ export function createApp() {
   });
 
   app.route("/linkedin", linkedinRoutes());
+
+  app.use("/profile/*", async (c, next) => {
+    if (!c.get("user")) return c.json({ error: "unauthorized" }, 401);
+    await next();
+  });
+
+  app.route("/profile", profileRoutes());
 
   return app;
 }
