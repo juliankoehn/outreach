@@ -11,6 +11,7 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@outreach/ai": "workspace:*",
     "@outreach/core": "workspace:*",
     "@outreach/db": "workspace:*",
     "@outreach/linkedin": "workspace:*",
