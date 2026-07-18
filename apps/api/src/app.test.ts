@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createApp } from "./app.js";
+import { saveImage } from "./images.js";
 
 describe("api app", () => {
   it("serves /health", async () => {
@@ -13,5 +14,20 @@ describe("api app", () => {
     const app = createApp();
     const res = await app.request("/linkedin/accounts");
     expect(res.status).toBe(401);
+  });
+
+  it("serves a saved upload publicly, without auth", async () => {
+    const app = createApp();
+    const { url } = await saveImage(Buffer.from("pixel-bytes").toString("base64"), "image/png");
+    const res = await app.request(url);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(Buffer.from(await res.arrayBuffer()).toString()).toBe("pixel-bytes");
+  });
+
+  it("404s an unknown upload and rejects path traversal", async () => {
+    const app = createApp();
+    expect((await app.request("/uploads/does-not-exist.png")).status).toBe(404);
+    expect((await app.request("/uploads/..%2Fapp.ts")).status).toBe(404);
   });
 });
