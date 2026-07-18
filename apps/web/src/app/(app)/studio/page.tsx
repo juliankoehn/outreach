@@ -3,17 +3,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ImagePlus, Save, Sparkles, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/accounts";
 import type { Draft } from "@/lib/studio";
 
 type PageState = "loading" | "no-account" | "ready";
+
+function draftTitle(text: string): string {
+  const firstLine = text.split("\n").find((line) => line.trim().length > 0);
+  return firstLine?.trim() || "";
+}
+
+function statusVariant(status: string): "success" | "muted" | "secondary" {
+  if (status === "published") return "success";
+  if (status === "scheduled") return "secondary";
+  return "muted";
+}
 
 export default function StudioPage() {
   const t = useTranslations();
@@ -21,20 +30,9 @@ export default function StudioPage() {
 
   const [accountId, setAccountId] = useState<string | null>(null);
   const [state, setState] = useState<PageState>("loading");
-
-  const [topic, setTopic] = useState("");
-  const [postText, setPostText] = useState("");
-  const [imagePrompt, setImagePrompt] = useState("");
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
-  const [generatingText, setGeneratingText] = useState(false);
-  const [generatingImage, setGeneratingImage] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [noProfile, setNoProfile] = useState(false);
-
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [draftsLoaded, setDraftsLoaded] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const loadDrafts = useCallback(
     async (id: string) => {
@@ -45,7 +43,11 @@ export default function StudioPage() {
       }
       if (res.ok) {
         const d = (await res.json()) as { drafts: Draft[] };
-        setDrafts(d.drafts);
+        setDrafts(
+          [...d.drafts].sort(
+            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+          ),
+        );
       }
       setDraftsLoaded(true);
     },
@@ -80,113 +82,46 @@ export default function StudioPage() {
     };
   }, [router, loadDrafts]);
 
-  async function generateText() {
-    if (!accountId || generatingText) return;
-    setGeneratingText(true);
-    setNoProfile(false);
-    const res = await fetch(`/api/studio/${accountId}/draft-text`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: topic.trim() || undefined }),
-    });
-    setGeneratingText(false);
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
-    if (res.status === 400) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (body?.error === "no_profile") {
-        setNoProfile(true);
-        return;
-      }
-    }
-    if (res.ok) {
-      const d = (await res.json()) as { text: string };
-      setPostText(d.text);
-      setSaved(false);
-      if (!imagePrompt.trim()) {
-        const firstLine = d.text.split("\n").find((line) => line.trim().length > 0) ?? "";
-        setImagePrompt(firstLine.trim());
-      }
-    }
-  }
-
-  async function generateImage() {
-    if (!accountId || generatingImage || !imagePrompt.trim()) return;
-    setGeneratingImage(true);
-    const res = await fetch(`/api/studio/${accountId}/draft-image`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: imagePrompt.trim(), postText: postText.trim() || undefined }),
-    });
-    setGeneratingImage(false);
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
-    if (res.ok) {
-      const d = (await res.json()) as { imageUrl: string };
-      setImageUrl(d.imageUrl);
-      setSaved(false);
-    }
-  }
-
-  async function saveDraft() {
-    if (!accountId || !postText.trim() || saving) return;
-    setSaving(true);
-    setSaved(false);
+  async function createDraft() {
+    if (!accountId || creating) return;
+    setCreating(true);
     const res = await fetch(`/api/studio/${accountId}/drafts`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: postText,
-        imageUrl: imageUrl ?? undefined,
-        imagePrompt: imagePrompt.trim() || undefined,
-      }),
+      body: JSON.stringify({}),
     });
-    setSaving(false);
+    setCreating(false);
     if (res.status === 401) {
       router.push("/login");
       return;
     }
     if (res.ok) {
       const d = (await res.json()) as { draft: Draft };
-      setDrafts((list) => [d.draft, ...list]);
-      setSaved(true);
-    }
-  }
-
-  async function deleteDraft(id: string) {
-    if (!accountId) return;
-    setDrafts((list) => list.filter((d) => d.id !== id));
-    const res = await fetch(`/api/studio/${accountId}/drafts/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (res.status === 401) {
-      router.push("/login");
-      return;
-    }
-    if (!res.ok) {
-      void loadDrafts(accountId);
+      router.push(`/studio/${d.draft.id}`);
     }
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("studio.title")}</h1>
-        <p className="text-muted-foreground mt-1 text-sm">{t("studio.subtitle")}</p>
+    <div className="mx-auto max-w-4xl p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("studio.title")}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t("studio.subtitle")}</p>
+        </div>
+        {state === "ready" && (
+          <Button onClick={() => void createDraft()} disabled={creating}>
+            <Plus className="size-4" />
+            {t("studio.newDraft")}
+          </Button>
+        )}
       </div>
 
       {state === "loading" && (
-        <div className="mt-6 space-y-3">
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-64 w-full rounded-xl" />
+        <div className="mt-6 grid gap-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          ))}
         </div>
       )}
 
@@ -200,94 +135,26 @@ export default function StudioPage() {
       )}
 
       {state === "ready" && (
-        <div className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">{t("studio.title")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Input
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  placeholder={t("studio.topicPlaceholder")}
-                />
-                <Button onClick={() => void generateText()} disabled={generatingText} className="shrink-0">
-                  <Sparkles className={cn("size-4", generatingText && "animate-pulse")} />
-                  {generatingText ? t("studio.generating") : t("studio.generatePost")}
-                </Button>
-              </div>
+        <div className="mt-6 grid gap-3">
+          {!draftsLoaded &&
+            [0, 1, 2].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
 
-              {noProfile && (
-                <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-2.5 text-sm">
-                  {t("studio.noProfile")}{" "}
-                  <a href="/profile" className="font-medium underline underline-offset-2">
-                    {t("studio.noProfileLink")}
-                  </a>
-                </div>
-              )}
+          {draftsLoaded && drafts.length === 0 && (
+            <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
+              <p>{t("studio.draftsEmpty")}</p>
+              <Button onClick={() => void createDraft()} disabled={creating} className="mt-4">
+                <Plus className="size-4" />
+                {t("studio.newDraft")}
+              </Button>
+            </div>
+          )}
 
-              <Textarea
-                value={postText}
-                onChange={(e) => {
-                  setPostText(e.target.value);
-                  setSaved(false);
-                }}
-                placeholder={t("studio.postPlaceholder")}
-                className="min-h-48"
-              />
-
-              <div className="flex items-center gap-2">
-                <Input
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                  placeholder={t("studio.imagePromptPlaceholder")}
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => void generateImage()}
-                  disabled={generatingImage || !imagePrompt.trim()}
-                  className="shrink-0"
-                >
-                  <ImagePlus className={cn("size-4", generatingImage && "animate-spin")} />
-                  {generatingImage ? t("studio.generatingImage") : t("studio.generateImage")}
-                </Button>
-              </div>
-
-              {imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className="max-h-80 w-full rounded-lg border object-contain"
-                />
-              )}
-
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <Button onClick={() => void saveDraft()} disabled={saving || !postText.trim()}>
-                  <Save className="size-4" />
-                  {saving ? t("common.loading") : t("studio.saveDraft")}
-                </Button>
-                {saved && <span className="text-success text-sm">{t("studio.saved")}</span>}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div>
-            <h2 className="text-sm font-medium">{t("studio.draftsTitle")}</h2>
-            <div className="mt-3 grid gap-3">
-              {!draftsLoaded &&
-                [0, 1].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
-
-              {draftsLoaded && drafts.length === 0 && (
-                <div className="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
-                  {t("studio.draftsEmpty")}
-                </div>
-              )}
-
-              {draftsLoaded &&
-                drafts.map((d) => (
-                  <Card key={d.id} className="flex-row items-start gap-4 p-4">
+          {draftsLoaded &&
+            drafts.map((d) => {
+              const title = draftTitle(d.text);
+              return (
+                <a key={d.id} href={`/studio/${d.id}`} className="block">
+                  <Card className="hover:border-foreground/20 hover:bg-accent/40 flex-row items-start gap-4 p-4 shadow-sm transition-colors">
                     {d.imageUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -297,24 +164,27 @@ export default function StudioPage() {
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-3 text-sm whitespace-pre-wrap">{d.text}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-medium">
+                          {title || t("studio.untitled")}
+                        </span>
+                        <Badge variant={statusVariant(d.status)} className="capitalize">
+                          {d.status}
+                        </Badge>
+                      </div>
+                      {title && (
+                        <p className="text-muted-foreground mt-1 line-clamp-2 text-sm whitespace-pre-wrap">
+                          {d.text}
+                        </p>
+                      )}
                       <div className="text-muted-foreground mt-1.5 text-xs">
-                        {new Date(d.createdAt).toLocaleString()}
+                        {new Date(d.updatedAt).toLocaleString()}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-destructive size-8 shrink-0"
-                      onClick={() => void deleteDraft(d.id)}
-                      aria-label={t("studio.delete")}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
                   </Card>
-                ))}
-            </div>
-          </div>
+                </a>
+              );
+            })}
         </div>
       )}
     </div>
