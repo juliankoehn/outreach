@@ -79,6 +79,7 @@ model LinkedInAccount {
   posts          Post[]
   creatorProfile CreatorProfile?
   interviews     InterviewSession[]
+  drafts         Draft[]
 
   @@unique([userId, memberUrn])
 }
@@ -131,4 +132,19 @@ model InterviewSession {
   account           LinkedInAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
 
   @@index([linkedinAccountId])
+}
+
+model Draft {
+  id                String   @id @default(cuid())
+  linkedinAccountId String
+  text              String   @default("")
+  imageUrl          String?
+  imagePrompt       String?
+  status            String   @default("draft") // draft (published/scheduled reserved later)
+  source            String   @default("ai")    // ai | manual
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  account           LinkedInAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
+
+  @@index([linkedinAccountId, createdAt])
 }

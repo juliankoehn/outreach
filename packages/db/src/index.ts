@@ -5,5 +5,6 @@ export type {
 	Post,
 	CreatorProfile,
 	InterviewSession,
+	Draft,
 	Prisma,
 } from "@prisma/client";
