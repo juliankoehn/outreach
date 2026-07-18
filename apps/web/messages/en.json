@@ -82,6 +82,15 @@
     "generic": "Something went wrong. Try again.",
     "network": "Can't reach the server. Is the API running?"
   },
+  "nav": {
+    "accounts": "Accounts",
+    "analysis": "Analysis",
+    "content": "Content",
+    "schedule": "Schedule",
+    "settings": "Settings",
+    "soon": "soon",
+    "signedInAs": "Signed in"
+  },
   "meta": {
     "theme": "Theme",
     "language": "Language"

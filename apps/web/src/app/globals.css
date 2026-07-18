@@ -509,6 +509,101 @@ body {
 @media (max-width: 560px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
 
 /* ============================================================
+   App shell (sidebar + topbar) for the authenticated area
+   ============================================================ */
+.app { min-height: 100dvh; display: grid; grid-template-columns: 236px 1fr; }
+
+.sidebar {
+  position: sticky; top: 0; height: 100dvh;
+  display: flex; flex-direction: column;
+  padding: 20px 14px 16px;
+  background: var(--surface);
+  border-right: 1px solid var(--hairline);
+}
+.sidebar__brand { margin: 0 8px 24px; }
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav__item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 8px 10px; border-radius: 5px;
+  font-size: 13.5px; color: var(--muted);
+  position: relative; transition: color .14s, background .14s;
+}
+.nav__item:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.nav__item--active { color: var(--ink); background: var(--accent-weak); }
+.nav__item--active::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 2px; border-radius: 2px; background: var(--accent);
+}
+.nav__item--soon { color: var(--faint); cursor: default; }
+.nav__item--soon:hover { background: none; color: var(--faint); }
+.nav__icon { width: 15px; text-align: center; font-family: var(--font-mono); font-size: 12px; }
+.nav__soon {
+  margin-left: auto; font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint);
+  border: 1px solid var(--hairline); border-radius: 3px; padding: 1px 5px;
+}
+
+.sidebar__foot {
+  margin-top: auto; padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.sidebar__user { display: flex; align-items: center; gap: 9px; padding: 0 6px; min-width: 0; }
+.sidebar__avatar {
+  width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--accent-weak); color: var(--accent-ink);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+}
+.sidebar__user-name { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.main {
+  min-width: 0;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+.topbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(8px);
+}
+.topbar__title {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em;
+  color: var(--muted); text-transform: lowercase;
+}
+.topbar__controls { margin-left: auto; }
+
+.content { padding: 28px 26px 60px; max-width: 820px; }
+.page__head { margin-bottom: 22px; }
+.page .console__topline { margin-top: 20px; }
+
+@media (max-width: 720px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    position: static; height: auto; flex-direction: row; align-items: center;
+    padding: 10px 14px; gap: 8px; overflow-x: auto;
+    border-right: none; border-bottom: 1px solid var(--hairline);
+  }
+  .sidebar__brand { margin: 0 10px 0 4px; }
+  .nav { flex-direction: row; gap: 2px; }
+  .nav__item { white-space: nowrap; }
+  .nav__soon { display: none; }
+  .sidebar__foot {
+    margin: 0 0 0 auto; padding: 0 0 0 12px; flex-direction: row; align-items: center;
+    border-top: none; border-left: 1px solid var(--hairline);
+  }
+  .sidebar__user-name { display: none; }
+  .content { padding: 20px 16px 48px; }
+}
+
+/* ============================================================
    Accessibility + motion
    ============================================================ */
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }

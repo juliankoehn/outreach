@@ -82,6 +82,15 @@
     "generic": "Etwas ist schiefgelaufen. Versuch es erneut.",
     "network": "Server nicht erreichbar. Läuft die API?"
   },
+  "nav": {
+    "accounts": "Konten",
+    "analysis": "Analyse",
+    "content": "Content",
+    "schedule": "Zeitplan",
+    "settings": "Einstellungen",
+    "soon": "bald",
+    "signedInAs": "Angemeldet"
+  },
   "meta": {
     "theme": "Design",
     "language": "Sprache"

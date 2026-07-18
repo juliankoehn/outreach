@@ -3,8 +3,6 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { BRAND } from "@/config/brand";
-import { ConsoleControls } from "@/components/console-controls";
 
 const DATA_EXPORT_URL = "https://www.linkedin.com/mypreferences/d/download-my-data";
 
@@ -42,7 +40,6 @@ export default function AccountsPage() {
 
 function AccountsInner() {
   const t = useTranslations();
-  const tb = useTranslations("brand");
   const router = useRouter();
   const params = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -58,8 +55,7 @@ function AccountsInner() {
       return;
     }
     if (res.ok) {
-      const data = (await res.json()) as { accounts: Account[] };
-      setAccounts(data.accounts);
+      setAccounts(((await res.json()) as { accounts: Account[] }).accounts);
     }
     setLoaded(true);
   }, [router]);
@@ -68,64 +64,44 @@ function AccountsInner() {
     void load();
   }, [load]);
 
-  async function signOut() {
-    await fetch("/api/api/auth/sign-out", { method: "POST", credentials: "include" });
-    router.push("/login");
-  }
-
   return (
-    <main className="shell">
-      <section className="console console--wide">
-        <span className="console__mark" aria-hidden="true" />
-        <header className="console__head">
-          <div className="brand">
-            <span className="brand__name">
-              <span className="transmit" aria-hidden="true" />
-              {BRAND.name.toLowerCase()}
-            </span>
-            <span className="brand__vendor">{tb("vendorPrefix")} {BRAND.vendor}</span>
-          </div>
-          <div className="controls">
-            <ConsoleControls />
-            <button className="ctrl" onClick={signOut}>{t("accounts.signOut")}</button>
-          </div>
-        </header>
-
+    <div className="page">
+      <header className="page__head">
         <p className="kicker">{t("accounts.kicker")}</p>
         <h1 className="title">{t("accounts.title")}</h1>
         <p className="subtitle">{t("accounts.subtitle")}</p>
+      </header>
 
-        {connected && (
-          <div className="banner banner--ok">
-            <span className="banner__dot" aria-hidden="true">✓</span>
-            {t("accounts.connectedBanner")}
-          </div>
-        )}
-        {oauthError && (
-          <div className="banner banner--error">
-            <span className="banner__dot" aria-hidden="true">!</span>
-            {oauthError}
-          </div>
-        )}
-
-        <div className="console__topline">
-          <a className="btn btn--solid" href="/api/linkedin/connect">
-            {t("accounts.connect")}
-            <span className="btn__arrow" aria-hidden="true">→</span>
-          </a>
+      {connected && (
+        <div className="banner banner--ok">
+          <span className="banner__dot" aria-hidden="true">✓</span>
+          {t("accounts.connectedBanner")}
         </div>
+      )}
+      {oauthError && (
+        <div className="banner banner--error">
+          <span className="banner__dot" aria-hidden="true">!</span>
+          {oauthError}
+        </div>
+      )}
 
-        {!loaded && <AccountsSkeleton />}
-        {loaded && accounts.length === 0 && <div className="empty">{t("accounts.empty")}</div>}
-        {loaded && accounts.length > 0 && (
-          <div className="stack">
-            {accounts.map((a) => (
-              <AccountCard key={a.id} account={a} />
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
+      <div className="console__topline">
+        <a className="btn btn--solid" href="/api/linkedin/connect">
+          {t("accounts.connect")}
+          <span className="btn__arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+
+      {!loaded && <AccountsSkeleton />}
+      {loaded && accounts.length === 0 && <div className="empty">{t("accounts.empty")}</div>}
+      {loaded && accounts.length > 0 && (
+        <div className="stack">
+          {accounts.map((a) => (
+            <AccountCard key={a.id} account={a} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -163,10 +139,7 @@ function AccountCard({ account }: { account: Account }) {
 
   const loadPosts = useCallback(async () => {
     const res = await fetch(`/api/linkedin/accounts/${account.id}/posts`, { credentials: "include" });
-    if (res.ok) {
-      const d = (await res.json()) as { posts: Post[] };
-      setPosts(d.posts);
-    }
+    if (res.ok) setPosts(((await res.json()) as { posts: Post[] }).posts);
     setPostsLoaded(true);
   }, [account.id]);
 
@@ -244,7 +217,6 @@ function AccountCard({ account }: { account: Account }) {
       </div>
       <div className="account__urn">{account.memberUrn}</div>
 
-      {/* Aggregate analytics (live) */}
       <div className="metrics-block">
         <div className="metrics-block__title">{t("accounts.metricsTitle")}</div>
         {analyticsState === "loading" && (
@@ -273,7 +245,6 @@ function AccountCard({ account }: { account: Account }) {
         {analyticsState === "error" && <p className="metrics__note">{t("accounts.metricsUnavailable")}</p>}
       </div>
 
-      {/* Content import (CSV) */}
       <div className="account__import">
         <div className="account__import-title">{t("accounts.importTitle")}</div>
         <p className="account__import-help">
@@ -308,7 +279,6 @@ function AccountCard({ account }: { account: Account }) {
         </div>
       </div>
 
-      {/* Posts */}
       {postsLoaded && (
         <div className="posts-block">
           <div className="posts-block__head">
