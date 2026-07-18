@@ -33,7 +33,13 @@ export function linkedinRoutes() {
     const state = signState(user.id, nonce);
     const { url } = client().createAuthorization(SCOPES);
     const withState = url.replace(/state=[^&]+/, `state=${encodeURIComponent(state)}`);
-    setCookie(c, "li_oauth_state", state, { httpOnly: true, sameSite: "Lax", path: "/", maxAge: 600 });
+    setCookie(c, "li_oauth_state", state, {
+      httpOnly: true,
+      sameSite: "Lax",
+      path: "/",
+      maxAge: 600,
+      secure: process.env.NODE_ENV === "production",
+    });
     return c.redirect(withState);
   });
 
@@ -61,7 +67,7 @@ export function linkedinRoutes() {
 
   r.post("/accounts/:id/ingest", async (c) => {
     const user = c.get("user")!;
-    const acct = await getDecryptedAccount(c.req.param("id"));
+    const acct = await getDecryptedAccount(c.req.param("id"), user.id);
     if (!acct || acct.userId !== user.id) return c.json({ error: "not_found" }, 404);
     const ingestor = new LinkedInApiIngestor({ accessToken: acct.accessToken, memberUrn: acct.memberUrn });
     try {
@@ -77,7 +83,7 @@ export function linkedinRoutes() {
 
   r.post("/accounts/:id/import", async (c) => {
     const user = c.get("user")!;
-    const acct = await getDecryptedAccount(c.req.param("id"));
+    const acct = await getDecryptedAccount(c.req.param("id"), user.id);
     if (!acct || acct.userId !== user.id) return c.json({ error: "not_found" }, 404);
     const csv = await c.req.text();
     const ingestor = new CsvShareIngestor(csv);

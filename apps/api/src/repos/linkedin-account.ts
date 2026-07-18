@@ -37,8 +37,8 @@ export async function saveLinkedInAccount(input: {
   return { id: acct.id };
 }
 
-export async function getDecryptedAccount(id: string) {
-  const a = await prisma.linkedInAccount.findUnique({ where: { id } });
+export async function getDecryptedAccount(id: string, userId: string) {
+  const a = await prisma.linkedInAccount.findFirst({ where: { id, userId } });
   if (!a) return null;
   return {
     id: a.id,

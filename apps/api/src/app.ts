@@ -11,6 +11,8 @@ export function createApp() {
 
   app.use("*", cors({ origin: env.WEB_ORIGIN, credentials: true }));
 
+  app.get("/health", (c) => c.json({ status: "ok" }));
+
   app.use("*", async (c, next) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     c.set("user", session?.user ?? null);
@@ -18,8 +20,6 @@ export function createApp() {
   });
 
   app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
-
-  app.get("/health", (c) => c.json({ status: "ok" }));
 
   // Protected route group guard
   app.use("/linkedin/*", async (c, next) => {
