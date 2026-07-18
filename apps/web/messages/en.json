@@ -115,6 +115,27 @@
     "cadence": "Cadence",
     "topPatterns": "Top patterns"
   },
+  "studio": {
+    "kicker": "console / studio",
+    "title": "Studio",
+    "subtitle": "Draft a post, generate an image, and save it for later.",
+    "emptyNoAccount": "Connect a LinkedIn account first to use the studio.",
+    "goToAccounts": "Go to accounts",
+    "topicPlaceholder": "Topic or angle (optional)…",
+    "generatePost": "Generate post",
+    "generating": "Generating…",
+    "postPlaceholder": "Your post will appear here — write or edit freely.",
+    "imagePromptPlaceholder": "Describe the image…",
+    "generateImage": "Generate image",
+    "generatingImage": "Generating image… this can take a minute",
+    "saveDraft": "Save draft",
+    "saved": "Saved.",
+    "draftsTitle": "Drafts",
+    "draftsEmpty": "No drafts yet — generate a post above and save it.",
+    "delete": "Delete",
+    "noProfile": "Build your creator profile first — we need it to draft in your voice.",
+    "noProfileLink": "Go to profile"
+  },
   "errors": {
     "nameRequired": "Enter your name.",
     "emailRequired": "Enter your email.",
@@ -129,7 +150,7 @@
   "nav": {
     "accounts": "Accounts",
     "analysis": "Profile",
-    "content": "Content",
+    "content": "Studio",
     "schedule": "Schedule",
     "settings": "Settings",
     "soon": "soon",

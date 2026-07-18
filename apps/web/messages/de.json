@@ -115,6 +115,27 @@
     "cadence": "Rhythmus",
     "topPatterns": "Top-Muster"
   },
+  "studio": {
+    "kicker": "konsole / studio",
+    "title": "Studio",
+    "subtitle": "Entwirf einen Post, erstelle ein Bild und speichere ihn als Entwurf.",
+    "emptyNoAccount": "Verbinde zuerst ein LinkedIn-Konto, um das Studio zu nutzen.",
+    "goToAccounts": "Zu den Konten",
+    "topicPlaceholder": "Thema oder Blickwinkel (optional)…",
+    "generatePost": "Post generieren",
+    "generating": "Generiere…",
+    "postPlaceholder": "Dein Post erscheint hier — frei bearbeitbar.",
+    "imagePromptPlaceholder": "Beschreibe das Bild…",
+    "generateImage": "Bild generieren",
+    "generatingImage": "Bild wird erstellt… das kann eine Minute dauern",
+    "saveDraft": "Entwurf speichern",
+    "saved": "Gespeichert.",
+    "draftsTitle": "Entwürfe",
+    "draftsEmpty": "Noch keine Entwürfe — generiere oben einen Post und speichere ihn.",
+    "delete": "Löschen",
+    "noProfile": "Erstelle zuerst dein Creator-Profil — wir brauchen es, um in deiner Stimme zu schreiben.",
+    "noProfileLink": "Zum Profil"
+  },
   "errors": {
     "nameRequired": "Gib deinen Namen ein.",
     "emailRequired": "Gib deine E-Mail ein.",
@@ -129,7 +150,7 @@
   "nav": {
     "accounts": "Konten",
     "analysis": "Profil",
-    "content": "Content",
+    "content": "Studio",
     "schedule": "Zeitplan",
     "settings": "Einstellungen",
     "soon": "bald",

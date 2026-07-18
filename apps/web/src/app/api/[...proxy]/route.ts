@@ -21,3 +21,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ proxy: string[]
 export async function POST(req: Request, ctx: { params: Promise<{ proxy: string[] }> }) {
   return forward(req, (await ctx.params).proxy);
 }
+export async function PATCH(req: Request, ctx: { params: Promise<{ proxy: string[] }> }) {
+  return forward(req, (await ctx.params).proxy);
+}
+export async function DELETE(req: Request, ctx: { params: Promise<{ proxy: string[] }> }) {
+  return forward(req, (await ctx.params).proxy);
+}

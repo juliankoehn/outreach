@@ -29,7 +29,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/accounts", key: "accounts", icon: LayoutGrid },
   { href: "/profile", key: "analysis", icon: Sparkles },
-  { href: "/content", key: "content", icon: PenLine, soon: true },
+  { href: "/studio", key: "content", icon: PenLine },
   { href: "/schedule", key: "schedule", icon: CalendarClock, soon: true },
   { href: "/settings", key: "settings", icon: Settings, soon: true },
 ];
