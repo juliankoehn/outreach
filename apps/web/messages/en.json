@@ -41,6 +41,23 @@
     "signIn": "Sign in",
     "getStarted": "Create account"
   },
+  "accounts": {
+    "kicker": "console / accounts",
+    "title": "Connected accounts",
+    "subtitle": "Connect LinkedIn, then bring in your post history.",
+    "connect": "Connect LinkedIn",
+    "connectedBanner": "LinkedIn account connected.",
+    "empty": "No accounts yet — connect LinkedIn to begin.",
+    "importTitle": "Import post history",
+    "importHelp": "Upload the Shares.csv from your LinkedIn data export (Settings → Data privacy → Get a copy of your data).",
+    "importCsv": "Upload Shares.csv",
+    "importing": "Importing…",
+    "tryApi": "Try API import",
+    "imported": "Imported {inserted} · skipped {skipped}",
+    "apiUnavailable": "API post-read isn't available for this app's permissions — use the CSV import instead.",
+    "signOut": "Sign out",
+    "postsCount": "{count} posts"
+  },
   "errors": {
     "nameRequired": "Enter your name.",
     "emailRequired": "Enter your email.",

@@ -41,6 +41,23 @@
     "signIn": "Anmelden",
     "getStarted": "Konto erstellen"
   },
+  "accounts": {
+    "kicker": "konsole / konten",
+    "title": "Verbundene Konten",
+    "subtitle": "Verbinde LinkedIn und hol deine Post-Historie herein.",
+    "connect": "LinkedIn verbinden",
+    "connectedBanner": "LinkedIn-Konto verbunden.",
+    "empty": "Noch keine Konten — verbinde LinkedIn, um zu starten.",
+    "importTitle": "Post-Historie importieren",
+    "importHelp": "Lade die Shares.csv aus deinem LinkedIn-Datenexport hoch (Einstellungen → Datenschutz → Kopie deiner Daten).",
+    "importCsv": "Shares.csv hochladen",
+    "importing": "Import läuft…",
+    "tryApi": "API-Import versuchen",
+    "imported": "{inserted} importiert · {skipped} übersprungen",
+    "apiUnavailable": "API-Lesen ist mit den Berechtigungen dieser App nicht verfügbar — nutz den CSV-Import.",
+    "signOut": "Abmelden",
+    "postsCount": "{count} Posts"
+  },
   "errors": {
     "nameRequired": "Gib deinen Namen ein.",
     "emailRequired": "Gib deine E-Mail ein.",
