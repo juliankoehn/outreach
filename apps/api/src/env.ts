@@ -13,6 +13,8 @@ const schema = z.object({
   // Rolling LinkedIn API version (YYYYMM). LinkedIn keeps only a recent window
   // active; bump this when calls start returning 426 NONEXISTENT_VERSION.
   LINKEDIN_API_VERSION: z.string().regex(/^\d{6}$/).default("202601"),
+  AI_PROVIDER: z.string().default("openai"),
+  AI_TEXT_MODEL: z.string().default("gpt-4o"),
 });
 
 const parsed = schema.safeParse(process.env);
