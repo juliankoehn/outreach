@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth, type AuthUser } from "./auth.js";
 import { env } from "./env.js";
+import { linkedinRoutes } from "./routes/linkedin.js";
 
 export type AppEnv = { Variables: { user: AuthUser | null } };
 
@@ -26,7 +27,7 @@ export function createApp() {
     await next();
   });
 
-  app.get("/linkedin/accounts", (c) => c.json({ accounts: [] })); // filled in Task 12
+  app.route("/linkedin", linkedinRoutes());
 
   return app;
 }
