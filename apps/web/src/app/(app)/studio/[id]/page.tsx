@@ -88,7 +88,11 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
     transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
   }, [chat, thinking]);
 
-  useEffect(() => () => savedTimeout.current && clearTimeout(savedTimeout.current), []);
+  useEffect(() => {
+    return () => {
+      if (savedTimeout.current) clearTimeout(savedTimeout.current);
+    };
+  }, []);
 
   function flashSaved() {
     setSaved(true);
