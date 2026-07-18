@@ -65,3 +65,17 @@ export async function getAccountSummary(id: string, userId: string) {
     select: { id: true, memberUrn: true, displayName: true, avatarUrl: true, status: true },
   });
 }
+
+export async function getAnalyticsCache(id: string) {
+  return prisma.linkedInAccount.findUnique({
+    where: { id },
+    select: { analytics: true, analyticsAt: true },
+  });
+}
+
+export async function setAnalyticsCache(id: string, analytics: object): Promise<void> {
+  await prisma.linkedInAccount.update({
+    where: { id },
+    data: { analytics, analyticsAt: new Date() },
+  });
+}

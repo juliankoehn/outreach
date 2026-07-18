@@ -71,6 +71,8 @@ model LinkedInAccount {
   tokenExpiresAt DateTime?
   scopes         String[]
   status         String   @default("active") // active | expired | revoked
+  analytics      Json?     // cached aggregate post metrics
+  analyticsAt    DateTime? // when the cached analytics were fetched
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)

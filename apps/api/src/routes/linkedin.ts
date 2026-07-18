@@ -17,6 +17,8 @@ import {
   getDecryptedAccount,
   listAccounts,
   getAccountSummary,
+  getAnalyticsCache,
+  setAnalyticsCache,
 } from "../repos/linkedin-account.js";
 import { upsertPosts, listPosts, postsToEnrich, setPostMetrics } from "../repos/post.js";
 
@@ -33,6 +35,9 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
 }
 
 const ENRICH_LIMIT = 25;
+// Aggregate metrics are lifetime totals that barely move; refresh at most every
+// 6 hours to stay well under LinkedIn's per-day analytics throttle.
+const ANALYTICS_TTL_MS = 6 * 60 * 60 * 1000;
 
 // Scopes granted by the Community Management API product:
 //  r_basicprofile        — identity (name, headline, photo) for /v2/me
@@ -97,13 +102,28 @@ export function linkedinRoutes() {
     const user = c.get("user")!;
     const acct = await getDecryptedAccount(c.req.param("id"), user.id);
     if (!acct || acct.userId !== user.id) return c.json({ error: "not_found" }, 404);
+
+    const force = c.req.query("refresh") === "1";
+    const cache = await getAnalyticsCache(acct.id);
+    const cachedAt = cache?.analyticsAt ?? null;
+    const isFresh = cachedAt && Date.now() - cachedAt.getTime() < ANALYTICS_TTL_MS;
+
+    // Serve a fresh cache without touching LinkedIn.
+    if (cache?.analytics && isFresh && !force) {
+      return c.json({ metrics: cache.analytics, cachedAt, stale: false });
+    }
+
     const client = new MemberAnalyticsClient({
       accessToken: acct.accessToken,
       apiVersion: env.LINKEDIN_API_VERSION,
     });
     try {
-      return c.json({ metrics: await client.aggregate() });
+      const metrics = await client.aggregate();
+      await setAnalyticsCache(acct.id, metrics);
+      return c.json({ metrics, cachedAt: new Date(), stale: false });
     } catch {
+      // On failure (e.g. 429 rate limit) fall back to any cached value.
+      if (cache?.analytics) return c.json({ metrics: cache.analytics, cachedAt, stale: true });
       return c.json({ error: "analytics_unavailable" }, 502);
     }
   });

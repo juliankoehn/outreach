@@ -20,6 +20,15 @@ export default function AccountDetailPage() {
   const { id } = useParams<{ id: string }>();
   const nf = new Intl.NumberFormat(locale);
   const df = new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" });
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const rel = (iso: string | null) => {
+    if (!iso) return "";
+    const mins = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+    if (Math.abs(mins) < 60) return rtf.format(mins, "minute");
+    const hrs = Math.round(mins / 60);
+    if (Math.abs(hrs) < 24) return rtf.format(hrs, "hour");
+    return rtf.format(Math.round(hrs / 24), "day");
+  };
 
   const [account, setAccount] = useState<Account | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
@@ -30,6 +39,11 @@ export default function AccountDetailPage() {
 
   const [analytics, setAnalytics] = useState<Metrics | null>(null);
   const [analyticsState, setAnalyticsState] = useState<"loading" | "ok" | "error">("loading");
+  const [analyticsMeta, setAnalyticsMeta] = useState<{ cachedAt: string | null; stale: boolean }>({
+    cachedAt: null,
+    stale: false,
+  });
+  const [refreshing, setRefreshing] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
 
@@ -38,6 +52,26 @@ export default function AccountDetailPage() {
     if (res.ok) setPosts(((await res.json()) as { posts: Post[] }).posts);
     setPostsLoaded(true);
   }, [id]);
+
+  const loadAnalytics = useCallback(
+    async (force = false) => {
+      if (force) setRefreshing(true);
+      const res = await fetch(
+        `/api/linkedin/accounts/${id}/analytics${force ? "?refresh=1" : ""}`,
+        { credentials: "include" },
+      );
+      if (res.ok) {
+        const d = (await res.json()) as { metrics: Metrics; cachedAt: string | null; stale: boolean };
+        setAnalytics(d.metrics);
+        setAnalyticsMeta({ cachedAt: d.cachedAt, stale: d.stale });
+        setAnalyticsState("ok");
+      } else {
+        setAnalyticsState("error");
+      }
+      setRefreshing(false);
+    },
+    [id],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -50,19 +84,12 @@ export default function AccountDetailPage() {
         setState("ok");
       } else setState("missing");
     })();
-    (async () => {
-      const res = await fetch(`/api/linkedin/accounts/${id}/analytics`, { credentials: "include" });
-      if (!alive) return;
-      if (res.ok) {
-        setAnalytics(((await res.json()) as { metrics: Metrics }).metrics);
-        setAnalyticsState("ok");
-      } else setAnalyticsState("error");
-    })();
+    void loadAnalytics();
     void loadPosts();
     return () => {
       alive = false;
     };
-  }, [id, router, loadPosts]);
+  }, [id, router, loadPosts, loadAnalytics]);
 
   async function importCsv(file: File) {
     setBusy(true);
@@ -132,8 +159,18 @@ export default function AccountDetailPage() {
 
           {/* Analytics */}
           <Card className="mt-6 gap-0 overflow-hidden py-0">
-            <CardHeader className="border-b px-5 py-4">
+            <CardHeader className="flex-row items-center justify-between border-b px-5 py-3">
               <CardTitle className="text-sm">{t("accounts.metricsTitle")}</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadAnalytics(true)}
+                disabled={refreshing}
+                className="text-muted-foreground -mr-2 h-7"
+              >
+                <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
+                {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <div className="grid grid-cols-2 sm:grid-cols-5">
@@ -161,8 +198,14 @@ export default function AccountDetailPage() {
               </div>
             </CardContent>
           </Card>
-          <p className="text-muted-foreground mt-2 text-xs">
-            {analyticsState === "error" ? t("accounts.metricsUnavailable") : t("accounts.metricsNote")}
+          <p className={cn("mt-2 text-xs", analyticsMeta.stale ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground")}>
+            {analyticsState === "error"
+              ? t("accounts.metricsUnavailable")
+              : analyticsMeta.stale
+                ? t("accounts.rateLimited")
+                : analyticsMeta.cachedAt
+                  ? `${t("accounts.metricsNote")} · ${t("accounts.updatedAt", { when: rel(analyticsMeta.cachedAt) })}`
+                  : t("accounts.metricsNote")}
           </p>
 
           {/* Import */}
