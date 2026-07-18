@@ -4,10 +4,10 @@ import { getOrCreateInterview, appendInterviewMessage, upsertProfile, getProfile
 
 let userId = "", accountId = "";
 beforeAll(async () => {
-  userId = `u_${Date.now()}`;
+  userId = `u_${(Date.now()+Math.floor(Math.random()*1e9))}`;
   await prisma.user.create({ data: { id: userId, email: `${userId}@ex.com` } });
   const a = await prisma.linkedInAccount.create({
-    data: { userId, memberUrn: `urn:li:person:${Date.now()}`, displayName: "T", accessToken: "enc", scopes: [] },
+    data: { userId, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9))}`, displayName: "T", accessToken: "enc", scopes: [] },
   });
   accountId = a.id;
 });
@@ -32,12 +32,12 @@ describe("profile repo", () => {
   });
 
   it("ignores a linkedinAccountId in the body and never writes/reassigns another account's profile", async () => {
-    const otherUserId = `u_other_${Date.now()}`;
+    const otherUserId = `u_other_${(Date.now()+Math.floor(Math.random()*1e9))}`;
     await prisma.user.create({ data: { id: otherUserId, email: `${otherUserId}@ex.com` } });
     const other = await prisma.linkedInAccount.create({
       data: {
         userId: otherUserId,
-        memberUrn: `urn:li:person:other:${Date.now()}`,
+        memberUrn: `urn:li:person:other:${(Date.now()+Math.floor(Math.random()*1e9))}`,
         displayName: "O",
         accessToken: "enc",
         scopes: [],

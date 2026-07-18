@@ -12,7 +12,7 @@ let userId = "", accountId = "", cookie = "";
 const app = createApp();
 
 async function authed(): Promise<{ cookie: string; email: string }> {
-  const email = `s${Date.now()}${Math.floor(Math.random() * 1e6)}@ex.com`;
+  const email = `s${(Date.now()+Math.floor(Math.random()*1e9))}${Math.floor(Math.random() * 1e6)}@ex.com`;
   const res = await app.request("/api/auth/sign-up/email", {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: process.env.WEB_ORIGIN! },
@@ -26,7 +26,7 @@ beforeAll(async () => {
   const u = await prisma.user.findUniqueOrThrow({ where: { email: a.email } });
   userId = u.id;
   const acc = await prisma.linkedInAccount.create({
-    data: { userId, memberUrn: `urn:li:person:${Date.now()}`, displayName: "T", accessToken: "enc", scopes: [] },
+    data: { userId, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9))}`, displayName: "T", accessToken: "enc", scopes: [] },
   });
   accountId = acc.id;
   await prisma.creatorProfile.create({ data: { linkedinAccountId: accountId, status: "ready", brandBrief: "Write as X." } });
@@ -63,7 +63,7 @@ describe("studio routes", () => {
     const other = await authed();
     const u = await prisma.user.findUniqueOrThrow({ where: { email: other.email } });
     const acc = await prisma.linkedInAccount.create({
-      data: { userId: u.id, memberUrn: `urn:li:person:${Date.now() + 1}`, displayName: "N", accessToken: "e", scopes: [] },
+      data: { userId: u.id, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9)) + 1}`, displayName: "N", accessToken: "e", scopes: [] },
     });
     const res = await app.request(`/studio/${acc.id}/draft-text`, {
       method: "POST", headers: { "Content-Type": "application/json", Cookie: other.cookie }, body: "{}",

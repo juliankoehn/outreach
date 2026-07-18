@@ -17,7 +17,7 @@ let userId = "", accountId = "", cookie = "";
 const app = createApp();
 
 async function authedCookie(): Promise<{ cookie: string; email: string }> {
-  const email = `p${Date.now()}-${Math.random().toString(36).slice(2)}@ex.com`;
+  const email = `p${(Date.now()+Math.floor(Math.random()*1e9))}-${Math.random().toString(36).slice(2)}@ex.com`;
   const res = await app.request("/api/auth/sign-up/email", {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: process.env.WEB_ORIGIN! },
@@ -34,7 +34,7 @@ beforeAll(async () => {
   const u = await prisma.user.findFirstOrThrow({ where: { email: signup.email } });
   userId = u.id;
   const a = await prisma.linkedInAccount.create({
-    data: { userId, memberUrn: `urn:li:person:${Date.now()}`, displayName: "T", accessToken: "enc", scopes: [] },
+    data: { userId, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9))}`, displayName: "T", accessToken: "enc", scopes: [] },
   });
   accountId = a.id;
 });

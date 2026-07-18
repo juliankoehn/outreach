@@ -8,10 +8,10 @@ let accountId = "";
 let userId = "";
 
 beforeAll(async () => {
-  userId = `u_${Date.now()}`;
+  userId = `u_${(Date.now()+Math.floor(Math.random()*1e9))}`;
   await prisma.user.create({ data: { id: userId, email: `${userId}@ex.com` } });
   const a = await prisma.linkedInAccount.create({
-    data: { userId, memberUrn: `urn:li:person:${Date.now()}`, displayName: "T", accessToken: "enc", scopes: [] },
+    data: { userId, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9))}`, displayName: "T", accessToken: "enc", scopes: [] },
   });
   accountId = a.id;
 });
