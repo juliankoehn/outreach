@@ -58,3 +58,10 @@ export async function listAccounts(userId: string) {
   });
   return rows;
 }
+
+export async function getAccountSummary(id: string, userId: string) {
+  return prisma.linkedInAccount.findFirst({
+    where: { id, userId },
+    select: { id: true, memberUrn: true, displayName: true, avatarUrl: true, status: true },
+  });
+}

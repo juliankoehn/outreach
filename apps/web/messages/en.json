@@ -69,7 +69,10 @@
     "enrichNone": "Import your Shares.csv first — posts need a LinkedIn URN to enrich.",
     "postsTitle": "Posts",
     "postsEmpty": "No posts yet — import your Shares.csv.",
-    "noText": "(no text)"
+    "noText": "(no text)",
+    "open": "Open",
+    "back": "All accounts",
+    "notFound": "Account not found."
   },
   "errors": {
     "nameRequired": "Enter your name.",

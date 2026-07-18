@@ -12,7 +12,12 @@ import {
 import type { AppEnv } from "../app.js";
 import { env } from "../env.js";
 import { signState, verifyState } from "../oauth-state.js";
-import { saveLinkedInAccount, getDecryptedAccount, listAccounts } from "../repos/linkedin-account.js";
+import {
+  saveLinkedInAccount,
+  getDecryptedAccount,
+  listAccounts,
+  getAccountSummary,
+} from "../repos/linkedin-account.js";
 import { upsertPosts, listPosts, postsToEnrich, setPostMetrics } from "../repos/post.js";
 
 /** Run `fn` over `items` with at most `limit` concurrent executions. */
@@ -134,6 +139,13 @@ export function linkedinRoutes() {
       }
     });
     return c.json({ enriched, failed, total: targets.length });
+  });
+
+  r.get("/accounts/:id", async (c) => {
+    const user = c.get("user")!;
+    const acct = await getAccountSummary(c.req.param("id"), user.id);
+    if (!acct) return c.json({ error: "not_found" }, 404);
+    return c.json({ account: acct });
   });
 
   r.get("/accounts", async (c) => {

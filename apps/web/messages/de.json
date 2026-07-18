@@ -69,7 +69,10 @@
     "enrichNone": "Importier zuerst deine Shares.csv — Posts brauchen eine LinkedIn-URN.",
     "postsTitle": "Posts",
     "postsEmpty": "Noch keine Posts — importier deine Shares.csv.",
-    "noText": "(kein Text)"
+    "noText": "(kein Text)",
+    "open": "Öffnen",
+    "back": "Alle Konten",
+    "notFound": "Konto nicht gefunden."
   },
   "errors": {
     "nameRequired": "Gib deinen Namen ein.",

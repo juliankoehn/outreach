@@ -581,8 +581,54 @@ body {
 .topbar__controls { margin-left: auto; }
 
 .content { padding: 28px 26px 60px; max-width: 820px; }
-.page__head { margin-bottom: 22px; }
+.page__head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  margin-bottom: 22px;
+}
+.page__head-main { min-width: 0; }
+.page__head .btn { margin-top: 6px; flex-shrink: 0; }
 .page .console__topline { margin-top: 20px; }
+
+/* ---- Accounts list (compact rows) ---- */
+.acct-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.acct-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--hairline); border-radius: var(--radius);
+  background: var(--surface);
+  transition: border-color .14s, background .14s;
+}
+.acct-row:hover { border-color: var(--hairline-2); background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+.acct-row__main { min-width: 0; }
+.acct-row__name {
+  font-family: var(--font-display); font-weight: 600; font-size: 15px;
+  letter-spacing: -0.01em; display: flex; align-items: center; gap: 9px;
+}
+.acct-row__urn { font-family: var(--font-mono); font-size: 11px; color: var(--faint); margin-top: 3px; word-break: break-all; }
+.acct-row__open {
+  margin-left: auto; flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: color .14s, gap .14s;
+}
+.acct-row:hover .acct-row__open { color: var(--accent-ink); gap: 10px; }
+
+/* ---- Account detail ---- */
+.detail__back {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+  margin-bottom: 20px; transition: color .14s;
+}
+.detail__back:hover { color: var(--ink); }
+.detail__head { display: flex; align-items: center; gap: 11px; }
+.detail__name { font-family: var(--font-display); font-weight: 600; font-size: 25px; letter-spacing: -0.02em; }
+.detail__urn { font-family: var(--font-mono); font-size: 11px; color: var(--faint); margin-top: 5px; word-break: break-all; }
+.detail .metrics-block { border-top: none; padding-top: 0; margin-top: 26px; }
+
+@media (max-width: 560px) {
+  .page__head { flex-direction: column; }
+  .page__head .btn { margin-top: 0; }
+}
 
 @media (max-width: 720px) {
   .app { grid-template-columns: 1fr; }
