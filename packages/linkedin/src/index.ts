@@ -4,3 +4,4 @@ export { hashPost, dedupeKey } from "./dedupe.js";
 export { LinkedInReadUnavailableError } from "./ingestor.js";
 export type { PostIngestor } from "./ingestor.js";
 export { CsvShareIngestor } from "./csv-ingestor.js";
+export { LinkedInApiIngestor } from "./api-ingestor.js";
