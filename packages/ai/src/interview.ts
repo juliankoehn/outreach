@@ -15,12 +15,16 @@ Rules:
 
 export async function nextTurn(
   messages: ChatMessage[],
-  opts?: { model?: LanguageModel; seed?: string },
+  opts?: { model?: LanguageModel; seed?: string; language?: string },
 ): Promise<string> {
   const model = opts?.model ?? getTextModel();
-  const system = opts?.seed
-    ? `${INTERVIEW_SYSTEM}\n\nContext from the creator's existing posts (use it to confirm or challenge, do not read it back verbatim):\n${opts.seed}`
-    : INTERVIEW_SYSTEM;
+  let system = INTERVIEW_SYSTEM;
+  if (opts?.language) {
+    system += `\n\nConduct the ENTIRE interview in ${opts.language}. Every message, including your first, must be written in ${opts.language}.`;
+  }
+  if (opts?.seed) {
+    system += `\n\nContext from the creator's existing posts (use it to confirm or challenge, do not read it back verbatim):\n${opts.seed}`;
+  }
   const { text } = await generateText({
     model,
     system,

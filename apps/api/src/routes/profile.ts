@@ -41,11 +41,13 @@ export function profileRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
+    const language = langName((await c.req.json<{ locale?: string }>().catch(() => ({}))).locale);
     const iv = await getOrCreateInterview(accountId);
     if (iv.messages.length === 0) {
       const derived = (await getProfile(accountId))?.derived as DerivedInsights | undefined;
       const opener = await nextTurn([{ role: "user", content: "(start the interview)" }], {
         seed: derivedSeed(derived),
+        language,
       });
       await appendInterviewMessage(iv.id, { role: "assistant", content: opener });
       return c.json({ messages: [{ role: "assistant", content: opener }] });
@@ -59,12 +61,13 @@ export function profileRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const { message } = await c.req.json<{ message: string }>();
+    const { message, locale } = await c.req.json<{ message: string; locale?: string }>();
     const iv = await getOrCreateInterview(accountId);
     await appendInterviewMessage(iv.id, { role: "user", content: message });
     const derived = (await getProfile(accountId))?.derived as DerivedInsights | undefined;
     const reply = await nextTurn([...iv.messages, { role: "user", content: message }], {
       seed: derivedSeed(derived),
+      language: langName(locale),
     });
     await appendInterviewMessage(iv.id, { role: "assistant", content: reply });
     return c.json({ reply });
@@ -115,6 +118,11 @@ export function profileRoutes() {
   });
 
   return r;
+}
+
+const LANGUAGES: Record<string, string> = { en: "English", de: "German" };
+function langName(locale?: string): string | undefined {
+  return locale ? (LANGUAGES[locale] ?? locale) : undefined;
 }
 
 function derivedSeed(derived?: DerivedInsights): string | undefined {

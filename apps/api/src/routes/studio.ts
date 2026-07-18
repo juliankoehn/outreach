@@ -38,9 +38,11 @@ export function studioRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const { prompt } = await c.req.json<{ prompt?: string }>().catch(() => ({ prompt: undefined }));
+    const { prompt, postText } = await c.req
+      .json<{ prompt?: string; postText?: string }>()
+      .catch(() => ({ prompt: undefined, postText: undefined }));
     if (!prompt) return c.json({ error: "invalid_body" }, 400);
-    const { base64, mediaType } = await generateImage(prompt);
+    const { base64, mediaType } = await generateImage(prompt, { postText });
     const { url } = await saveImage(base64, mediaType);
     return c.json({ imageUrl: url });
   });

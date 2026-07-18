@@ -120,7 +120,7 @@ export default function StudioPage() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: imagePrompt.trim() }),
+      body: JSON.stringify({ prompt: imagePrompt.trim(), postText: postText.trim() || undefined }),
     });
     setGeneratingImage(false);
     if (res.status === 401) {

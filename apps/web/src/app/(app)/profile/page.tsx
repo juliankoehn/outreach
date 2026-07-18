@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { RefreshCw, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +59,7 @@ function toPayload(f: EditableFields) {
 
 export default function ProfilePage() {
   const t = useTranslations();
+  const locale = useLocale();
   const router = useRouter();
 
   const [accountId, setAccountId] = useState<string | null>(null);
@@ -84,6 +85,8 @@ export default function ProfilePage() {
       const res = await fetch(`/api/profile/${id}/interview/start`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale }),
       });
       if (res.status === 401) {
         router.push("/login");
@@ -95,7 +98,7 @@ export default function ProfilePage() {
       }
       setState("interview");
     },
-    [router],
+    [router, locale],
   );
 
   useEffect(() => {
@@ -163,7 +166,7 @@ export default function ProfilePage() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, locale }),
     });
     setThinking(false);
     if (res.status === 401) {

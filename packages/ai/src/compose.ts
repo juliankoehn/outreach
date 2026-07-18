@@ -2,7 +2,19 @@ import { generateText, experimental_generateImage as genImage, type LanguageMode
 import { openai } from "@ai-sdk/openai";
 import { getTextModel } from "./provider.js";
 
-const POST_INSTRUCTIONS = `Write a single LinkedIn post in the creator's authentic voice, following the brand brief exactly. Use a strong first line hook, short scannable paragraphs, no hashtags unless clearly on-brand, and end with a light call to action or an open question. Output only the post text.`;
+// Distilled playbook from top LinkedIn creators — injected into every draft so
+// posts follow what actually performs on the platform, in the creator's voice.
+const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, adapted to the creator's voice):
+- Hook in the first line: a bold claim, a specific number, a contrarian take, or an open loop that stops the scroll. The first 1-2 lines are all a reader sees before "…more".
+- One idea per post. Front-load the payoff; don't bury the lede.
+- Short lines and generous whitespace — most sentences on their own line, no dense paragraphs.
+- Write like you talk: plain words, "you", concrete specifics over abstractions and buzzwords.
+- Tell it through a story, a lesson learned, or a small framework/list — people remember narratives and steps.
+- No outbound links in the body (they suppress reach) and hashtags only if genuinely on-brand (0-3).
+- End with a light CTA or a genuine question that invites comments.
+- Be useful or be honest — earn the reader's attention, never clickbait a promise the post doesn't keep.`;
+
+const POST_INSTRUCTIONS = `Write a single LinkedIn post in the creator's authentic voice, following the brand brief exactly. Output only the post text — no preamble, no surrounding quotes.`;
 
 export async function draftPost(
   brandBrief: string,
@@ -11,7 +23,7 @@ export async function draftPost(
   const model = opts?.model ?? getTextModel();
   const { text } = await generateText({
     model,
-    system: `${brandBrief}\n\n${POST_INSTRUCTIONS}`,
+    system: `${brandBrief}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
     prompt: opts?.topic ? `Topic / angle: ${opts.topic}` : "Write a strong post on one of the creator's core pillars.",
   });
   return text.trim();
@@ -25,9 +37,13 @@ export function getImageModel(): ImageModel {
 
 export async function generateImage(
   prompt: string,
-  opts?: { model?: ImageModel },
+  opts?: { model?: ImageModel; postText?: string },
 ): Promise<{ base64: string; mediaType: string }> {
   const model = opts?.model ?? getImageModel();
-  const { image } = await genImage({ model, prompt });
+  // Give the image model the post it accompanies so the visual is on-topic.
+  const fullPrompt = opts?.postText
+    ? `Create an image to accompany this LinkedIn post. Make it visually relevant to the post's message; no text or captions in the image unless asked.\n\nLinkedIn post:\n"""${opts.postText}"""\n\nImage direction: ${prompt}`
+    : prompt;
+  const { image } = await genImage({ model, prompt: fullPrompt });
   return { base64: image.base64, mediaType: image.mediaType ?? "image/png" };
 }
