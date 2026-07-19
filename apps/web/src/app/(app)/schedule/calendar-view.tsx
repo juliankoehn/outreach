@@ -1,7 +1,13 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import {
+  draggable,
+  dropTargetForElements,
+  monitorForElements,
+} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +16,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { addDays, monthGrid, sameDay, weekDays } from "@/lib/calendar";
+import {
+  addDays,
+  monthGrid,
+  sameDay,
+  weekDays,
+  withHour,
+  withTimeOfDay,
+} from "@/lib/calendar";
+
+/** Data attached to a draggable `EventButton` via `getInitialData`. */
+interface EventDragData {
+  [key: string]: unknown;
+  eventId: string;
+  at: Date;
+}
+
+/** Data attached to a month day-cell drop target via `getData`. */
+interface DayDropData {
+  [key: string]: unknown;
+  [key: symbol]: unknown;
+  kind: "day";
+  date: Date;
+}
+
+/** Data attached to a week/day hour-slot drop target via `getData`. */
+interface SlotDropData {
+  [key: string]: unknown;
+  [key: symbol]: unknown;
+  kind: "slot";
+  date: Date;
+  hour: number;
+}
+
+type DropData = DayDropData | SlotDropData;
 
 export interface CalendarEvent {
   id: string;
@@ -72,11 +111,32 @@ function EventButton({
   showAccountAvatar?: boolean;
   onOpenEvent(id: string): void;
 }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return draggable({
+      element: el,
+      getInitialData: (): EventDragData => ({
+        eventId: ev.id,
+        at: new Date(ev.scheduledAt),
+      }),
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+    });
+  }, [ev.id, ev.scheduledAt]);
+
   return (
     <button
+      ref={ref}
       type="button"
       onClick={() => onOpenEvent(ev.id)}
-      className="flex w-full items-center gap-1 rounded-sm bg-card px-1 py-0.5 text-left text-[11px] hover:bg-accent"
+      className={cn(
+        "flex w-full items-center gap-1 rounded-sm bg-card px-1 py-0.5 text-left text-[11px] hover:bg-accent",
+        isDragging && "opacity-50",
+      )}
     >
       <Clock
         className="size-3 shrink-0 text-muted-foreground"
@@ -96,6 +156,72 @@ function EventButton({
   );
 }
 
+/** Month day cell: registers itself as a drop target for `EventButton` drags. */
+function DayCell({
+  cellDate,
+  className,
+  children,
+}: {
+  cellDate: Date;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isOver, setIsOver] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return dropTargetForElements({
+      element: el,
+      getData: (): DayDropData => ({ kind: "day", date: cellDate }),
+      onDragEnter: () => setIsOver(true),
+      onDragLeave: () => setIsOver(false),
+      onDrop: () => setIsOver(false),
+    });
+  }, [cellDate]);
+
+  return (
+    <div ref={ref} className={cn(className, isOver && "bg-accent")}>
+      {children}
+    </div>
+  );
+}
+
+/** Week/day hour slot cell: registers itself as a drop target for `EventButton` drags. */
+function HourSlotCell({
+  dayDate,
+  hour,
+  className,
+  children,
+}: {
+  dayDate: Date;
+  hour: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isOver, setIsOver] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return dropTargetForElements({
+      element: el,
+      getData: (): SlotDropData => ({ kind: "slot", date: dayDate, hour }),
+      onDragEnter: () => setIsOver(true),
+      onDragLeave: () => setIsOver(false),
+      onDrop: () => setIsOver(false),
+    });
+  }, [dayDate, hour]);
+
+  return (
+    <div ref={ref} className={cn(className, isOver && "bg-accent")}>
+      {children}
+    </div>
+  );
+}
+
 export function CalendarView(props: CalendarViewProps) {
   const {
     events,
@@ -104,6 +230,7 @@ export function CalendarView(props: CalendarViewProps) {
     onView,
     onCursor,
     onOpenEvent,
+    onReschedule,
     onCreate,
     showAccountAvatar,
   } = props;
@@ -111,6 +238,26 @@ export function CalendarView(props: CalendarViewProps) {
   const locale = useLocale();
 
   const days = view === "day" ? [cursor] : weekDays(cursor);
+
+  useEffect(() => {
+    return monitorForElements({
+      onDrop({ source, location }) {
+        const target = location.current.dropTargets[0];
+        if (!target) return;
+
+        const { eventId, at } = source.data as unknown as EventDragData;
+        const data = target.data as unknown as DropData;
+
+        const next =
+          data.kind === "day"
+            ? withTimeOfDay(data.date, at)
+            : withHour(data.date, data.hour, at.getMinutes());
+
+        if (next.getTime() <= Date.now()) return;
+        onReschedule(eventId, next);
+      },
+    });
+  }, [onReschedule]);
 
   function step(delta: number): Date {
     if (view === "month") return stepMonth(cursor, delta);
@@ -223,8 +370,9 @@ export function CalendarView(props: CalendarViewProps) {
               const hiddenCount = cellEvents.length - visibleEvents.length;
 
               return (
-                <div
+                <DayCell
                   key={i}
+                  cellDate={cellDate}
                   className={cn(
                     "flex min-h-24 flex-col gap-1 border-r border-b p-1.5 last:border-r-0",
                     !isCurrentMonth && "bg-muted/40",
@@ -262,7 +410,7 @@ export function CalendarView(props: CalendarViewProps) {
                       </span>
                     )}
                   </div>
-                </div>
+                </DayCell>
               );
             })}
           </div>
@@ -310,8 +458,10 @@ export function CalendarView(props: CalendarViewProps) {
                     return sameDay(evDate, day) && evDate.getHours() === h;
                   });
                   return (
-                    <div
+                    <HourSlotCell
                       key={i}
+                      dayDate={day}
+                      hour={h}
                       className="flex flex-1 flex-col gap-0.5 border-r p-0.5 last:border-r-0"
                     >
                       {cellEvents.map((ev) => (
@@ -324,7 +474,7 @@ export function CalendarView(props: CalendarViewProps) {
                           onOpenEvent={onOpenEvent}
                         />
                       ))}
-                    </div>
+                    </HourSlotCell>
                   );
                 })}
               </div>
