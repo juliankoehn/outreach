@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { draftPost, refinePost, reviewPost, generateImage } from "./compose.js";
+import { draftPost, refinePost, reviewPost, rewriteForReview, generateImage } from "./compose.js";
 import { recordingModel, textModel, imageModel, MockImageModel } from "./testing.js";
 
 describe("compose", () => {
@@ -27,16 +27,15 @@ describe("compose", () => {
     expect(img.mediaType).toMatch(/image\//);
   });
 
-  it("reviewPost passes a clean post through unchanged", async () => {
-    const model = textModel(JSON.stringify({ verdict: "pass", issues: [], revised: "Clean, specific post." }));
+  it("reviewPost passes a clean post with no issues", async () => {
+    const model = textModel(JSON.stringify({ verdict: "pass", issues: [] }));
     const r = await reviewPost({ text: "Clean, specific post.", model });
     expect(r.verdict).toBe("pass");
-    expect(r.revised).toBe("Clean, specific post.");
     expect(r.issues).toEqual([]);
   });
 
-  it("reviewPost revises a bloated post and reports the defects, seeing the brief + no-gos", async () => {
-    const model = textModel(JSON.stringify({ verdict: "revise", issues: ["corporate bloat"], revised: "Tighter post." }));
+  it("reviewPost flags a bloated post with concrete defects, seeing the brief + no-gos", async () => {
+    const model = textModel(JSON.stringify({ verdict: "revise", issues: ["corporate bloat: 'strategischer Vorteil'"] }));
     const r = await reviewPost({
       text: "Hier liegt unser strategischer Vorteil.",
       brandBrief: "Write as Julian, informal du.",
@@ -44,14 +43,27 @@ describe("compose", () => {
       model,
     });
     expect(r.verdict).toBe("revise");
-    expect(r.revised).toBe("Tighter post.");
-    expect(r.issues).toContain("corporate bloat");
+    expect(r.issues[0]).toContain("corporate bloat");
   });
 
   it("reviewPost short-circuits empty text without calling a model", async () => {
     const r = await reviewPost({ text: "   " });
     expect(r.verdict).toBe("pass");
-    expect(r.revised).toBe("   ");
+    expect(r.issues).toEqual([]);
+  });
+
+  it("rewriteForReview rewrites against the editor's issue list, keeping the voice", async () => {
+    const { model, calls } = recordingModel("Tighter, concrete post.");
+    const out = await rewriteForReview({
+      text: "Hier liegt unser strategischer Vorteil.",
+      issues: ["corporate bloat: 'strategischer Vorteil'", "no concrete value"],
+      brandBrief: "Write as Julian, informal du.",
+      model,
+    });
+    expect(out).toBe("Tighter, concrete post.");
+    const prompt = JSON.stringify(calls[0]!.prompt);
+    expect(prompt).toContain("strategischer Vorteil");
+    expect(prompt).toContain("no concrete value");
   });
 
   it("maps size to LinkedIn dimensions and injects the reference hint", async () => {

@@ -27,10 +27,10 @@ export interface KnowledgePassage {
 }
 
 export interface StudioAgentHandlers {
-  // Persists the post to the canvas AFTER an editorial review pass. Returns
-  // whether the reviewer had to revise it and what it fixed, so the agent can
+  // Persists the post to the canvas AFTER a writer↔reviewer loop. Returns how
+  // many revision rounds the reviewer forced and what it fixed, so the agent can
   // tell the creator.
-  updatePost(text: string): Promise<{ revised: boolean; issues: string[] }>;
+  updatePost(text: string): Promise<{ revised: boolean; rounds: number; issues: string[] }>;
   createImage(prompt: string): Promise<{ imageUrl: string }>;
   findSimilar(query: string): Promise<SimilarPostMatch[]>;
   searchKnowledge(query: string): Promise<KnowledgePassage[]>;

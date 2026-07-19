@@ -9,7 +9,7 @@ const NO_CITATIONS_RULE =
 
 function noopHandlers(overrides: Partial<StudioAgentHandlers> = {}): StudioAgentHandlers {
   return {
-    updatePost: async () => ({ revised: false, issues: [] }),
+    updatePost: async () => ({ revised: false, rounds: 0, issues: [] }),
     createImage: async () => ({ imageUrl: "/x.png" }),
     findSimilar: async () => [],
     searchKnowledge: async () => [],

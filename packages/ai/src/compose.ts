@@ -98,25 +98,22 @@ export async function refinePost(
 }
 
 const REVIEW_SCHEMA = z.object({
-  verdict: z.enum(["pass", "revise"]).describe("'pass' if the post already meets the bar; 'revise' if you had to fix defects."),
+  verdict: z.enum(["pass", "revise"]).describe("'pass' if the post clears the bar; 'revise' if it has defects the writer must fix."),
   issues: z
     .array(z.string())
-    .describe("Concrete defects you found and fixed, each a short phrase. Empty when verdict is 'pass'."),
-  revised: z.string().describe("The final post text. When 'pass', return the input unchanged."),
+    .describe("Concrete, actionable defects for the writer to fix, each a short phrase (quote the offending text when useful). Empty when verdict is 'pass'."),
 });
 
 export interface PostReview {
   verdict: "pass" | "revise";
   issues: string[];
-  revised: string;
 }
 
-// Editorial gate that runs before a post reaches the canvas. A strict LinkedIn
-// editor checks the draft against the creator's brand brief, hard no-gos, tone,
-// the playbook, on-topic-ness (when drafted from an article), plain-text, and
-// above all bans corporate bloat / generic filler. If it finds concrete
-// defects, it rewrites the post to fix ALL of them while preserving the
-// author's substance and voice; otherwise it passes the text through unchanged.
+// The REVIEWER role in the writer↔reviewer loop. A strict LinkedIn editor that
+// only JUDGES — it does not rewrite. It checks the draft against the brand
+// brief, hard no-gos, tone, the playbook, on-topic-ness (when drafted from an
+// article), plain-text, and above all bans corporate bloat / generic filler,
+// and returns a verdict plus a concrete list of defects for the writer to fix.
 export async function reviewPost(opts: {
   text: string;
   brandBrief?: string;
@@ -128,7 +125,7 @@ export async function reviewPost(opts: {
   model?: LanguageModel;
 }): Promise<PostReview> {
   const text = opts.text.trim();
-  if (!text) return { verdict: "pass", issues: [], revised: opts.text };
+  if (!text) return { verdict: "pass", issues: [] };
 
   const brief = opts.brandBrief?.trim() ? `CREATOR BRAND BRIEF:\n${opts.brandBrief.trim()}` : "No brand brief provided.";
   const noGoLine = opts.noGos?.length ? `\nHARD NO-GOS (must not appear): ${opts.noGos.join("; ")}.` : "";
@@ -140,19 +137,46 @@ export async function reviewPost(opts: {
   const { object } = await generateObject({
     model: opts.model ?? getTextModel(),
     schema: REVIEW_SCHEMA,
-    system: `You are a ruthless LinkedIn editor. You gate every post before it reaches the creator's canvas. Check the draft for these defects, in order:
-1. CORPORATE BLOAT / generic filler — pompous signposts ("Ein entscheidender Punkt:", "Hier liegt unser strategischer Vorteil", "In der heutigen Zeit"), grand empty abstractions ("strategischer Vorteil", "ganzheitlicher Ansatz"), and hollow "nicht X, sondern Y" reveals. This is the top priority: any sentence that would fit unchanged in any company's post on any topic must be cut or replaced with something concrete.
+    system: `You are a ruthless LinkedIn editor gating a post before it reaches the creator's canvas. You do NOT rewrite — you judge and hand the writer a precise list of what to fix. Check the draft for these defects, in order:
+1. CORPORATE BLOAT / generic filler — pompous signposts ("Ein entscheidender Punkt:", "Hier liegt unser strategischer Vorteil", "In der heutigen Zeit"), grand empty abstractions ("strategischer Vorteil", "ganzheitlicher Ansatz"), and hollow "nicht X, sondern Y" reveals. This is the top priority: any sentence that would fit unchanged in any company's post on any topic is a defect — name it and quote it.
 2. NO REAL VALUE — the post gives the reader nothing specific to use or think. It must carry at least one concrete, checkable point (a number, a mechanism, a named tactic, a real consequence).
 3. WRONG REGISTER — violates the required tone (e.g. uses formal "Sie" when "du" is required, or vice versa).
 4. NO-GO VIOLATIONS — anything on the hard no-go list.
 5. OFF-TOPIC — drifts away from the source article's subject (only when an article is given).
 6. MARKDOWN — any Markdown syntax (LinkedIn renders plain text only).
 
-If you find ANY defect, set verdict "revise", list the concrete defects in "issues", and put a fully corrected post in "revised" — fix every defect while keeping the author's substance, angle, and voice; do not blandify or shorten away real content. If the post already clears the bar, set verdict "pass", "issues" empty, and return the text UNCHANGED in "revised". Never invent facts. Output plain text only.
+Be strict but fair: if the post genuinely clears the bar, set verdict "pass" with empty "issues" — do NOT invent nitpicks to justify another round. Otherwise set verdict "revise" and list each concrete defect as a short, actionable instruction the writer can act on (quote the offending phrase where it helps).
 ${brief}${noGoLine}${toneLine}${articleLine}`,
     prompt: `Review this draft post:\n"""${text}"""`,
   });
   return object;
+}
+
+// The WRITER role in the writer↔reviewer loop. Given the current draft and the
+// reviewer's list of defects, it rewrites the post in the creator's voice to
+// fix EVERY listed defect while preserving the substance, angle, and voice.
+// Reuses the same brand brief / no-go / tone / playbook framing as draftPost.
+export async function rewriteForReview(opts: {
+  text: string;
+  issues: string[];
+  brandBrief?: string;
+  noGos?: string[];
+  toneWords?: string[];
+  article?: string;
+  model?: LanguageModel;
+}): Promise<string> {
+  const model = opts.model ?? getTextModel();
+  const brief = opts.brandBrief?.trim() ?? "Infer a professional, credible LinkedIn voice.";
+  const articleLine = opts.article?.trim()
+    ? `\n\nThe post is based on THIS article and must stay on its topic:\n"""${opts.article.trim()}"""`
+    : "";
+  const issueList = opts.issues.length ? opts.issues.map((i) => `- ${i}`).join("\n") : "- Tighten and sharpen the post.";
+  const { text } = await generateText({
+    model,
+    system: `${brief}${noGoBlock(opts.noGos, opts.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are the writer revising your own LinkedIn post after a strict editor flagged problems. Fix EVERY flagged problem while keeping the post's substance, angle, and authentic voice — do not blandify, do not drop real content, do not add new claims. Output only the revised post as PLAIN TEXT — no preamble, no surrounding quotes.${articleLine}`,
+    prompt: `Current draft:\n"""${opts.text.trim()}"""\n\nThe editor flagged these problems — fix all of them:\n${issueList}`,
+  });
+  return enforceNoGos(stripMarkdown(text), opts.noGos);
 }
 
 export function getImageModel(): ImageModel {

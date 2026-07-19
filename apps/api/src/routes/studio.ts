@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, reviewPost, generateImage, composeImageBrief, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
+import { draftPost, refinePost, reviewPost, rewriteForReview, generateImage, composeImageBrief, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -167,24 +167,42 @@ export function studioRoutes() {
       sourceArticle,
       handlers: {
         updatePost: async (text) => {
-          // LinkedIn is plain text — strip Markdown first, then run the editorial
-          // review gate (bans corporate bloat, enforces register/no-gos/value,
-          // on-topic) BEFORE the post reaches the canvas. Finally re-strip +
-          // deterministically enforce mechanical no-gos on the reviewed text.
-          const stripped = stripMarkdown(text);
-          const review = await reviewPost({
-            text: stripped,
-            brandBrief: profile?.brandBrief ?? undefined,
-            noGos: profile?.noGos,
-            toneWords: profile?.toneWords,
-            article: sourceArticle
-              ? `${sourceArticle.title}\n\n${sourceArticle.content.slice(0, 600)}`
-              : undefined,
-          });
-          const finalText = review.verdict === "revise" ? review.revised : stripped;
-          currentText = enforceNoGos(stripMarkdown(finalText), profile?.noGos);
+          // Writer↔reviewer loop BEFORE the post reaches the canvas: a strict
+          // editor judges the draft; if it flags defects (corporate bloat, wrong
+          // register, no-go/value/on-topic problems) the writer rewrites against
+          // that list, then the editor re-checks — up to MAX_REWRITES rounds or
+          // until it passes. LinkedIn is plain text, so we strip Markdown + apply
+          // mechanical no-gos on every candidate.
+          const MAX_REWRITES = 2;
+          const articleCtx = sourceArticle
+            ? `${sourceArticle.title}\n\n${sourceArticle.content.slice(0, 600)}`
+            : undefined;
+          let candidate = enforceNoGos(stripMarkdown(text), profile?.noGos);
+          const allIssues: string[] = [];
+          let rounds = 0;
+          for (let i = 0; i <= MAX_REWRITES; i++) {
+            const review = await reviewPost({
+              text: candidate,
+              brandBrief: profile?.brandBrief ?? undefined,
+              noGos: profile?.noGos,
+              toneWords: profile?.toneWords,
+              article: articleCtx,
+            });
+            if (review.verdict === "pass" || i === MAX_REWRITES) break;
+            allIssues.push(...review.issues);
+            rounds++;
+            candidate = await rewriteForReview({
+              text: candidate,
+              issues: review.issues,
+              brandBrief: profile?.brandBrief ?? undefined,
+              noGos: profile?.noGos,
+              toneWords: profile?.toneWords,
+              article: articleCtx,
+            });
+          }
+          currentText = candidate;
           await updateDraft(draftId, accountId, { text: currentText });
-          return { revised: review.verdict === "revise", issues: review.issues };
+          return { revised: rounds > 0, rounds, issues: [...new Set(allIssues)] };
         },
         createImage: async (prompt) => {
           // Multi-step: first turn the post + source article + the creator's
