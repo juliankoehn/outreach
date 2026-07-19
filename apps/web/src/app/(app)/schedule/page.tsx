@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
 import { CalendarView, type CalendarEvent, type CalendarViewType } from "./calendar-view";
+import { useCalendarState } from "./use-calendar-state";
 import { addDays, monthGrid, startOfDay, weekDays } from "@/lib/calendar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,8 +47,7 @@ export default function SchedulePage() {
   const t = useTranslations();
   const router = useRouter();
 
-  const [view, setView] = useState<CalendarViewType>("month");
-  const [cursor, setCursor] = useState<Date>(new Date());
+  const { view, cursor, setView, setCursor } = useCalendarState();
   const [events, setEvents] = useState<ScheduledEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);

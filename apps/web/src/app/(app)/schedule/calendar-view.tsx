@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import {
   addDays,
@@ -24,6 +25,22 @@ import {
   withHour,
   withTimeOfDay,
 } from "@/lib/calendar";
+
+// Deterministic per-account hue so each account's scheduled posts read as one
+// colour across the calendar (stable for a given account id).
+function accountHue(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+function accountColors(id: string): { stripe: string; tint: string; dot: string } {
+  const hue = accountHue(id);
+  return {
+    stripe: `hsl(${hue} 60% 50%)`,
+    tint: `hsl(${hue} 65% 50% / 0.12)`,
+    dot: `hsl(${hue} 60% 50%)`,
+  };
+}
 
 /** Data attached to a draggable `EventButton` via `getInitialData`. */
 interface EventDragData {
@@ -128,31 +145,53 @@ function EventButton({
     });
   }, [ev.id, ev.scheduledAt]);
 
+  const colors = accountColors(ev.account.id);
+  const when = new Date(ev.scheduledAt);
+  const time = when.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+
   return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={() => onOpenEvent(ev.id)}
-      className={cn(
-        "flex w-full items-center gap-1 rounded-sm bg-card px-1 py-0.5 text-left text-[11px] hover:bg-accent",
-        isDragging && "opacity-50",
-      )}
-    >
-      <Clock
-        className="size-3 shrink-0 text-muted-foreground"
-        aria-label={t("schedule.notPublished")}
-      >
-        <title>{t("schedule.notPublished")}</title>
-      </Clock>
-      {showAccountAvatar && <EventAvatar account={ev.account} />}
-      <span className="min-w-0 truncate text-foreground">{ev.title}</span>
-      <span className="ml-auto shrink-0 text-muted-foreground">
-        {new Date(ev.scheduledAt).toLocaleTimeString(locale, {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </span>
-    </button>
+    <HoverCard openDelay={120} closeDelay={60}>
+      <HoverCardTrigger asChild>
+        <button
+          ref={ref}
+          type="button"
+          onClick={() => onOpenEvent(ev.id)}
+          style={{ borderLeftColor: colors.stripe, backgroundColor: colors.tint }}
+          className={cn(
+            "flex w-full items-center gap-1 rounded-sm border-l-[3px] px-1 py-0.5 text-left text-[11px] transition-shadow hover:ring-1 hover:ring-inset hover:ring-border",
+            isDragging && "opacity-50",
+          )}
+        >
+          <Clock
+            className="size-3 shrink-0 text-muted-foreground"
+            aria-label={t("schedule.notPublished")}
+          >
+            <title>{t("schedule.notPublished")}</title>
+          </Clock>
+          {showAccountAvatar && <EventAvatar account={ev.account} />}
+          <span className="min-w-0 truncate text-foreground">{ev.title}</span>
+          <span className="ml-auto shrink-0 text-muted-foreground">{time}</span>
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent side="right" align="start" className="w-72">
+        <div className="flex items-center gap-2">
+          <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: colors.dot }} />
+          <span className="truncate text-xs font-medium text-muted-foreground">{ev.account.displayName}</span>
+        </div>
+        <p className="mt-2 line-clamp-4 text-sm">{ev.title}</p>
+        {ev.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={ev.imageUrl} alt="" className="mt-2 max-h-32 w-full rounded-md object-cover" />
+        )}
+        <div className="mt-2 flex items-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
+          <Clock className="size-3.5" />
+          <span>
+            {when.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" })} · {time}
+          </span>
+          <span className="ml-auto">{t("schedule.notPublished")}</span>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 

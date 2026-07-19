@@ -9,6 +9,7 @@ import {
   type CalendarEvent,
   type CalendarViewType,
 } from "../../../schedule/calendar-view";
+import { useCalendarState } from "../../../schedule/use-calendar-state";
 import { addDays, monthGrid, startOfDay, weekDays } from "@/lib/calendar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,8 +53,7 @@ export default function AccountSchedulePage() {
   const router = useRouter();
   const { id } = useAccount();
 
-  const [view, setView] = useState<CalendarViewType>("month");
-  const [cursor, setCursor] = useState<Date>(new Date());
+  const { view, cursor, setView, setCursor } = useCalendarState();
   const [events, setEvents] = useState<ScheduledEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
