@@ -416,6 +416,8 @@
     "unplan": "Planung aufheben",
     "planTitle": "Diesen Post einplanen",
     "planConfirm": "Einplanen",
+    "planInvalid": "Bitte gib ein gültiges Datum mit Uhrzeit ein.",
+    "planPast": "Wähle einen Zeitpunkt in der Zukunft.",
     "scheduledFor": "Geplant: {when}",
     "weekdayMon": "M",
     "weekdayTue": "D",

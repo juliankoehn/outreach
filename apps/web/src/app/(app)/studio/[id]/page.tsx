@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { UIMessage } from "ai";
-import { ArrowLeft, ImagePlus, Newspaper, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarClock, ImagePlus, Newspaper, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import type { Account } from "@/lib/accounts";
 import type { Draft } from "@/lib/studio";
 import { StudioChat } from "./studio-chat";
 import { LinkedInPreview } from "./linkedin-preview";
+import { ScheduleDialog } from "./schedule-dialog";
 
 type PageState = "loading" | "not-found" | "ready";
 
@@ -72,6 +73,9 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const router = useRouter();
   const initialPrompt = useSearchParams().get("prompt") ?? undefined;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const [accountId, setAccountId] = useState<string | null>(null);
   const [author, setAuthor] = useState<{ name: string; avatarUrl: string | null }>({ name: "", avatarUrl: null });
@@ -234,6 +238,38 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
     if (res.ok) router.push("/studio");
   }
 
+  async function scheduleDraft(when: Date) {
+    if (!accountId || scheduling) return;
+    setScheduling(true);
+    setScheduleError(null);
+    const res = await fetch(`/api/studio/${accountId}/drafts/${id}/schedule`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledAt: when.toISOString() }),
+    });
+    setScheduling(false);
+    if (res.status === 401) return router.push("/login");
+    if (res.ok) {
+      setDraft(((await res.json()) as { draft: Draft }).draft);
+      setScheduleOpen(false);
+      return;
+    }
+    setScheduleError(t("schedule.planInvalid"));
+  }
+
+  async function unscheduleDraft() {
+    if (!accountId || scheduling) return;
+    setScheduling(true);
+    const res = await fetch(`/api/studio/${accountId}/drafts/${id}/unschedule`, {
+      method: "POST",
+      credentials: "include",
+    });
+    setScheduling(false);
+    if (res.status === 401) return router.push("/login");
+    if (res.ok) setDraft(((await res.json()) as { draft: Draft }).draft);
+  }
+
   if (state === "loading") {
     return (
       <div className="flex h-full">
@@ -310,6 +346,20 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
           <Badge variant={statusVariant(draft?.status ?? "draft")} className="capitalize">
             {draft?.status}
           </Badge>
+          {draft?.scheduledAt && (
+            <span className="border-input bg-secondary/50 text-secondary-foreground inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs">
+              {t("schedule.scheduledFor", { when: new Date(draft.scheduledAt).toLocaleString() })}
+              <button
+                type="button"
+                onClick={() => void unscheduleDraft()}
+                disabled={scheduling}
+                aria-label={t("schedule.unplan")}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          )}
           {sourceFeedItem && (
             <a
               href={sourceFeedItem.url}
@@ -334,6 +384,20 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
             >
               {saving ? t("studio.saving") : t("studio.save")}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setScheduleOpen(true)} disabled={scheduling}>
+              <CalendarClock className="size-4" />
+              {t("schedule.plan")}
+            </Button>
+            <ScheduleDialog
+              open={scheduleOpen}
+              onOpenChange={(o) => {
+                setScheduleOpen(o);
+                if (!o) setScheduleError(null);
+              }}
+              initial={draft?.scheduledAt ?? undefined}
+              onConfirm={(when) => void scheduleDraft(when)}
+            />
+            {scheduleError && <span className="text-destructive text-xs">{scheduleError}</span>}
             <Button
               variant="ghost"
               size="icon"

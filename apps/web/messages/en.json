@@ -416,6 +416,8 @@
     "unplan": "Unplan",
     "planTitle": "Schedule this post",
     "planConfirm": "Schedule",
+    "planInvalid": "Please enter a valid date and time.",
+    "planPast": "Pick a time in the future.",
     "scheduledFor": "Scheduled: {when}",
     "weekdayMon": "M",
     "weekdayTue": "T",
