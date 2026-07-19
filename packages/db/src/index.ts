@@ -6,5 +6,6 @@ export type {
 	CreatorProfile,
 	InterviewSession,
 	Draft,
+	Resource,
 	Prisma,
 } from "./generated/prisma/client.js";

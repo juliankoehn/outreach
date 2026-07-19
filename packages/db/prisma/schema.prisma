@@ -81,6 +81,7 @@ model LinkedInAccount {
   creatorProfileId String?
   creatorProfile   CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: SetNull)
   drafts         Draft[]
+  resources      Resource[]
 
   @@unique([userId, memberUrn])
 }
@@ -157,4 +158,22 @@ model Draft {
   account           LinkedInAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
 
   @@index([linkedinAccountId, createdAt])
+}
+
+model Resource {
+  id         String   @id @default(cuid())
+  accountId  String
+  account    LinkedInAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind       String   // "image" | "document"
+  name       String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String
+  status     String   @default("ready") // document rows are created as "pending"
+  error      String?
+  isImageRef Boolean  @default(false)
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([accountId, kind])
 }
