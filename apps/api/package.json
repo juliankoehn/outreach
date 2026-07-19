@@ -11,19 +11,19 @@
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.10",
     "@outreach/ai": "workspace:*",
     "@outreach/core": "workspace:*",
     "@outreach/db": "workspace:*",
     "@outreach/linkedin": "workspace:*",
-    "hono": "^4.6.0",
-    "@hono/node-server": "^1.13.0",
     "better-auth": "^1.1.0",
-    "zod": "^3.24.0"
+    "hono": "^4.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

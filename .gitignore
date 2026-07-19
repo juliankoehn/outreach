@@ -6,3 +6,6 @@ dist/
 .turbo/
 .playwright-mcp/
 apps/api/uploads/
+
+# Prisma 7 generated client
+packages/db/src/generated/
