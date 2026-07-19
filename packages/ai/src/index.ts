@@ -1,4 +1,5 @@
-export { getTextModel } from "./provider.js";
+export { getTextModel, getEmbeddingModel } from "./provider.js";
+export { embedQuery, embedBatch } from "./embed.js";
 export type { ChatMessage, PostForAnalysis, DerivedInsights, SynthesizedProfile } from "./types.js";
 export { nextTurn, streamInterview, INTERVIEW_SYSTEM } from "./interview.js";
 export type { InterviewHandlers, StreamInterviewOptions } from "./interview.js";
