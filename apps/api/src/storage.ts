@@ -27,7 +27,13 @@ function ensureBucket(): Promise<void> {
     } catch {
       await client.send(new CreateBucketCommand({ Bucket: bucket }));
     }
-  })();
+  })().catch((e: unknown) => {
+    // Don't cache a failed bootstrap forever — a transient MinIO outage
+    // would otherwise permanently break every future call. Reset so the
+    // next ensureBucket() retries from scratch.
+    bucketReady = null;
+    throw e;
+  });
   return bucketReady;
 }
 
