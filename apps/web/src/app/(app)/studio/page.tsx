@@ -8,6 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Account } from "@/lib/accounts";
 import type { Draft } from "@/lib/studio";
 
@@ -33,6 +48,10 @@ export default function StudioPage() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [draftsLoaded, setDraftsLoaded] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [promptText, setPromptText] = useState("");
 
   const loadDrafts = useCallback(
     async (id: string) => {
@@ -73,6 +92,8 @@ export default function StudioPage() {
         setState("no-account");
         return;
       }
+      setAccounts(accounts);
+      setSelectedAccountId(first.id);
       setAccountId(first.id);
       setState("ready");
       void loadDrafts(first.id);
@@ -83,9 +104,10 @@ export default function StudioPage() {
   }, [router, loadDrafts]);
 
   async function createDraft() {
-    if (!accountId || creating) return;
+    const acct = selectedAccountId || accountId;
+    if (!acct || creating) return;
     setCreating(true);
-    const res = await fetch(`/api/studio/${accountId}/drafts`, {
+    const res = await fetch(`/api/studio/${acct}/drafts`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -98,7 +120,9 @@ export default function StudioPage() {
     }
     if (res.ok) {
       const d = (await res.json()) as { draft: Draft };
-      router.push(`/studio/${d.draft.id}`);
+      const p = promptText.trim();
+      setDialogOpen(false);
+      router.push(p ? `/studio/${d.draft.id}?prompt=${encodeURIComponent(p)}` : `/studio/${d.draft.id}`);
     }
   }
 
@@ -110,7 +134,7 @@ export default function StudioPage() {
           <p className="text-muted-foreground mt-1 text-sm">{t("studio.subtitle")}</p>
         </div>
         {state === "ready" && (
-          <Button onClick={() => void createDraft()} disabled={creating}>
+          <Button onClick={() => setDialogOpen(true)}>
             <Plus className="size-4" />
             {t("studio.newDraft")}
           </Button>
@@ -142,7 +166,7 @@ export default function StudioPage() {
           {draftsLoaded && drafts.length === 0 && (
             <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
               <p>{t("studio.draftsEmpty")}</p>
-              <Button onClick={() => void createDraft()} disabled={creating} className="mt-4">
+              <Button onClick={() => setDialogOpen(true)} className="mt-4">
                 <Plus className="size-4" />
                 {t("studio.newDraft")}
               </Button>
@@ -187,6 +211,53 @@ export default function StudioPage() {
             })}
         </div>
       )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("studio.createTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {accounts.length > 1 && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">{t("studio.createAccount")}</label>
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("studio.createPrompt")}</label>
+              <Textarea
+                value={promptText}
+                onChange={(e) => setPromptText(e.target.value)}
+                placeholder={t("studio.createPromptPlaceholder")}
+                rows={4}
+                autoFocus
+              />
+              <p className="text-muted-foreground text-xs">{t("studio.createHint")}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={creating}>
+              {t("studio.deleteCancel")}
+            </Button>
+            <Button onClick={() => void createDraft()} disabled={creating}>
+              <Plus className="size-4" />
+              {creating ? t("studio.creating") : t("studio.createGo")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

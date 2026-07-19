@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { UIMessage } from "ai";
 import { ArrowLeft, ImagePlus, RefreshCw, Trash2 } from "lucide-react";
@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/accounts";
 import type { Draft } from "@/lib/studio";
@@ -43,6 +51,8 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const t = useTranslations();
   const router = useRouter();
+  const initialPrompt = useSearchParams().get("prompt") ?? undefined;
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [accountId, setAccountId] = useState<string | null>(null);
   const [author, setAuthor] = useState<{ name: string; avatarUrl: string | null }>({ name: "", avatarUrl: null });
@@ -233,6 +243,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
           accountId={accountId}
           draftId={id}
           initialMessages={initialMessages}
+          initialPrompt={initialPrompt}
           onPostText={handlePostText}
           onImageUrl={handleImageUrl}
           onTurnFinished={handleTurnFinished}
@@ -255,7 +266,11 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
               <span className="text-border" aria-hidden>
                 |
               </span>
-              <div className="flex min-w-0 items-center gap-2">
+              <a
+                href={accountId ? `/accounts/${accountId}` : "#"}
+                className="hover:bg-accent flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 transition-colors"
+                title={t("studio.postingAs", { name: author.name })}
+              >
                 {author.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={author.avatarUrl} alt="" className="size-6 shrink-0 rounded-full object-cover" />
@@ -264,10 +279,10 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
                     {author.name.slice(0, 1).toUpperCase()}
                   </div>
                 )}
-                <span className="text-muted-foreground truncate text-sm">
+                <span className="text-muted-foreground hover:text-foreground truncate text-sm transition-colors">
                   {t("studio.postingAs", { name: author.name })}
                 </span>
-              </div>
+              </a>
             </>
           )}
           <Badge variant={statusVariant(draft?.status ?? "draft")} className="capitalize">
@@ -286,13 +301,36 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => void deleteDraft()}
+              onClick={() => setConfirmDelete(true)}
               disabled={deleting}
               aria-label={t("studio.delete")}
               className="text-muted-foreground hover:text-destructive size-8"
             >
               <Trash2 className="size-4" />
             </Button>
+            <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>{t("studio.deleteTitle")}</DialogTitle>
+                  <DialogDescription>{t("studio.deleteBody")}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+                    {t("studio.deleteCancel")}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      void deleteDraft();
+                    }}
+                    disabled={deleting}
+                  >
+                    {t("studio.delete")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 

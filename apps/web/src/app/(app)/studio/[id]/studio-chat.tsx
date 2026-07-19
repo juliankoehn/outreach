@@ -26,6 +26,7 @@ interface StudioChatProps {
   accountId: string;
   draftId: string;
   initialMessages: UIMessage[];
+  initialPrompt?: string;
   onPostText: (text: string) => void;
   onImageUrl: (url: string) => void;
   onTurnFinished: () => void;
@@ -43,6 +44,7 @@ export function StudioChat({
   accountId,
   draftId,
   initialMessages,
+  initialPrompt,
   onPostText,
   onImageUrl,
   onTurnFinished,
@@ -59,6 +61,17 @@ export function StudioChat({
     messages: initialMessages,
     onFinish: () => onTurnFinished(),
   });
+
+  // Kick off the agent once with the prompt the user typed in the create dialog
+  // (passed via ?prompt=). Fires a single time on mount for a fresh draft.
+  const sentInitial = useRef(false);
+  useEffect(() => {
+    // Only for a brand-new draft (no history) — so a reload with ?prompt= still
+    // in the URL doesn't re-fire it.
+    if (sentInitial.current || !initialPrompt?.trim() || initialMessages.length > 0) return;
+    sentInitial.current = true;
+    sendMessage({ text: initialPrompt.trim() });
+  }, [initialPrompt, initialMessages.length, sendMessage]);
 
   // Mirror the agent's tool activity onto the canvas as it streams: updatePost's
   // (partial) text types out live, generateImage's URL lands when it's ready.
