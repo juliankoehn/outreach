@@ -6,6 +6,7 @@ import { putObject, getObject, deleteObject } from "../storage.js";
 import {
   createResource, listResources, getResource, deleteResource, setResourceImageRef,
 } from "../repos/resource.js";
+import { enqueueIngest } from "../queue.js";
 
 const MAX_IMAGE = 25 * 1024 * 1024;
 const MAX_DOC = 50 * 1024 * 1024;
@@ -59,6 +60,15 @@ export function resourcesRoutes() {
       sizeBytes: buf.byteLength, storageKey: key,
       status: isImage ? "ready" : "pending",
     });
+
+    if (kind === "document") {
+      // Best-effort: an enqueue failure must not fail the upload — the boot
+      // backfill picks up any resource still "pending" and retries it.
+      enqueueIngest(resource.id).catch((e: unknown) => {
+        console.warn("resources: enqueueIngest failed, will be picked up by backfill", e);
+      });
+    }
+
     return c.json({ resource });
   });
 

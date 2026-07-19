@@ -19,6 +19,7 @@
     "@outreach/linkedin": "workspace:*",
     "better-auth": "^1.1.0",
     "hono": "^4.6.0",
+    "pg-boss": "^12.26.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
