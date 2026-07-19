@@ -372,6 +372,7 @@
     "actionPost": "Turn into post",
     "actionRead": "Mark read",
     "actionDismiss": "Dismiss",
+    "alreadyDrafted": "Drafted",
     "openOriginal": "Open original",
     "loadingFull": "Loading the full article…",
     "backToList": "List",

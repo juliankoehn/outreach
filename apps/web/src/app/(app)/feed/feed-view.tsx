@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ComponentPropsWithoutRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowLeft,
+  Check,
   ExternalLink,
   Loader2,
   Newspaper,
@@ -451,6 +453,7 @@ export function FeedView() {
               dismiss: t("feed.actionDismiss"),
               postNoAccount: t("feed.postNoAccount"),
               loadingFull: t("feed.loadingFull"),
+              alreadyDrafted: t("feed.alreadyDrafted"),
             }}
             onBack={() => setSelectedItem(null)}
             onPost={() => handlePost(selected)}
@@ -543,6 +546,7 @@ function FeedItemRow({
   active: boolean;
   onSelect: () => void;
 }) {
+  const t = useTranslations();
   const date = formatDate(locale, item.publishedAt);
   const unread = item.status === "new";
 
@@ -561,14 +565,22 @@ function FeedItemRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "line-clamp-2 text-sm leading-snug",
-            unread ? "font-medium" : "font-normal",
+        <div className="flex items-start gap-2">
+          <p
+            className={cn(
+              "line-clamp-2 flex-1 text-sm leading-snug",
+              unread ? "font-medium" : "font-normal",
+            )}
+          >
+            {item.title}
+          </p>
+          {item.draftId && (
+            <Badge variant="secondary" className="shrink-0 gap-1">
+              <Check className="size-3" />
+              {t("feed.alreadyDrafted")}
+            </Badge>
           )}
-        >
-          {item.title}
-        </p>
+        </div>
         <div className="mt-1 flex items-center gap-2 overflow-hidden">
           <span className="text-muted-foreground max-w-[10rem] truncate text-xs">
             {sourceTitle}
@@ -624,6 +636,7 @@ function ArticleReader({
     dismiss: string;
     postNoAccount: string;
     loadingFull: string;
+    alreadyDrafted: string;
   };
   onBack: () => void;
   onPost: () => void;
@@ -648,6 +661,14 @@ function ArticleReader({
         </Button>
 
         <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+          {item.draftId && (
+            <Button asChild size="sm" variant="secondary" className="h-8">
+              <Link href={`/studio/${item.draftId}`}>
+                <Check className="size-4" />
+                {labels.alreadyDrafted}
+              </Link>
+            </Button>
+          )}
           <Button
             size="sm"
             className="h-8"

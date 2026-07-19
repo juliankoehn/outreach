@@ -22,4 +22,5 @@ export interface FeedItem {
   publishedAt: string | null;
   status: string; // new | read | dismissed
   content: string | null; // article body as Markdown, when available
+  draftId: string | null; // id of the most recent Draft created from this item, if any
 }

@@ -48,4 +48,40 @@ describe("feed repo", () => {
 		await deleteSource(sourceId, userId); // cascades items
 		expect((await listItems(userId, "all")).length).toBe(0);
 	});
+
+	it("annotates items with draftId when a Draft references them via sourceFeedItemId", async () => {
+		const s = await createSource({ userId, url: "https://ex2.com/rss", title: "Ex2" });
+		const items = [
+			{ guid: "d1", title: "Drafted", url: "https://ex2.com/a", excerpt: "aa", publishedAt: new Date() },
+			{ guid: "d2", title: "Not drafted", url: "https://ex2.com/b", excerpt: "bb", publishedAt: new Date() },
+		];
+		await insertItems(s.id, userId, items);
+		const [drafted, notDrafted] = (await listItems(userId, "new")).sort((a, b) =>
+			a.title.localeCompare(b.title),
+		);
+		expect(drafted!.title).toBe("Drafted");
+		expect(notDrafted!.title).toBe("Not drafted");
+
+		const account = await prisma.linkedInAccount.create({
+			data: {
+				userId,
+				memberUrn: `urn:li:member:${Date.now()}`,
+				displayName: "Test Account",
+				accessToken: "enc",
+			},
+		});
+		const draft = await prisma.draft.create({
+			data: { linkedinAccountId: account.id, sourceFeedItemId: drafted!.id },
+		});
+
+		const list = await listItems(userId, "new");
+		const draftedItem = list.find((i) => i.id === drafted!.id)!;
+		const notDraftedItem = list.find((i) => i.id === notDrafted!.id)!;
+		expect(draftedItem.draftId).toBe(draft.id);
+		expect(notDraftedItem.draftId).toBeNull();
+
+		await prisma.draft.delete({ where: { id: draft.id } });
+		await prisma.linkedInAccount.delete({ where: { id: account.id } });
+		await deleteSource(s.id, userId);
+	});
 });

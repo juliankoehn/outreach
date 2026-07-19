@@ -60,16 +60,31 @@ export async function insertItems(
 	});
 	return res.count;
 }
-export function listItems(
+export type FeedItemWithDraft = FeedItem & { draftId: string | null };
+
+export async function listItems(
 	userId: string,
 	status?: string,
 	limit = 100,
-): Promise<FeedItem[]> {
-	return prisma.feedItem.findMany({
+): Promise<FeedItemWithDraft[]> {
+	const items = await prisma.feedItem.findMany({
 		where: { userId, ...(status && status !== "all" ? { status } : {}) },
 		orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
 		take: limit,
 	});
+	if (items.length === 0) return [];
+	const drafts = await prisma.draft.findMany({
+		where: { sourceFeedItemId: { in: items.map((i) => i.id) } },
+		select: { id: true, sourceFeedItemId: true, createdAt: true },
+		orderBy: { createdAt: "desc" },
+	});
+	const draftIdByFeedItemId = new Map<string, string>();
+	for (const d of drafts) {
+		if (d.sourceFeedItemId && !draftIdByFeedItemId.has(d.sourceFeedItemId)) {
+			draftIdByFeedItemId.set(d.sourceFeedItemId, d.id);
+		}
+	}
+	return items.map((i) => ({ ...i, draftId: draftIdByFeedItemId.get(i.id) ?? null }));
 }
 export function getItem(id: string, userId: string): Promise<FeedItem | null> {
 	return prisma.feedItem.findFirst({ where: { id, userId } });
