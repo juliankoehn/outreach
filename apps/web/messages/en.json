@@ -402,6 +402,29 @@
     "profileNoInsights": "Add your past posts and run analysis to see what performs.",
     "openProfile": "Open profile"
   },
+  "schedule": {
+    "title": "Schedule",
+    "today": "Today",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "newPost": "New post",
+    "moreCount": "+{count} more",
+    "notPublished": "Not published yet",
+    "plan": "Plan",
+    "unplan": "Unplan",
+    "planTitle": "Schedule this post",
+    "planConfirm": "Schedule",
+    "scheduledFor": "Scheduled: {when}",
+    "weekdayMon": "M",
+    "weekdayTue": "T",
+    "weekdayWed": "W",
+    "weekdayThu": "T",
+    "weekdayFri": "F",
+    "weekdaySat": "S",
+    "weekdaySun": "S",
+    "emptyDay": "No posts scheduled"
+  },
   "meta": {
     "theme": "Theme",
     "language": "Language"

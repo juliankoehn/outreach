@@ -402,6 +402,29 @@
     "profileNoInsights": "Füge deine bisherigen Posts hinzu und analysiere, um zu sehen, was funktioniert.",
     "openProfile": "Profil öffnen"
   },
+  "schedule": {
+    "title": "Zeitplan",
+    "today": "Heute",
+    "month": "Monat",
+    "week": "Woche",
+    "day": "Tag",
+    "newPost": "Neuer Post",
+    "moreCount": "+{count} mehr",
+    "notPublished": "Publishing folgt",
+    "plan": "Planen",
+    "unplan": "Planung aufheben",
+    "planTitle": "Diesen Post einplanen",
+    "planConfirm": "Einplanen",
+    "scheduledFor": "Geplant: {when}",
+    "weekdayMon": "M",
+    "weekdayTue": "D",
+    "weekdayWed": "M",
+    "weekdayThu": "D",
+    "weekdayFri": "F",
+    "weekdaySat": "S",
+    "weekdaySun": "S",
+    "emptyDay": "Keine Posts geplant"
+  },
   "meta": {
     "theme": "Design",
     "language": "Sprache"
