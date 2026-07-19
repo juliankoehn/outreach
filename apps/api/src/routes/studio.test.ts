@@ -6,7 +6,9 @@ vi.mock("@outreach/ai", () => ({
 }));
 
 import { prisma } from "@outreach/db";
+import { encrypt } from "@outreach/core";
 import { createApp } from "../app.js";
+import { env } from "../env.js";
 
 let userId = "", accountId = "", cookie = "";
 const app = createApp();
@@ -135,7 +137,7 @@ describe("publish endpoint", () => {
     draftId = draft.id;
   });
 
-  it("404s for a foreign account", async () => {
+  it("404s when the draft doesn't belong to the account owned by another user", async () => {
     const other = await authed();
     const u = await prisma.user.findUniqueOrThrow({ where: { email: other.email } });
     const acc = await prisma.linkedInAccount.create({
@@ -153,5 +155,35 @@ describe("publish endpoint", () => {
       method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
     });
     expect(res.status).toBe(404);
+  });
+
+  // Proves the route is actually wired (matched, passes both ownership guards,
+  // and reaches publishDraft) without making any network call: the seeded
+  // account has no tokenExpiresAt and no refreshToken, so publishDraft fails at
+  // the token-refresh step and returns a "failed" draft *before* constructing
+  // the LinkedIn client or issuing a fetch. If the route were missing or
+  // mistyped, Hono would 404 instead of returning 200 here.
+  it("reaches publishDraft and returns a failed draft when the account needs token refresh with no refresh token (no network call)", async () => {
+    const acc = await prisma.linkedInAccount.create({
+      data: {
+        userId,
+        memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9)) + 3}`,
+        displayName: "NR",
+        accessToken: encrypt("dummy-access-token", env.ENCRYPTION_KEY),
+        scopes: [],
+      },
+    });
+    const res = await app.request(`/studio/${acc.id}/drafts`, {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ text: "no-refresh-token draft" }),
+    });
+    const { draft: created } = (await res.json()) as { draft: { id: string } };
+
+    const pub = await app.request(`/studio/${acc.id}/drafts/${created.id}/publish`, {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+    });
+    expect(pub.status).toBe(200);
+    const { draft } = (await pub.json()) as { draft: { status: string } };
+    expect(draft.status).toBe("failed");
   });
 });
