@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { draftPost, refinePost, generateImage } from "./compose.js";
-import { recordingModel, imageModel } from "./testing.js";
+import { recordingModel, imageModel, MockImageModel } from "./testing.js";
 
 describe("compose", () => {
   it("drafts a post using the brandBrief as system context", async () => {
@@ -25,5 +25,17 @@ describe("compose", () => {
     const img = await generateImage("a minimalist poster", { model: imageModel("aGVsbG8=") });
     expect(img.base64).toBe("aGVsbG8=");
     expect(img.mediaType).toMatch(/image\//);
+  });
+
+  it("maps size to LinkedIn dimensions and injects the reference hint", async () => {
+    let seenSize: string | undefined,
+      seenPrompt = "";
+    const model = new MockImageModel(({ size, prompt }) => {
+      seenSize = size;
+      seenPrompt = prompt;
+    });
+    await generateImage("a shield", { model, size: "portrait", referenceHint: "short dark hair, navy blazer" });
+    expect(seenSize).toBe("1024x1536");
+    expect(seenPrompt).toContain("short dark hair");
   });
 });

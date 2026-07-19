@@ -1,7 +1,7 @@
 // Shared test helpers for the AI package. Mock model shapes track the
 // @ai-sdk/provider spec (v3 as of AI SDK 7); keeping them here means a future
 // provider-spec bump is a one-file change instead of a sweep across tests.
-import { MockLanguageModelV3 } from "ai/test";
+import { MockLanguageModelV3, MockImageModelV3 } from "ai/test";
 import type { ImageModel } from "ai";
 
 // A valid LanguageModelV3 usage object. The shape became nested (per-bucket
@@ -57,4 +57,23 @@ export function imageModel(base64 = "aGVsbG8="): ImageModel {
       response: { timestamp: new Date(0), modelId: "mock-image", headers: {} },
     }),
   } as unknown as ImageModel;
+}
+
+// Image mock that records the resolved { prompt, size } each call, so tests can
+// assert on the LinkedIn-size mapping and the reference-hint injection. Wraps
+// the provider's own MockImageModelV3 (mirroring the textModel helper) so the
+// captured call shape stays in lock-step with the installed provider spec.
+export class MockImageModel extends MockImageModelV3 {
+  constructor(spy?: (call: { prompt: string; size?: string }) => void, base64 = "iVBORw0KGgo=") {
+    super({
+      doGenerate: async (options) => {
+        spy?.({ prompt: options.prompt ?? "", size: options.size });
+        return {
+          images: [base64],
+          warnings: [],
+          response: { timestamp: new Date(0), modelId: "mock-image", headers: {} },
+        };
+      },
+    });
+  }
 }

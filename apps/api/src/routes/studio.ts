@@ -6,6 +6,7 @@ import { getAccountSummary } from "../repos/linkedin-account.js";
 import { getAccountProfile } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
 import { findSimilarPosts } from "../repos/post.js";
+import { imageReferenceHint } from "../repos/resource.js";
 import { saveImage } from "../images.js";
 
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
@@ -46,7 +47,13 @@ export function studioRoutes() {
     if (!prompt) return c.json({ error: "invalid_body" }, 400);
     const profile = await getAccountProfile(accountId);
     const visualStyle = (profile?.derived as unknown as DerivedInsights | null | undefined)?.visualStyle;
-    const { base64, mediaType } = await generateImage(prompt, { postText, visualStyle });
+    const referenceHint = await imageReferenceHint(accountId);
+    const { base64, mediaType } = await generateImage(prompt, {
+      postText,
+      visualStyle,
+      size: "portrait",
+      referenceHint,
+    });
     const { url } = await saveImage(base64, mediaType);
     return c.json({ imageUrl: url });
   });
@@ -128,6 +135,7 @@ export function studioRoutes() {
     // Track the live post text so a generateImage call after an updatePost call
     // in the same turn sees the fresh copy, not the stale draft snapshot.
     let currentText = draft.text;
+    const referenceHint = await imageReferenceHint(accountId);
 
     return streamStudioAgent({
       messages,
@@ -143,6 +151,8 @@ export function studioRoutes() {
           const { base64, mediaType } = await generateImage(prompt, {
             postText: currentText,
             visualStyle: derived?.visualStyle,
+            size: "portrait",
+            referenceHint,
           });
           const { url } = await saveImage(base64, mediaType);
           await updateDraft(draftId, accountId, { imageUrl: url, imagePrompt: prompt });

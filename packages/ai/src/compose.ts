@@ -50,9 +50,19 @@ export function getImageModel(): ImageModel {
   return openai.image(process.env.AI_IMAGE_MODEL ?? "gpt-image-1");
 }
 
+// LinkedIn-friendly output dimensions. Portrait is the feed default (takes the
+// most vertical space on mobile); square/landscape are opt-in.
+const SIZE_MAP = { portrait: "1024x1536", square: "1024x1024", landscape: "1536x1024" } as const;
+
 export async function generateImage(
   prompt: string,
-  opts?: { model?: ImageModel; postText?: string; visualStyle?: string },
+  opts?: {
+    model?: ImageModel;
+    postText?: string;
+    visualStyle?: string;
+    size?: "portrait" | "square" | "landscape";
+    referenceHint?: string;
+  },
 ): Promise<{ base64: string; mediaType: string }> {
   const model = opts?.model ?? getImageModel();
   // Give the image model the post it accompanies (so the visual is on-topic) and
@@ -66,8 +76,13 @@ export async function generateImage(
   if (opts?.visualStyle?.trim()) {
     parts.push(`Match this creator's established visual language: ${opts.visualStyle.trim()}`);
   }
+  if (opts?.referenceHint?.trim()) {
+    parts.push(
+      `If a person appears, resemble this reference (style/subject guidance, not an exact likeness): ${opts.referenceHint.trim()}`,
+    );
+  }
   parts.push(`Image direction: ${prompt}`);
   const fullPrompt = parts.length > 1 ? parts.join("\n\n") : prompt;
-  const { image } = await genImage({ model, prompt: fullPrompt });
+  const { image } = await genImage({ model, prompt: fullPrompt, size: SIZE_MAP[opts?.size ?? "portrait"] });
   return { base64: image.base64, mediaType: image.mediaType ?? "image/png" };
 }

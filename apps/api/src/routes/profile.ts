@@ -21,8 +21,9 @@ import type {
 } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { saveImage } from "../images.js";
-import { getAccountSummary } from "../repos/linkedin-account.js";
+import { getAccountSummary, getAccountIdForProfile } from "../repos/linkedin-account.js";
 import { listPosts } from "../repos/post.js";
+import { imageReferenceHint } from "../repos/resource.js";
 import {
   listProfiles,
   createProfile,
@@ -245,9 +246,14 @@ export function profileRoutes() {
         // example post in the creator's visual style, persist it, hand back a
         // servable URL for the canvas preview.
         createExampleImage: async ({ postText, direction }) => {
+          // Profile studio is keyed by profileId; resolve its (single, Phase 1)
+          // account to pull that account's reference photos. No account / no
+          // references → skip the hint but keep the portrait sizing.
+          const acctId = await getAccountIdForProfile(id, user.id);
+          const referenceHint = acctId ? await imageReferenceHint(acctId) : "";
           const { base64, mediaType } = await generateImage(
             direction ?? "A clean, on-brand visual that fits this post.",
-            { postText, visualStyle: derived?.visualStyle },
+            { postText, visualStyle: derived?.visualStyle, size: "portrait", referenceHint },
           );
           const { url } = await saveImage(base64, mediaType);
           return { imageUrl: url };

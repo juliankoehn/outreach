@@ -87,6 +87,17 @@ export async function getAccountSummary(id: string, userId: string) {
   });
 }
 
+// Resolve the (single, Phase 1) LinkedIn account bound to a creator profile.
+// CreatorProfile↔account is 1:n; Phase 1 assumes one account per profile, so we
+// take the first owned match. Returns null when the profile has no account.
+export async function getAccountIdForProfile(profileId: string, userId: string): Promise<string | null> {
+  const acct = await prisma.linkedInAccount.findFirst({
+    where: { creatorProfileId: profileId, userId },
+    select: { id: true },
+  });
+  return acct?.id ?? null;
+}
+
 export async function getAnalyticsCache(id: string) {
   return prisma.linkedInAccount.findUnique({
     where: { id },

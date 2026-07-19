@@ -47,3 +47,14 @@ export async function setResourceImageRef(
 export function listImageReferences(accountId: string): Promise<Resource[]> {
   return prisma.resource.findMany({ where: { accountId, kind: "image", isImageRef: true } });
 }
+
+// Concatenate the cached vision descriptors of an account's reference images
+// into a single hint string for image generation. Empty when no references (or
+// none have a description yet).
+export async function imageReferenceHint(accountId: string): Promise<string> {
+  const refs = await listImageReferences(accountId);
+  return refs
+    .map((r) => (r.meta as { refDescription?: string } | null)?.refDescription?.trim())
+    .filter((d): d is string => !!d)
+    .join(" ");
+}

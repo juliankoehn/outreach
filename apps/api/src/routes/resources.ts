@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { describeImageReferences } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
 import { putObject, getObject, deleteObject } from "../storage.js";
@@ -90,8 +91,23 @@ export function resourcesRoutes() {
     const accountId = await owned(c);
     if (!accountId) return c.json({ error: "not_found" }, 404);
     const { on } = await c.req.json<{ on: boolean }>().catch(() => ({ on: false }));
-    // refDescription is filled in Task 5 (vision). Here just toggle.
-    const updated = await setResourceImageRef(c.req.param("id"), accountId, on);
+    const id = c.req.param("id");
+
+    // Turning a reference ON: derive a short vision descriptor of the photo once
+    // and cache it on the resource, so image generation can reuse it as a text
+    // hint without re-reading pixels every time. Turning OFF is a pure toggle.
+    let refDescription: string | undefined;
+    if (on) {
+      const res = await getResource(id, accountId);
+      if (!res) return c.json({ error: "not_found" }, 404);
+      const obj = await getObject(res.storageKey);
+      if (obj) {
+        const base64 = Buffer.from(obj.body).toString("base64");
+        refDescription = await describeImageReferences([{ base64, mediaType: res.mimeType }]);
+      }
+    }
+
+    const updated = await setResourceImageRef(id, accountId, on, refDescription);
     if (!updated) return c.json({ error: "not_found" }, 404);
     return c.json({ resource: updated });
   });
