@@ -183,7 +183,9 @@ export async function rewriteForReview(opts: {
 export function getImageModel(): ImageModel {
   const provider = process.env.AI_PROVIDER ?? "openai";
   if (provider !== "openai") throw new Error(`Image generation supports only openai (got ${provider}).`);
-  return openai.image(process.env.AI_IMAGE_MODEL ?? "gpt-image-1");
+  // gpt-image-2 is markedly more photorealistic / less "AI-render" than
+  // gpt-image-1 for the same brief. Override via AI_IMAGE_MODEL.
+  return openai.image(process.env.AI_IMAGE_MODEL ?? "gpt-image-2");
 }
 
 // LinkedIn-friendly output dimensions. Portrait is the feed default (takes the
