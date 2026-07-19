@@ -26,6 +26,9 @@ import {
 } from "../repos/linkedin-account.js";
 import { upsertPosts, listPosts, postsToEnrich, setPostMetrics } from "../repos/post.js";
 import { getOrCreateAccountProfile } from "../repos/profile.js";
+import { isPrivateOrLoopbackIp } from "../net.js";
+
+export { isPrivateOrLoopbackIp };
 
 /** Run `fn` over `items` with at most `limit` concurrent executions. */
 async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
@@ -55,43 +58,6 @@ const LINKEDIN_HOST_RE = /(^|\.)linkedin\.com$/;
 /** The single host allowlist check reused for the initial URL and every redirect hop. */
 export function isLinkedInHost(hostname: string): boolean {
   return LINKEDIN_HOST_RE.test(hostname);
-}
-
-/**
- * Classify a resolved IP (v4 or v6) as loopback/private/link-local — the
- * ranges an SSRF-hardened outbound fetch must never be allowed to reach, even
- * when the URL's hostname passes the linkedin.com allowlist (a malicious or
- * compromised redirect could point the hostname at an internal address).
- * Covers: 127.0.0.0/8, 10/8, 172.16/12, 192.168/16, 169.254/16, 0.0.0.0/8,
- * ::1, fc00::/7 (unique local), fe80::/10 (link-local), and IPv4-mapped IPv6
- * addresses (::ffff:a.b.c.d) recursed through the IPv4 rules.
- */
-export function isPrivateOrLoopbackIp(ip: string): boolean {
-  const v4Mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
-  if (v4Mapped) return isPrivateOrLoopbackIp(v4Mapped[1]!);
-
-  if (ip.includes(".") && !ip.includes(":")) {
-    const parts = ip.split(".").map((p) => Number(p));
-    if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) {
-      return true; // malformed address — reject rather than risk it
-    }
-    const [a, b] = parts as [number, number, number, number];
-    if (a === 127) return true; // 127.0.0.0/8 loopback
-    if (a === 10) return true; // 10.0.0.0/8
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true; // 192.168.0.0/16
-    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
-    if (a === 0) return true; // 0.0.0.0/8
-    return false;
-  }
-
-  if (!ip.includes(":")) return true; // not a recognizable IPv4 or IPv6 literal — reject defensively
-
-  const normalized = ip.toLowerCase();
-  if (normalized === "::1" || normalized === "::") return true; // loopback / unspecified
-  if (/^f[cd][0-9a-f]{2}:/.test(normalized)) return true; // fc00::/7 unique local
-  if (/^fe[89ab][0-9a-f]:/.test(normalized)) return true; // fe80::/10 link-local
-  return false;
 }
 
 const MAX_EMBED_REDIRECTS = 5;
