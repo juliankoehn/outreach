@@ -47,7 +47,29 @@ export async function getDecryptedAccount(id: string, userId: string) {
     accessToken: decrypt(a.accessToken, env.ENCRYPTION_KEY),
     refreshToken: a.refreshToken ? decrypt(a.refreshToken, env.ENCRYPTION_KEY) : undefined,
     scopes: a.scopes,
+    tokenExpiresAt: a.tokenExpiresAt,
+    status: a.status,
   };
+}
+
+export async function updateAccountTokens(
+  id: string,
+  tokens: { accessToken: string; refreshToken?: string; expiresIn: number },
+): Promise<void> {
+  const expiresAt = tokens.expiresIn ? new Date(Date.now() + tokens.expiresIn * 1000) : null;
+  await prisma.linkedInAccount.update({
+    where: { id },
+    data: {
+      accessToken: encrypt(tokens.accessToken, env.ENCRYPTION_KEY),
+      ...(tokens.refreshToken ? { refreshToken: encrypt(tokens.refreshToken, env.ENCRYPTION_KEY) } : {}),
+      tokenExpiresAt: expiresAt,
+      status: "active",
+    },
+  });
+}
+
+export async function setAccountStatus(id: string, status: "active" | "expired" | "revoked"): Promise<void> {
+  await prisma.linkedInAccount.update({ where: { id }, data: { status } });
 }
 
 export async function listAccounts(userId: string) {

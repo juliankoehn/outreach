@@ -154,6 +154,7 @@ model Draft {
   sourceFeedItemId  String?   // if drafted from a Feed article — the agent pulls it into context
   scheduledAt       DateTime? // reserved for the scheduler phase
   publishedAt       DateTime? // reserved for publishing
+  publishError      String?   // last publish failure message (status = failed)
   externalId        String?   // LinkedIn post URN once published
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
