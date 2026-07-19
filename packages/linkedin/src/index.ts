@@ -9,3 +9,4 @@ export { MemberAnalyticsClient } from "./analytics.js";
 export type { AggregateAnalytics, AggregateMetric } from "./analytics.js";
 export { extractEmbedUrl, parseEmbedHtml } from "./embed.js";
 export type { ParsedEmbedPost } from "./embed.js";
+export { LinkedInPublishClient, LinkedInPublishError } from "./publish.js";
