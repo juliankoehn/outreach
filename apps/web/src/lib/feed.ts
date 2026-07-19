@@ -21,4 +21,5 @@ export interface FeedItem {
   author: string | null;
   publishedAt: string | null;
   status: string; // new | read | dismissed
+  content: string | null; // article body as Markdown, when available
 }

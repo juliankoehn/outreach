@@ -1,9 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ExternalLink, Loader2, PenLine, Plus, RefreshCw, Rss, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Loader2,
+  Newspaper,
+  PenLine,
+  Plus,
+  RefreshCw,
+  Rss,
+  Trash2,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MessageResponse } from "@/components/ai-elements/message";
 import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/accounts";
 import type { FeedItem, FeedSource } from "@/lib/feed";
@@ -44,6 +55,15 @@ function safeHref(u: string | null | undefined): string | undefined {
   }
 }
 
+function formatDate(locale: string, iso: string | null): string | null {
+  if (!iso) return null;
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
 export function FeedView() {
   const t = useTranslations();
   const locale = useLocale();
@@ -55,8 +75,8 @@ export function FeedView() {
   const [itemsLoaded, setItemsLoaded] = useState(false);
   const [filter, setFilter] = useState<Filter>("new");
   const [refreshing, setRefreshing] = useState(false);
-  // Item ids with an in-flight status change — keeps that card's actions
-  // disabled until the re-sync lands, so a card can't be double-actioned.
+  // Item ids with an in-flight status change — keeps that item's actions
+  // disabled until the re-sync lands, so it can't be double-actioned.
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   // LinkedIn accounts, loaded on mount — gate/route the "turn into post" flow.
@@ -65,6 +85,16 @@ export function FeedView() {
   const [postingId, setPostingId] = useState<string | null>(null);
   // When >1 account, clicking "post" defers to an account picker for this item.
   const [postItem, setPostItem] = useState<FeedItem | null>(null);
+  // The article shown in the reader pane. Pinned as its own object so it keeps
+  // rendering even after a status change drops it from the current filter.
+  const [selectedItem, setSelectedItem] = useState<FeedItem | null>(null);
+
+  // Prefer the freshest copy from the list (a poll may have filled in `content`),
+  // but fall back to the pinned object if the item has left the current filter.
+  const selected = useMemo(() => {
+    if (!selectedItem) return null;
+    return items.find((i) => i.id === selectedItem.id) ?? selectedItem;
+  }, [items, selectedItem]);
 
   const loadSources = useCallback(async () => {
     const res = await fetch("/api/feed/sources", { credentials: "include" });
@@ -149,6 +179,27 @@ export function FeedView() {
     });
   }
 
+  // Open an article in the reader. Marking it read is best-effort and mirrors
+  // "opening" it — fire-and-forget (no re-sync) so it doesn't vanish from the
+  // list mid-read; the list updates its status optimistically.
+  function selectItem(item: FeedItem) {
+    setSelectedItem(item.status === "new" ? { ...item, status: "read" } : item);
+    if (item.status === "new") {
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, status: "read" } : i)));
+      void fetch(`/api/feed/items/${item.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "read" }),
+      }).catch(() => {});
+    }
+  }
+
+  async function dismissSelected(item: FeedItem) {
+    await setStatus(item, "dismissed");
+    setSelectedItem(null);
+  }
+
   // Create a Studio draft seeded from the article, then hand off to the studio
   // agent via ?prompt= (which auto-sends). Marking the item read is best-effort
   // and must never block the redirect.
@@ -186,127 +237,171 @@ export function FeedView() {
     else setPostItem(item);
   }
 
-  const sourceTitle = (id: string) =>
-    sources.find((s) => s.id === id)?.title ?? t("feed.unknownSource");
+  const sourceTitle = useCallback(
+    (id: string) => sources.find((s) => s.id === id)?.title ?? t("feed.unknownSource"),
+    [sources, t],
+  );
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("feed.title")}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">{t("feed.subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {sources.length > 0 && (
-            <Button variant="outline" onClick={refreshAll} disabled={refreshing}>
-              <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-              {t("feed.refresh")}
+    <div className="flex h-full flex-col lg:flex-row">
+      {/* List pane -------------------------------------------------------- */}
+      <div
+        className={cn(
+          "flex min-h-0 w-full flex-col border-b lg:w-[38%] lg:min-w-[22rem] lg:border-r lg:border-b-0",
+          // On mobile the reader takes over the whole view when an item is open.
+          selected ? "hidden lg:flex" : "flex",
+        )}
+      >
+        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold tracking-tight">{t("feed.title")}</h1>
+            <p className="text-muted-foreground mt-0.5 truncate text-xs">{t("feed.subtitle")}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {sources.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshAll}
+                disabled={refreshing}
+                title={t("feed.refresh")}
+                aria-label={t("feed.refresh")}
+                className="h-8 px-2"
+              >
+                <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+              </Button>
+            )}
+            <Button size="sm" onClick={() => setDialogOpen(true)} className="h-8">
+              <Plus className="size-4" />
+              <span className="hidden sm:inline">{t("feed.addSource")}</span>
             </Button>
+          </div>
+        </div>
+
+        {/* Sources chips */}
+        <div className="px-5 pb-3">
+          {!sourcesLoaded ? (
+            <div className="flex flex-wrap gap-1.5">
+              <Skeleton className="h-7 w-36 rounded-md" />
+              <Skeleton className="h-7 w-28 rounded-md" />
+            </div>
+          ) : sources.length === 0 ? (
+            <div className="rounded-md border border-dashed px-4 py-5 text-center">
+              <div className="text-muted-foreground bg-muted mx-auto grid size-9 place-items-center rounded-full">
+                <Rss className="size-4" />
+              </div>
+              <p className="text-muted-foreground mx-auto mt-2.5 max-w-xs text-xs">
+                {t("feed.emptyNoSources")}
+              </p>
+              <Button size="sm" className="mt-3 h-8" onClick={() => setDialogOpen(true)}>
+                <Plus className="size-4" />
+                {t("feed.addSource")}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {sources.map((s) => (
+                <SourceChip
+                  key={s.id}
+                  source={s}
+                  removeLabel={t("feed.remove")}
+                  onRemove={() => void removeSource(s)}
+                />
+              ))}
+            </div>
           )}
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="size-4" />
-            {t("feed.addSource")}
-          </Button>
+        </div>
+
+        {/* Filter tabs */}
+        <div className="px-5 pb-3">
+          <div className="bg-muted inline-flex items-center gap-0.5 rounded-md p-0.5">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                aria-pressed={filter === f}
+                className={cn(
+                  "rounded px-3 py-1 text-xs font-medium transition-colors",
+                  filter === f
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t(`feed.filter_${f}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Item rows — the one scrolling region on the left */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
+          {!itemsLoaded ? (
+            <div className="grid gap-1.5 px-1">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-md" />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <div className="text-muted-foreground mx-2 rounded-md border border-dashed px-4 py-10 text-center text-sm">
+              {t("feed.emptyNoItems")}
+            </div>
+          ) : (
+            <div className="grid gap-0.5">
+              {items.map((item) => (
+                <FeedItemRow
+                  key={item.id}
+                  item={item}
+                  sourceTitle={sourceTitle(item.sourceId)}
+                  locale={locale}
+                  active={item.id === selected?.id}
+                  onSelect={() => selectItem(item)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Sources ----------------------------------------------------------- */}
-      <section className="space-y-2.5">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
-          {t("feed.sourcesTitle")}
-          {sourcesLoaded && sources.length > 0 && (
-            <span className="text-muted-foreground font-normal tabular-nums">{sources.length}</span>
-          )}
-        </h2>
-
-        {!sourcesLoaded ? (
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-8 w-40 rounded-md" />
-            <Skeleton className="h-8 w-32 rounded-md" />
-          </div>
-        ) : sources.length === 0 ? (
-          <div className="rounded-lg border border-dashed px-6 py-8 text-center">
-            <div className="text-muted-foreground bg-muted mx-auto grid size-10 place-items-center rounded-full">
-              <Rss className="size-5" />
+      {/* Reader pane ------------------------------------------------------ */}
+      <div
+        className={cn(
+          "min-h-0 flex-1 flex-col",
+          selected ? "flex" : "hidden lg:flex",
+        )}
+      >
+        {selected ? (
+          <ArticleReader
+            key={selected.id}
+            item={selected}
+            sourceTitle={sourceTitle(selected.sourceId)}
+            locale={locale}
+            busy={pending.has(selected.id)}
+            posting={postingId === selected.id}
+            canPost={accounts.length > 0}
+            labels={{
+              back: t("feed.backToList"),
+              post: t("feed.actionPost"),
+              openOriginal: t("feed.openOriginal"),
+              dismiss: t("feed.actionDismiss"),
+              postNoAccount: t("feed.postNoAccount"),
+            }}
+            onBack={() => setSelectedItem(null)}
+            onPost={() => handlePost(selected)}
+            onDismiss={() => void dismissSelected(selected)}
+          />
+        ) : (
+          <div className="grid flex-1 place-items-center p-8">
+            <div className="max-w-xs text-center">
+              <div className="text-muted-foreground bg-muted mx-auto grid size-12 place-items-center rounded-full">
+                <Newspaper className="size-5" />
+              </div>
+              <p className="mt-4 text-sm font-medium">{t("feed.readerEmptyTitle")}</p>
+              <p className="text-muted-foreground mt-1 text-sm">{t("feed.readerEmptyDesc")}</p>
             </div>
-            <p className="text-muted-foreground mx-auto mt-3 max-w-sm text-sm">
-              {t("feed.emptyNoSources")}
-            </p>
-            <Button className="mt-4" onClick={() => setDialogOpen(true)}>
-              <Plus className="size-4" />
-              {t("feed.addSource")}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {sources.map((s) => (
-              <SourceChip
-                key={s.id}
-                source={s}
-                removeLabel={t("feed.remove")}
-                onRemove={() => void removeSource(s)}
-              />
-            ))}
           </div>
         )}
-      </section>
-
-      {/* Stream ------------------------------------------------------------ */}
-      <section className="space-y-4">
-        <div className="bg-muted inline-flex items-center gap-0.5 rounded-md p-0.5">
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              aria-pressed={filter === f}
-              className={cn(
-                "rounded px-3 py-1 text-xs font-medium transition-colors",
-                filter === f
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t(`feed.filter_${f}`)}
-            </button>
-          ))}
-        </div>
-
-        {!itemsLoaded ? (
-          <div className="grid gap-3">
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-28 w-full rounded-xl" />
-            ))}
-          </div>
-        ) : items.length === 0 ? (
-          <div className="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
-            {t("feed.emptyNoItems")}
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {items.map((item) => (
-              <FeedItemCard
-                key={item.id}
-                item={item}
-                sourceTitle={sourceTitle(item.sourceId)}
-                locale={locale}
-                busy={pending.has(item.id)}
-                posting={postingId === item.id}
-                canPost={accounts.length > 0}
-                labels={{
-                  post: t("feed.actionPost"),
-                  read: t("feed.actionRead"),
-                  dismiss: t("feed.actionDismiss"),
-                  postNoAccount: t("feed.postNoAccount"),
-                }}
-                onPost={() => handlePost(item)}
-                onRead={() => void setStatus(item, "read")}
-                onDismiss={() => void setStatus(item, "dismissed")}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      </div>
 
       <AddSourceDialog
         open={dialogOpen}
@@ -343,7 +438,7 @@ function SourceChip({
   return (
     <div
       className={cn(
-        "group bg-card flex items-center gap-2 rounded-md border py-1.5 pr-1.5 pl-2.5 text-sm transition-colors hover:border-foreground/20",
+        "group bg-card hover:border-foreground/20 flex items-center gap-2 rounded-md border py-1 pr-1 pl-2.5 text-xs transition-colors",
         isError && "border-destructive/30",
       )}
     >
@@ -351,22 +446,92 @@ function SourceChip({
         aria-hidden
         className={cn("size-1.5 shrink-0 rounded-full", isError ? "bg-destructive" : "bg-success")}
       />
-      <span className="max-w-[16rem] truncate" title={isError ? (source.error ?? undefined) : source.url}>
+      <span
+        className="max-w-[12rem] truncate"
+        title={isError ? (source.error ?? undefined) : source.url}
+      >
         {source.title}
       </span>
       <button
         type="button"
         onClick={onRemove}
         aria-label={removeLabel}
-        className="text-muted-foreground hover:text-destructive hover:bg-accent grid size-6 shrink-0 place-items-center rounded opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        className="text-muted-foreground hover:text-destructive hover:bg-accent grid size-5 shrink-0 place-items-center rounded opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
       >
-        <Trash2 className="size-3.5" />
+        <Trash2 className="size-3" />
       </button>
     </div>
   );
 }
 
-function FeedItemCard({
+function FeedItemRow({
+  item,
+  sourceTitle,
+  locale,
+  active,
+  onSelect,
+}: {
+  item: FeedItem;
+  sourceTitle: string;
+  locale: string;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const date = formatDate(locale, item.publishedAt);
+  const unread = item.status === "new";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={active}
+      className={cn(
+        "group flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors",
+        active ? "bg-accent" : "hover:bg-muted/60",
+      )}
+    >
+      <span aria-hidden className="mt-1.5 flex w-1.5 shrink-0 justify-center">
+        {unread && <span className="bg-primary size-1.5 rounded-full" />}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "line-clamp-2 text-sm leading-snug",
+            unread ? "font-medium" : "font-normal",
+          )}
+        >
+          {item.title}
+        </p>
+        <div className="mt-1 flex items-center gap-2 overflow-hidden">
+          <span className="text-muted-foreground max-w-[10rem] truncate text-xs">
+            {sourceTitle}
+          </span>
+          {date && (
+            <>
+              <span aria-hidden className="text-muted-foreground/50 text-xs">
+                ·
+              </span>
+              <span className="text-muted-foreground shrink-0 text-xs tabular-nums">{date}</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {safeHref(item.imageUrl) && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={safeHref(item.imageUrl)}
+          alt=""
+          loading="lazy"
+          className="bg-muted hidden size-12 shrink-0 rounded object-cover sm:block"
+        />
+      )}
+    </button>
+  );
+}
+
+function ArticleReader({
   item,
   sourceTitle,
   locale,
@@ -374,8 +539,8 @@ function FeedItemCard({
   posting,
   canPost,
   labels,
+  onBack,
   onPost,
-  onRead,
   onDismiss,
 }: {
   item: FeedItem;
@@ -384,91 +549,101 @@ function FeedItemCard({
   busy: boolean;
   posting: boolean;
   canPost: boolean;
-  labels: { post: string; read: string; dismiss: string; postNoAccount: string };
+  labels: {
+    back: string;
+    post: string;
+    openOriginal: string;
+    dismiss: string;
+    postNoAccount: string;
+  };
+  onBack: () => void;
   onPost: () => void;
-  onRead: () => void;
   onDismiss: () => void;
 }) {
-  const date = item.publishedAt
-    ? new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" }).format(
-        new Date(item.publishedAt),
-      )
-    : null;
+  const date = formatDate(locale, item.publishedAt);
+  const href = safeHref(item.url);
+  const body = item.content?.trim() || item.excerpt?.trim() || "";
 
   return (
-    <div
-      className={cn(
-        "bg-card flex gap-4 rounded-xl border p-4 shadow-sm transition-colors hover:border-foreground/20",
-        item.status === "read" && "opacity-70",
-      )}
-    >
-      {safeHref(item.imageUrl) && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={safeHref(item.imageUrl)}
-          alt=""
-          loading="lazy"
-          className="bg-muted hidden size-24 shrink-0 rounded-md border object-cover sm:block"
-        />
-      )}
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="muted" className="max-w-[12rem] truncate">
-            {sourceTitle}
-          </Badge>
-          {date && <span className="text-muted-foreground text-xs tabular-nums">{date}</span>}
-          {item.author && (
-            <span className="text-muted-foreground truncate text-xs">· {item.author}</span>
-          )}
-        </div>
-
-        <a
-          href={safeHref(item.url) ?? "#"}
-          target="_blank"
-          rel="noreferrer"
-          className="group/link mt-1.5 flex items-start gap-1 font-medium hover:underline"
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Sticky action bar */}
+      <div className="bg-background/80 flex flex-wrap items-center gap-2 border-b px-5 py-3 backdrop-blur">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBack}
+          className="text-muted-foreground -ml-2 h-8 lg:hidden"
         >
-          <span className="min-w-0">{item.title}</span>
-          <ExternalLink className="text-muted-foreground mt-1 size-3.5 shrink-0 opacity-0 transition-opacity group-hover/link:opacity-100" />
-        </a>
+          <ArrowLeft className="size-4" />
+          {labels.back}
+        </Button>
 
-        {item.excerpt && (
-          <p className="text-muted-foreground mt-1 line-clamp-2 text-sm">{item.excerpt}</p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
           <Button
             size="sm"
+            className="h-8"
             onClick={onPost}
             disabled={busy || posting || !canPost}
             title={!canPost ? labels.postNoAccount : undefined}
           >
-            {posting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <PenLine className="size-4" />
-            )}
+            {posting ? <Loader2 className="size-4 animate-spin" /> : <PenLine className="size-4" />}
             {labels.post}
           </Button>
-          {item.status !== "read" && (
-            <Button size="sm" variant="outline" onClick={onRead} disabled={busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {labels.read}
+          {href && (
+            <Button asChild size="sm" variant="outline" className="h-8">
+              <a href={href} target="_blank" rel="noreferrer">
+                <ExternalLink className="size-4" />
+                {labels.openOriginal}
+              </a>
             </Button>
           )}
-          {item.status !== "dismissed" && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onDismiss}
-              disabled={busy}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              {labels.dismiss}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onDismiss}
+            disabled={busy}
+            className="text-muted-foreground hover:text-destructive h-8"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+            {labels.dismiss}
+          </Button>
         </div>
+      </div>
+
+      {/* Scrolling article body */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <article className="mx-auto max-w-2xl px-6 py-8">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="muted" className="max-w-[14rem] truncate">
+              {sourceTitle}
+            </Badge>
+            {date && (
+              <span className="text-muted-foreground text-xs tabular-nums">{date}</span>
+            )}
+            {item.author && (
+              <span className="text-muted-foreground truncate text-xs">· {item.author}</span>
+            )}
+          </div>
+
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-balance">
+            {item.title}
+          </h1>
+
+          {safeHref(item.imageUrl) && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={safeHref(item.imageUrl)}
+              alt=""
+              className="bg-muted mt-5 aspect-video w-full rounded-lg border object-cover"
+            />
+          )}
+
+          {body ? (
+            <MessageResponse className="mt-6 text-[0.95rem] leading-relaxed">{body}</MessageResponse>
+          ) : (
+            <p className="text-muted-foreground mt-6 text-sm">{item.excerpt}</p>
+          )}
+        </article>
       </div>
     </div>
   );
