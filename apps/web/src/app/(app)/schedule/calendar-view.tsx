@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { monthGrid, sameDay } from "@/lib/calendar";
+import { addDays, monthGrid, sameDay, weekDays } from "@/lib/calendar";
 
 export interface CalendarEvent {
   id: string;
@@ -35,6 +35,7 @@ export interface CalendarViewProps {
 }
 
 const MAX_EVENTS_PER_CELL = 2;
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 function stepMonth(cursor: Date, delta: number): Date {
   return new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1);
@@ -58,6 +59,43 @@ function EventAvatar({ account }: { account: CalendarEvent["account"] }) {
   );
 }
 
+function EventButton({
+  ev,
+  locale,
+  t,
+  showAccountAvatar,
+  onOpenEvent,
+}: {
+  ev: CalendarEvent;
+  locale: string;
+  t: ReturnType<typeof useTranslations>;
+  showAccountAvatar?: boolean;
+  onOpenEvent(id: string): void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenEvent(ev.id)}
+      className="flex w-full items-center gap-1 rounded-sm bg-card px-1 py-0.5 text-left text-[11px] hover:bg-accent"
+    >
+      <Clock
+        className="size-3 shrink-0 text-muted-foreground"
+        aria-label={t("schedule.notPublished")}
+      >
+        <title>{t("schedule.notPublished")}</title>
+      </Clock>
+      {showAccountAvatar && <EventAvatar account={ev.account} />}
+      <span className="truncate text-foreground">{ev.title}</span>
+      <span className="ml-auto shrink-0 text-muted-foreground">
+        {new Date(ev.scheduledAt).toLocaleTimeString(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </span>
+    </button>
+  );
+}
+
 export function CalendarView(props: CalendarViewProps) {
   const {
     events,
@@ -72,7 +110,25 @@ export function CalendarView(props: CalendarViewProps) {
   const t = useTranslations();
   const locale = useLocale();
 
-  const title = cursor.toLocaleDateString(locale, { month: "long", year: "numeric" });
+  const days = view === "day" ? [cursor] : weekDays(cursor);
+
+  function step(delta: number): Date {
+    if (view === "month") return stepMonth(cursor, delta);
+    if (view === "week") return addDays(cursor, delta * 7);
+    return addDays(cursor, delta);
+  }
+
+  const title =
+    view === "month"
+      ? cursor.toLocaleDateString(locale, { month: "long", year: "numeric" })
+      : view === "week"
+        ? `${days[0]!.toLocaleDateString(locale, { day: "numeric", month: "short" })} – ${days[6]!.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}`
+        : cursor.toLocaleDateString(locale, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          });
 
   const weekdayLabels = [
     t("schedule.weekdayMon"),
@@ -99,14 +155,14 @@ export function CalendarView(props: CalendarViewProps) {
             <Button
               variant="outline"
               size="icon-sm"
-              onClick={() => onCursor(stepMonth(cursor, -1))}
+              onClick={() => onCursor(step(-1))}
             >
               <ChevronLeft className="size-4" />
             </Button>
             <Button
               variant="outline"
               size="icon-sm"
-              onClick={() => onCursor(stepMonth(cursor, 1))}
+              onClick={() => onCursor(step(1))}
             >
               <ChevronRight className="size-4" />
             </Button>
@@ -191,27 +247,14 @@ export function CalendarView(props: CalendarViewProps) {
 
                   <div className="flex flex-col gap-0.5">
                     {visibleEvents.map((ev) => (
-                      <button
+                      <EventButton
                         key={ev.id}
-                        type="button"
-                        onClick={() => onOpenEvent(ev.id)}
-                        className="flex w-full items-center gap-1 rounded-sm bg-card px-1 py-0.5 text-left text-[11px] hover:bg-accent"
-                      >
-                        <Clock
-                          className="size-3 shrink-0 text-muted-foreground"
-                          aria-label={t("schedule.notPublished")}
-                        >
-                          <title>{t("schedule.notPublished")}</title>
-                        </Clock>
-                        {showAccountAvatar && <EventAvatar account={ev.account} />}
-                        <span className="truncate text-foreground">{ev.title}</span>
-                        <span className="ml-auto shrink-0 text-muted-foreground">
-                          {new Date(ev.scheduledAt).toLocaleTimeString(locale, {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </button>
+                        ev={ev}
+                        locale={locale}
+                        t={t}
+                        showAccountAvatar={showAccountAvatar}
+                        onOpenEvent={onOpenEvent}
+                      />
                     ))}
                     {hiddenCount > 0 && (
                       <span className="px-1 text-[11px] text-muted-foreground">
@@ -225,8 +268,68 @@ export function CalendarView(props: CalendarViewProps) {
           </div>
         </div>
       ) : (
-        <div className="p-8 text-sm text-muted-foreground">
-          {viewLabels[view]} — coming soon.
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {view === "week" && (
+            <div className="flex border-b">
+              <div className="w-12 shrink-0 border-r" />
+              {days.map((d, i) => {
+                const isToday = sameDay(d, new Date());
+                return (
+                  <div
+                    key={i}
+                    className="flex flex-1 flex-col items-center gap-1 border-r py-2 last:border-r-0"
+                  >
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {weekdayLabels[i]}
+                    </span>
+                    <span
+                      className={cn(
+                        "flex size-6 items-center justify-center rounded-full text-xs",
+                        isToday
+                          ? "bg-primary font-semibold text-primary-foreground"
+                          : "text-foreground",
+                      )}
+                    >
+                      {d.getDate()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto">
+            {HOURS.map((h) => (
+              <div key={h} className="flex min-h-16 border-b last:border-b-0">
+                <div className="w-12 shrink-0 border-r px-1 pt-1 text-right text-[10px] text-muted-foreground">
+                  {String(h).padStart(2, "0")}:00
+                </div>
+                {days.map((day, i) => {
+                  const cellEvents = events.filter((ev) => {
+                    const evDate = new Date(ev.scheduledAt);
+                    return sameDay(evDate, day) && evDate.getHours() === h;
+                  });
+                  return (
+                    <div
+                      key={i}
+                      className="flex flex-1 flex-col gap-0.5 border-r p-0.5 last:border-r-0"
+                    >
+                      {cellEvents.map((ev) => (
+                        <EventButton
+                          key={ev.id}
+                          ev={ev}
+                          locale={locale}
+                          t={t}
+                          showAccountAvatar={showAccountAvatar}
+                          onOpenEvent={onOpenEvent}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
