@@ -86,7 +86,7 @@ function studioSystem(input: StudioSystemInput): string {
     : "";
 
   const article = input.sourceArticle
-    ? `\n\nSOURCE ARTICLE — the creator wants a LinkedIn post inspired by this article. Use it as the factual basis and write THEIR OWN take / point of view — do NOT summarise or rehash it, and do NOT copy its wording. It is given in Markdown for your reading only; the post itself is PLAIN TEXT with no Markdown.\nTitle: ${input.sourceArticle.title}\nURL: ${input.sourceArticle.url}\nArticle:\n"""${input.sourceArticle.content}"""`
+    ? `\n\nSOURCE ARTICLE — this article is the PRIMARY SUBJECT of the post. The post is ABOUT this article and MUST stay on its topic. Use it as the factual basis and write the creator's OWN take / point of view on it — do NOT summarise or rehash it, and do NOT copy its wording. It is given in Markdown for your reading only; the post itself is PLAIN TEXT with no Markdown.\nHere, searchKnowledge is OPTIONAL and strictly supplementary: only pull in a passage if it DIRECTLY sharpens the creator's take on THIS article's topic. Never let the knowledge base introduce unrelated subjects or steer the post away from the article — if a retrieved passage is off-topic for this article, ignore it.\nTitle: ${input.sourceArticle.title}\nURL: ${input.sourceArticle.url}\nArticle:\n"""${input.sourceArticle.content}"""`
     : "";
 
   return `You are the creator's LinkedIn writing partner inside a studio. You work on a single post that lives on a canvas to the right of this chat.
