@@ -32,7 +32,7 @@ export function studioRoutes() {
       return c.json({ error: "no_profile" }, 400);
     }
     const { topic } = await c.req.json<{ topic?: string }>().catch(() => ({ topic: undefined }));
-    const text = await draftPost(profile.brandBrief, { topic });
+    const text = await draftPost(profile.brandBrief, { topic, noGos: profile.noGos, toneWords: profile.toneWords });
     return c.json({ text });
   });
 
@@ -104,7 +104,7 @@ export function studioRoutes() {
     if (!instruction) return c.json({ error: "invalid_body" }, 400);
 
     const profile = await getAccountProfile(accountId);
-    const text = await refinePost(profile?.brandBrief ?? "", draft.text, instruction);
+    const text = await refinePost(profile?.brandBrief ?? "", draft.text, instruction, { noGos: profile?.noGos, toneWords: profile?.toneWords });
     const chat = [
       ...(Array.isArray(draft.chat) ? draft.chat : []),
       { role: "user", content: instruction },
@@ -141,6 +141,9 @@ export function studioRoutes() {
     return streamStudioAgent({
       messages,
       brandBrief: profile?.brandBrief ?? undefined,
+      toneWords: profile?.toneWords,
+      pillars: profile?.pillars,
+      noGos: profile?.noGos,
       insights,
       currentText,
       handlers: {
@@ -198,7 +201,7 @@ export function studioRoutes() {
       return c.json({ error: "no_profile" }, 400);
     }
     const { topic } = await c.req.json<{ topic?: string }>().catch(() => ({ topic: undefined }));
-    const text = await draftPost(profile.brandBrief, { topic });
+    const text = await draftPost(profile.brandBrief, { topic, noGos: profile.noGos, toneWords: profile.toneWords });
     return c.json({ draft: await updateDraft(c.req.param("id"), accountId, { text }) });
   });
 

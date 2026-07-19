@@ -17,14 +17,24 @@ export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, 
 
 const POST_INSTRUCTIONS = `Write a single LinkedIn post in the creator's authentic voice, following the brand brief exactly. Output only the post text as PLAIN TEXT (no Markdown formatting) — no preamble, no surrounding quotes.`;
 
+// The creator's explicit no-gos, rendered as hard rules. Kept identical to the
+// studio agent's phrasing so both paths honour "no emojis / no em-dashes" etc.
+function noGoBlock(noGos?: string[], toneWords?: string[]): string {
+  const tone = toneWords?.length ? `\n\nVOICE & TONE — write in exactly this register: ${toneWords.join(", ")}.` : "";
+  if (!noGos?.length) return tone;
+  return `${tone}\n\nHARD NO-GOS — never violate ANY of these, no exceptions:\n${noGos
+    .map((n) => `- ${n}`)
+    .join("\n")}\nRead them literally: "Emojis" → ZERO emoji; "Em-Dashes" → no "—"; "Buzzwords"/"Füllwörter" → plain, specific words only.`;
+}
+
 export async function draftPost(
   brandBrief: string,
-  opts?: { topic?: string; model?: LanguageModel },
+  opts?: { topic?: string; model?: LanguageModel; noGos?: string[]; toneWords?: string[] },
 ): Promise<string> {
   const model = opts?.model ?? getTextModel();
   const { text } = await generateText({
     model,
-    system: `${brandBrief}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
+    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
     prompt: opts?.topic ? `Topic / angle: ${opts.topic}` : "Write a strong post on one of the creator's core pillars.",
   });
   return text.trim();
@@ -34,12 +44,12 @@ export async function refinePost(
   brandBrief: string,
   currentText: string,
   instruction: string,
-  opts?: { model?: LanguageModel },
+  opts?: { model?: LanguageModel; noGos?: string[]; toneWords?: string[] },
 ): Promise<string> {
   const model = opts?.model ?? getTextModel();
   const { text } = await generateText({
     model,
-    system: `${brandBrief}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
+    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
     prompt: `Current draft:\n"""${currentText}"""\n\nInstruction: ${instruction}`,
   });
   return text.trim();
