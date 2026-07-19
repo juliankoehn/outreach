@@ -10,7 +10,9 @@ export async function getBoss(): Promise<PgBoss> {
   starting ??= (async () => {
     const b = new PgBoss(process.env.DATABASE_URL!);
     await b.start();
-    await b.createQueue(INGEST_QUEUE);
+    // Capped retries with exponential backoff: a stuck/failing ingest job
+    // shouldn't retry forever nor hammer the DB/embedding API immediately.
+    await b.createQueue(INGEST_QUEUE, { retryLimit: 5, retryDelay: 30, retryBackoff: true });
     boss = b;
     return b;
   })().catch((e: unknown) => {

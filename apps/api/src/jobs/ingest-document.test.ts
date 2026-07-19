@@ -27,4 +27,15 @@ describe.skipIf(!process.env.OPENAI_API_KEY)("ingestDocument", () => {
     const hits = await searchChunks(accountId, await embedQuery("compliance norm"), 3);
     expect(hits.length).toBeGreaterThan(0);
   });
+
+  it("recovers a resource stranded at status:processing (crash mid-run)", async () => {
+    // Simulate a crash: the doc is left at "processing" (e.g. the worker died
+    // mid-ingest). ingestDocument must still pick it up rather than skipping
+    // it forever, since the early-return previously only allowed pending/failed.
+    await prisma.resource.update({ where: { id: resourceId }, data: { status: "processing" } });
+    await ingestDocument(resourceId);
+    const res = await prisma.resource.findUniqueOrThrow({ where: { id: resourceId } });
+    expect(res.status).toBe("ready");
+    expect((res.meta as { chunkCount?: number }).chunkCount).toBeGreaterThan(0);
+  });
 });

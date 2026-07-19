@@ -24,10 +24,11 @@ serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
       },
     );
 
-    // Backfill: catch any document resources left "pending" from before this
-    // worker was up (e.g. an enqueue that failed, or a previous boot crash).
+    // Backfill: catch any document resources left "pending", "processing", or
+    // "failed" from before this worker was up (e.g. an enqueue that failed, a
+    // previous boot crash mid-processing, or a job that exhausted retries).
     const pending = await prisma.resource.findMany({
-      where: { kind: "document", status: "pending" },
+      where: { kind: "document", status: { in: ["pending", "processing", "failed"] } },
       select: { id: true },
     });
     for (const r of pending) await enqueueIngest(r.id);
