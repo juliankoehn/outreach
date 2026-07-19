@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth, type AuthUser } from "./auth.js";
 import { env } from "./env.js";
+import { feedRoutes } from "./routes/feed.js";
 import { linkedinRoutes } from "./routes/linkedin.js";
 import { profileRoutes } from "./routes/profile.js";
 import { resourcesRoutes } from "./routes/resources.js";
@@ -59,6 +60,13 @@ export function createApp() {
   });
 
   app.route("/studio", studioRoutes());
+
+  app.use("/feed/*", async (c, next) => {
+    if (!c.get("user")) return c.json({ error: "unauthorized" }, 401);
+    await next();
+  });
+
+  app.route("/feed", feedRoutes());
 
   return app;
 }
