@@ -1,5 +1,6 @@
 // packages/ai/src/studio-agent.test.ts
 import { describe, it, expect } from "vitest";
+import type { UIMessage } from "ai";
 import { MockLanguageModelV3, convertArrayToReadableStream } from "ai/test";
 import { streamStudioAgent, type StudioAgentHandlers } from "./studio-agent.js";
 import { MOCK_USAGE } from "./testing.js";
@@ -82,5 +83,34 @@ describe("streamStudioAgent", () => {
     await response.text();
 
     expect(seenQuery).toBe("encryption at rest");
+  });
+
+  it("gives the persisted assistant turn a non-empty id (survives reload + merge-by-id)", async () => {
+    // Regression: without generateMessageId, the AI SDK reconstructs the
+    // response message with id "" on the server. That empty id collides in the
+    // merge-by-id persistence and is filtered out on reload, so chat turns
+    // vanished after refresh.
+    const model = new MockLanguageModelV3({ doStream: textStreamResult("Done.") });
+    let captured: UIMessage[] | null = null;
+    let resolveFinish!: () => void;
+    const finished = new Promise<void>((r) => (resolveFinish = r));
+    const response = await streamStudioAgent({
+      messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] }],
+      currentText: "",
+      handlers: noopHandlers(),
+      model,
+      onFinish: (messages) => {
+        captured = messages;
+        resolveFinish();
+      },
+    });
+    await response.text();
+    await finished;
+
+    expect(captured).not.toBeNull();
+    expect(captured!.every((m) => typeof m.id === "string" && m.id.length > 0)).toBe(true);
+    const assistant = captured!.find((m) => m.role === "assistant");
+    expect(assistant).toBeDefined();
+    expect(assistant!.id.length).toBeGreaterThan(0);
   });
 });

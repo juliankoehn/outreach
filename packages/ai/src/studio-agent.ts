@@ -3,6 +3,7 @@ import {
   convertToModelMessages,
   tool,
   stepCountIs,
+  generateId,
   type LanguageModel,
   type UIMessage,
 } from "ai";
@@ -198,6 +199,13 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
 
   return result.toUIMessageStreamResponse({
     originalMessages: opts.messages,
+    // Give the response message a real id. Without this the SDK reconstructs the
+    // assistant message with id "" server-side (the client meanwhile mints its
+    // own id), which broke both the merge-by-id persistence and reload (the
+    // empty id is filtered out on hydration) — chat turns vanished on refresh.
+    // With a shared generated id, client and server agree and every turn
+    // persists + rehydrates.
+    generateMessageId: generateId,
     onFinish: ({ messages }) => opts.onFinish?.(messages),
   });
 }
