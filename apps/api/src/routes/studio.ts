@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
-import { getAccountProfile } from "../repos/profile.js";
+import { getAccountProfile, updateProfileById } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
 import { findSimilarPosts } from "../repos/post.js";
 import { imageReferenceHint } from "../repos/resource.js";
@@ -173,14 +173,25 @@ export function studioRoutes() {
           await updateDraft(draftId, accountId, { text: currentText });
         },
         createImage: async (prompt) => {
-          const { base64, mediaType } = await generateImage(prompt, {
+          // Multi-step: first turn the post + source article + the creator's
+          // visual language into a concrete art-director brief, THEN render it —
+          // so feed-drafted posts get an image that depicts the article's
+          // subject, not a generic stock visual. The brief already folds in the
+          // post/article/style/reference, so generateImage just renders it.
+          const brief = await composeImageBrief({
+            seed: prompt,
             postText: currentText,
+            article: sourceArticle
+              ? `${sourceArticle.title}\n\n${sourceArticle.content.slice(0, 600)}`
+              : undefined,
             visualStyle: derived?.visualStyle,
-            size: "square",
             referenceHint,
+            noGos: profile?.noGos,
+            size: "square",
           });
+          const { base64, mediaType } = await generateImage(brief, { size: "square" });
           const { url } = await saveImage(base64, mediaType);
-          await updateDraft(draftId, accountId, { imageUrl: url, imagePrompt: prompt });
+          await updateDraft(draftId, accountId, { imageUrl: url, imagePrompt: brief });
           return { imageUrl: url };
         },
         findSimilar: (query) => findSimilarPosts(accountId, query, { excludeDraftId: draftId }),
@@ -188,6 +199,19 @@ export function studioRoutes() {
           retrieveKnowledge(accountId, query).then((hits) =>
             hits.map((h) => ({ content: h.content, section: h.section, resourceName: h.resourceName })),
           ),
+        addProfileRule: async (rule, kind) => {
+          // Persist a lasting rule the creator confirmed in chat. Dedupe
+          // case-insensitively so repeated corrections don't pile up.
+          const clean = rule.trim();
+          const noGos = [...(profile?.noGos ?? [])];
+          const toneWords = [...(profile?.toneWords ?? [])];
+          const target = kind === "tone" ? toneWords : noGos;
+          if (clean && !target.some((r) => r.toLowerCase() === clean.toLowerCase())) target.push(clean);
+          if (profile) {
+            await updateProfileById(profile.id, user.id, kind === "tone" ? { toneWords } : { noGos });
+          }
+          return { noGos, toneWords };
+        },
       },
       onFinish: async (finalMessages) => {
         // Merge into the persisted chat by message id rather than overwriting:

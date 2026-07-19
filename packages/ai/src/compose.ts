@@ -44,6 +44,7 @@ export function enforceNoGos(input: string, noGos?: string[]): string {
 // posts follow what actually performs on the platform, in the creator's voice.
 export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, adapted to the creator's voice):
 - DELIVER REAL VALUE — this is the whole point of the post. Every post must give the reader ONE thing they can actually use or a genuinely fresh, non-obvious point of view: a concrete insight, a counter-intuitive lesson, a specific takeaway, a small actionable framework, or a sharp opinion backed by a reason. RUTHLESSLY avoid generic filler — "X is important", "stay vigilant", "the landscape is changing", "here's a new threat", "innovation brings challenges" — that says nothing. When writing from an article, find the ONE most surprising, specific, or actionable detail in it and build the post around THAT (a specific mechanism, number, tactic, or consequence), not a vague summary. A reader should finish thinking "huh, I didn't know that" or "I'm going to do that". If you genuinely have nothing specific to say, ask the creator for their angle instead of shipping fluff.
+- NO CORPORATE BLOAT — this is a hard ban, not a preference. Never write hollow, self-important filler or fake-profound contrast constructions. BANNED patterns (do not write these or anything like them): pompous signposts ("Ein entscheidender Punkt:", "Doch der wahre Schutz liegt in …", "Hier liegt unser strategischer Vorteil", "In der heutigen Zeit", "Es ist wichtig zu verstehen, dass"); grand empty abstractions ("strategischer Vorteil", "ganzheitlicher Ansatz", "nachhaltige Lösung", "in einer Welt, in der …"); and empty "nicht X, sondern Y" reveals that state nothing concrete. Litmus test: if a sentence would fit, unchanged, in ANY company's post on ANY topic, DELETE it — it carries zero information. Replace it with one concrete, checkable statement (a number, a name, a mechanism, a real consequence). Write like a sharp person talking to a peer over coffee, never like a press release or a keynote.
 - Hook in the first line: a bold claim, a specific number, a contrarian take, or an open loop that stops the scroll. The first 1-2 lines are all a reader sees before "…more".
 - One idea per post. Front-load the payoff; don't bury the lede.
 - Short lines and generous whitespace — most sentences on their own line, no dense paragraphs.
@@ -110,6 +111,9 @@ export async function generateImage(
   opts?: {
     model?: ImageModel;
     postText?: string;
+    // The source article the post is based on — so the visual depicts the
+    // article's actual subject, not a generic stock image.
+    articleContext?: string;
     visualStyle?: string;
     size?: "portrait" | "square" | "landscape";
     referenceHint?: string;
@@ -124,6 +128,11 @@ export async function generateImage(
       `Create an image to accompany this LinkedIn post. Make it visually relevant to the post's message; no text or captions in the image unless asked.\n\nLinkedIn post:\n"""${opts.postText}"""`,
     );
   }
+  if (opts?.articleContext?.trim()) {
+    parts.push(
+      `This post is about the following article — the image MUST clearly and specifically depict THIS subject (its concrete concepts, setting, or metaphor), not a generic stock visual:\n"""${opts.articleContext.trim()}"""`,
+    );
+  }
   if (opts?.visualStyle?.trim()) {
     parts.push(`Match this creator's established visual language: ${opts.visualStyle.trim()}`);
   }
@@ -136,4 +145,44 @@ export async function generateImage(
   const fullPrompt = parts.length > 1 ? parts.join("\n\n") : prompt;
   const { image } = await genImage({ model, prompt: fullPrompt, size: SIZE_MAP[opts?.size ?? "portrait"] });
   return { base64: image.base64, mediaType: image.mediaType ?? "image/png" };
+}
+
+const FORMAT_HINT = {
+  portrait: "a vertical 4:5 portrait frame (fills a mobile feed) — compose for tall framing",
+  square: "a square 1:1 frame — compose with a centered, balanced subject",
+  landscape: "a wide 16:9 landscape frame — compose horizontally",
+} as const;
+
+// Art-director step: image models write poor prompts for themselves, so we run a
+// focused text step first that turns the post + source article + the creator's
+// visual language into ONE concrete, on-topic image brief. The result is fed to
+// generateImage as its direction, so feed-drafted posts get an image that
+// actually depicts the article's subject rather than a generic stock visual.
+export async function composeImageBrief(opts: {
+  seed?: string; // the agent's / creator's rough visual idea, if any
+  postText?: string;
+  article?: string; // title + excerpt of the source article
+  visualStyle?: string;
+  referenceHint?: string;
+  noGos?: string[];
+  size?: "portrait" | "square" | "landscape";
+  model?: LanguageModel;
+}): Promise<string> {
+  const model = opts.model ?? getTextModel();
+  const ctx: string[] = [];
+  if (opts.article?.trim()) ctx.push(`SOURCE ARTICLE (the image MUST depict THIS subject concretely):\n"""${opts.article.trim()}"""`);
+  if (opts.postText?.trim()) ctx.push(`THE POST THE IMAGE ACCOMPANIES:\n"""${opts.postText.trim()}"""`);
+  if (opts.visualStyle?.trim()) ctx.push(`THE CREATOR'S VISUAL LANGUAGE (match it): ${opts.visualStyle.trim()}`);
+  if (opts.referenceHint?.trim()) ctx.push(`IF A PERSON APPEARS, resemble this reference (guidance, not exact likeness): ${opts.referenceHint.trim()}`);
+  if (opts.seed?.trim()) ctx.push(`ROUGH IDEA FROM THE CREATOR (refine, don't just repeat): ${opts.seed.trim()}`);
+  const noGoLine = opts.noGos?.length
+    ? `\nHARD NO-GOS (obey literally): ${opts.noGos.join("; ")}. Unless explicitly asked, put NO text, letters, words, or logos in the image.`
+    : "\nUnless explicitly asked, put NO text, letters, words, or logos in the image.";
+
+  const { text } = await generateText({
+    model,
+    system: `You are an art director for a professional LinkedIn creator. From the context, write ONE vivid, concrete image brief (2-4 sentences, English) for an image generator. Describe a specific scene, subject, composition, lighting, and mood that concretely represents the post's actual topic — never a generic abstract "technology" or "business" stock visual. It is for ${FORMAT_HINT[opts.size ?? "portrait"]}.${noGoLine}\nOutput only the brief, no preamble or quotes.`,
+    prompt: ctx.join("\n\n") || "Write a strong, on-brand image brief for this creator's post.",
+  });
+  return text.trim();
 }

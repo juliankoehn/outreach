@@ -31,6 +31,13 @@ export interface StudioAgentHandlers {
   createImage(prompt: string): Promise<{ imageUrl: string }>;
   findSimilar(query: string): Promise<SimilarPostMatch[]>;
   searchKnowledge(query: string): Promise<KnowledgePassage[]>;
+  // Persist a lasting rule to the creator's profile (a thing to always avoid, or
+  // a tone/register instruction). Called ONLY after the creator confirms. Returns
+  // the updated lists so the agent can confirm what it saved.
+  addProfileRule(
+    rule: string,
+    kind: "avoid" | "tone",
+  ): Promise<{ noGos: string[]; toneWords: string[] }>;
 }
 
 export interface StudioAgentOptions {
@@ -113,6 +120,7 @@ HOW YOU WORK
 - After a tool call, reply in chat with ONE short, warm plain sentence about what you changed and why. In the chat, never write Markdown (no #, **, ◆, bullet lists, or outlines), never paste the post, and never list out its structure — just talk normally. Match the creator's language.
 - One idea per post. Keep the creator's authentic voice. Don't invent facts about them; if you need a detail, ask.
 - You can call searchKnowledge to pull passages from the creator's uploaded documents (norms, guidelines). When you use them, ground your writing on the retrieved passages — but NEVER put citations, source names, section numbers, or quotes-with-attribution in the post text itself. The post must read clean; the sources are shown to the user separately in the UI.
+- LEARN FROM CRITICISM. When the creator criticises the writing in a way that should hold for EVERY future post — a register they hate (corporate filler, pompous phrasing), a word or construction to ban, a tone they want (e.g. always "du") — first fix it in the current post, then OFFER to make it permanent: ask, in one short sentence, something like "Soll ich das direkt ins Profil aufnehmen?". Only if they say yes, call addProfileRule ('avoid' for a no-go, 'tone' for a voice instruction). Never save a rule without that explicit yes, and don't offer for one-off, post-specific tweaks.
 
 ${draft}`;
 }
@@ -171,6 +179,15 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
           query: z.string().describe("What to search for in the creator's uploaded documents."),
         }),
         execute: async ({ query }) => opts.handlers.searchKnowledge(query),
+      }),
+      addProfileRule: tool({
+        description:
+          "Save a LASTING rule to the creator's profile so every future post obeys it. Use ONLY after the creator has explicitly confirmed they want it saved (you must ask first). 'avoid' = a thing to never do (e.g. 'no corporate filler like strategischer Vorteil'); 'tone' = a voice/register instruction (e.g. 'always address the reader with du').",
+        inputSchema: z.object({
+          rule: z.string().describe("The rule to save, phrased as a short imperative the writer can obey."),
+          kind: z.enum(["avoid", "tone"]).describe("'avoid' → a hard no-go; 'tone' → a voice/register instruction."),
+        }),
+        execute: async ({ rule, kind }) => opts.handlers.addProfileRule(rule, kind),
       }),
     },
   });

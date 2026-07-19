@@ -13,6 +13,7 @@ function noopHandlers(overrides: Partial<StudioAgentHandlers> = {}): StudioAgent
     createImage: async () => ({ imageUrl: "/x.png" }),
     findSimilar: async () => [],
     searchKnowledge: async () => [],
+    addProfileRule: async () => ({ noGos: [], toneWords: [] }),
     ...overrides,
   };
 }
