@@ -50,9 +50,17 @@ describe("resources routes", () => {
     const content = await app.request(`/linkedin/accounts/${accountId}/resources/${resource.id}/content`, { headers: { Cookie: cookie } });
     expect(content.status).toBe(200);
     expect(content.headers.get("content-type")).toContain("image/png");
+    expect(content.headers.get("x-content-type-options")).toBe("nosniff");
 
     const del = await app.request(`/linkedin/accounts/${accountId}/resources/${resource.id}`, { method: "DELETE", headers: { Cookie: cookie } });
     expect(del.status).toBe(200);
+  });
+
+  it("rejects an SVG upload with 415", async () => {
+    const fd = new FormData();
+    fd.set("file", new File([new TextEncoder().encode("<svg onload=alert(1)/>")], "x.svg", { type: "image/svg+xml" }));
+    const res = await app.request(`/linkedin/accounts/${accountId}/resources`, { method: "POST", headers: { Cookie: cookie }, body: fd });
+    expect(res.status).toBe(415);
   });
 
   it("rejects cross-user access", async () => {

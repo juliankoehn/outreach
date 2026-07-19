@@ -8,6 +8,7 @@ import {
 
 const MAX_IMAGE = 25 * 1024 * 1024;
 const MAX_DOC = 50 * 1024 * 1024;
+const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const DOC_TYPES = new Set(["application/pdf", "text/plain", "text/markdown"]);
 const EXT: Record<string, string> = {
   "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",
@@ -34,7 +35,7 @@ export function resourcesRoutes() {
     if (!(file instanceof File)) return c.json({ error: "no_file" }, 400);
 
     const mime = file.type || "application/octet-stream";
-    const isImage = mime.startsWith("image/");
+    const isImage = IMAGE_TYPES.has(mime);
     const kind: "image" | "document" = isImage ? "image" : "document";
     if (!isImage && !DOC_TYPES.has(mime)) return c.json({ error: "unsupported_type" }, 415);
 
@@ -69,7 +70,20 @@ export function resourcesRoutes() {
     if (!res) return c.json({ error: "not_found" }, 404);
     const obj = await getObject(res.storageKey);
     if (!obj) return c.json({ error: "not_found" }, 404);
-    return new Response(obj.body, { headers: { "Content-Type": obj.contentType, "Cache-Control": "private, max-age=3600" } });
+    // Serve the Content-Type from the upload-validated DB field, never the
+    // storage layer's echoed value. Combined with nosniff + a locked-down CSP
+    // this prevents a crafted upload from executing as script on the app origin.
+    const headers: Record<string, string> = {
+      "Content-Type": res.mimeType,
+      "Cache-Control": "private, max-age=3600",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+    };
+    if (res.kind === "document") {
+      const filename = res.name.replace(/["\r\n]/g, "") || "download";
+      headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+    }
+    return new Response(obj.body, { headers });
   });
 
   r.patch("/accounts/:accountId/resources/:id/image-ref", async (c) => {
