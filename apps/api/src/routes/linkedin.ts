@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { randomBytes } from "node:crypto";
+import { lookup } from "node:dns/promises";
 import {
   LinkedInOAuthClient,
   LinkedInApiIngestor,
@@ -48,6 +49,90 @@ const ANALYTICS_TTL_MS = 6 * 60 * 60 * 1000;
 //  r_member_postAnalytics — read the member's own posts + reporting data
 //  w_member_social        — create/modify/delete posts (used by the scheduler later)
 const SCOPES = ["r_basicprofile", "r_member_postAnalytics", "w_member_social"];
+
+const LINKEDIN_HOST_RE = /(^|\.)linkedin\.com$/;
+
+/** The single host allowlist check reused for the initial URL and every redirect hop. */
+export function isLinkedInHost(hostname: string): boolean {
+  return LINKEDIN_HOST_RE.test(hostname);
+}
+
+/**
+ * Classify a resolved IP (v4 or v6) as loopback/private/link-local — the
+ * ranges an SSRF-hardened outbound fetch must never be allowed to reach, even
+ * when the URL's hostname passes the linkedin.com allowlist (a malicious or
+ * compromised redirect could point the hostname at an internal address).
+ * Covers: 127.0.0.0/8, 10/8, 172.16/12, 192.168/16, 169.254/16, 0.0.0.0/8,
+ * ::1, fc00::/7 (unique local), fe80::/10 (link-local), and IPv4-mapped IPv6
+ * addresses (::ffff:a.b.c.d) recursed through the IPv4 rules.
+ */
+export function isPrivateOrLoopbackIp(ip: string): boolean {
+  const v4Mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+  if (v4Mapped) return isPrivateOrLoopbackIp(v4Mapped[1]!);
+
+  if (ip.includes(".") && !ip.includes(":")) {
+    const parts = ip.split(".").map((p) => Number(p));
+    if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) {
+      return true; // malformed address — reject rather than risk it
+    }
+    const [a, b] = parts as [number, number, number, number];
+    if (a === 127) return true; // 127.0.0.0/8 loopback
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
+    if (a === 0) return true; // 0.0.0.0/8
+    return false;
+  }
+
+  if (!ip.includes(":")) return true; // not a recognizable IPv4 or IPv6 literal — reject defensively
+
+  const normalized = ip.toLowerCase();
+  if (normalized === "::1" || normalized === "::") return true; // loopback / unspecified
+  if (/^f[cd][0-9a-f]{2}:/.test(normalized)) return true; // fc00::/7 unique local
+  if (/^fe[89ab][0-9a-f]:/.test(normalized)) return true; // fe80::/10 link-local
+  return false;
+}
+
+const MAX_EMBED_REDIRECTS = 5;
+
+async function assertSafeLinkedInUrl(url: URL): Promise<void> {
+  if (!isLinkedInHost(url.hostname)) throw new Error(`Host not on linkedin.com allowlist: ${url.hostname}`);
+  const addresses = await lookup(url.hostname, { all: true });
+  if (addresses.length === 0) throw new Error(`Could not resolve host: ${url.hostname}`);
+  for (const { address } of addresses) {
+    if (isPrivateOrLoopbackIp(address)) {
+      throw new Error(`Host resolves to a private/loopback address: ${url.hostname} -> ${address}`);
+    }
+  }
+}
+
+/**
+ * Fetch an embed URL with redirects handled manually so that every hop —
+ * not just the initial URL — is re-checked against the linkedin.com host
+ * allowlist AND has its resolved IP checked against private/loopback ranges.
+ * `fetch(..., { redirect: "follow" })` would otherwise let a redirect (e.g.
+ * to an internal address, or DNS-rebound to one) bypass both checks.
+ */
+async function fetchEmbedSafely(startUrl: string): Promise<Response> {
+  let current = new URL(startUrl);
+  for (let hop = 0; hop <= MAX_EMBED_REDIRECTS; hop++) {
+    await assertSafeLinkedInUrl(current);
+    const res = await fetch(current, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; OutreachBot/1.0)" },
+      signal: AbortSignal.timeout(12_000),
+      redirect: "manual",
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) throw new Error("Redirect response missing Location header");
+      current = new URL(location, current);
+      continue;
+    }
+    return res;
+  }
+  throw new Error("Too many redirects");
+}
 
 function client() {
   return new LinkedInOAuthClient({
@@ -235,14 +320,13 @@ export function linkedinRoutes() {
     } catch {
       return c.json({ error: "no_embed" }, 400);
     }
-    if (!/(^|\.)linkedin\.com$/.test(host)) return c.json({ error: "no_embed" }, 400);
+    if (!isLinkedInHost(host)) return c.json({ error: "no_embed" }, 400);
 
     let html: string;
     try {
-      const res = await fetch(embedUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; OutreachBot/1.0)" },
-        signal: AbortSignal.timeout(12_000),
-      });
+      // fetchEmbedSafely re-checks the same host allowlist (and a resolved-IP
+      // private/loopback check) on every redirect hop, not just this first URL.
+      const res = await fetchEmbedSafely(embedUrl);
       if (!res.ok) return c.json({ error: "fetch_failed", status: res.status }, 502);
       html = await res.text();
     } catch {

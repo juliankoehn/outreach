@@ -1,7 +1,7 @@
 // apps/api/src/routes/linkedin.test.ts
 import { describe, it, expect } from "vitest";
 import { signState, verifyState } from "../oauth-state.js";
-import { parsePostUrn, cleanMetrics } from "./linkedin.js";
+import { parsePostUrn, cleanMetrics, isPrivateOrLoopbackIp, isLinkedInHost } from "./linkedin.js";
 
 describe("oauth state", () => {
   it("round-trips a signed state", () => {
@@ -42,6 +42,51 @@ describe("parsePostUrn", () => {
   it("returns null for a URL without a post id and for undefined", () => {
     expect(parsePostUrn("https://www.linkedin.com/in/jane-doe")).toBeNull();
     expect(parsePostUrn(undefined)).toBeNull();
+  });
+});
+
+describe("isLinkedInHost", () => {
+  it("accepts linkedin.com and subdomains", () => {
+    expect(isLinkedInHost("www.linkedin.com")).toBe(true);
+    expect(isLinkedInHost("linkedin.com")).toBe(true);
+    expect(isLinkedInHost("media.licdn.com.linkedin.com")).toBe(true);
+  });
+  it("rejects lookalike and unrelated hosts", () => {
+    expect(isLinkedInHost("linkedin.com.evil.example")).toBe(false);
+    expect(isLinkedInHost("evil-linkedin.com")).toBe(false);
+    expect(isLinkedInHost("example.com")).toBe(false);
+  });
+});
+
+describe("isPrivateOrLoopbackIp", () => {
+  it("rejects IPv4 loopback, private, and link-local ranges", () => {
+    expect(isPrivateOrLoopbackIp("127.0.0.1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("10.0.0.5")).toBe(true);
+    expect(isPrivateOrLoopbackIp("172.16.0.1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("172.31.255.255")).toBe(true);
+    expect(isPrivateOrLoopbackIp("192.168.1.1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("169.254.1.1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("0.0.0.0")).toBe(true);
+  });
+  it("rejects IPv6 loopback, unique-local, and link-local ranges", () => {
+    expect(isPrivateOrLoopbackIp("::1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("fc00::1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("fd12:3456:789a::1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("fe80::1")).toBe(true);
+  });
+  it("rejects IPv4-mapped IPv6 private addresses", () => {
+    expect(isPrivateOrLoopbackIp("::ffff:127.0.0.1")).toBe(true);
+    expect(isPrivateOrLoopbackIp("::ffff:10.0.0.1")).toBe(true);
+  });
+  it("accepts normal public IPv4 and IPv6 addresses", () => {
+    expect(isPrivateOrLoopbackIp("8.8.8.8")).toBe(false);
+    expect(isPrivateOrLoopbackIp("172.15.0.1")).toBe(false);
+    expect(isPrivateOrLoopbackIp("172.32.0.1")).toBe(false);
+    expect(isPrivateOrLoopbackIp("2606:4700:4700::1111")).toBe(false);
+  });
+  it("rejects malformed addresses defensively", () => {
+    expect(isPrivateOrLoopbackIp("not-an-ip")).toBe(true);
+    expect(isPrivateOrLoopbackIp("999.1.1.1")).toBe(true);
   });
 });
 
