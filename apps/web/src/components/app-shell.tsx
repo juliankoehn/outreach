@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   LogOut,
   PenLine,
+  Rss,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -23,7 +24,7 @@ import { cn } from "@/lib/utils";
 
 interface NavItem {
   href: string;
-  key: "home" | "accounts" | "content" | "schedule" | "settings";
+  key: "home" | "accounts" | "content" | "feed" | "schedule" | "settings";
   icon: LucideIcon;
   soon?: boolean;
 }
@@ -34,6 +35,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", key: "home", icon: LayoutDashboard },
   { href: "/accounts", key: "accounts", icon: LayoutGrid },
   { href: "/studio", key: "content", icon: PenLine },
+  { href: "/feed", key: "feed", icon: Rss },
   { href: "/schedule", key: "schedule", icon: CalendarClock, soon: true },
   { href: "/settings", key: "settings", icon: Settings, soon: true },
 ];
