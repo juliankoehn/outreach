@@ -122,3 +122,36 @@ describe("schedule endpoints", () => {
     expect(draft.status).toBe("draft");
   });
 });
+
+describe("publish endpoint", () => {
+  let draftId = "";
+
+  beforeAll(async () => {
+    const res = await app.request(`/studio/${accountId}/drafts`, {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ text: "publishable draft" }),
+    });
+    const { draft } = (await res.json()) as { draft: { id: string } };
+    draftId = draft.id;
+  });
+
+  it("404s for a foreign account", async () => {
+    const other = await authed();
+    const u = await prisma.user.findUniqueOrThrow({ where: { email: other.email } });
+    const acc = await prisma.linkedInAccount.create({
+      data: { userId: u.id, memberUrn: `urn:li:person:${(Date.now()+Math.floor(Math.random()*1e9)) + 2}`, displayName: "F", accessToken: "e", scopes: [] },
+    });
+    const res = await app.request(`/studio/${acc.id}/drafts/${draftId}/publish`, {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: other.cookie },
+    });
+    expect(res.status).toBe(404);
+    await prisma.user.delete({ where: { id: u.id } });
+  });
+
+  it("404s for an unknown draft id", async () => {
+    const res = await app.request(`/studio/${accountId}/drafts/does-not-exist/publish`, {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+    });
+    expect(res.status).toBe(404);
+  });
+});

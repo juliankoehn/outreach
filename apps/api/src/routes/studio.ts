@@ -11,6 +11,7 @@ import { imageReferenceHint } from "../repos/resource.js";
 import { retrieveKnowledge } from "../repos/knowledge.js";
 import { getItem as getFeedItem } from "../repos/feed.js";
 import { saveImage } from "../images.js";
+import { publishDraft } from "../publish/publish-draft.js";
 
 // An assistant turn is only worth persisting if it produced something: a
 // non-empty text part or a tool call that reached a terminal state. Turns
@@ -285,6 +286,16 @@ export function studioRoutes() {
     if (when.getTime() <= Date.now()) return c.json({ error: "must_be_future" }, 400);
 
     return c.json({ draft: await scheduleDraft(c.req.param("id"), accountId, when) });
+  });
+
+  r.post("/:accountId/drafts/:id/publish", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("accountId");
+    if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const draft = await getDraft(c.req.param("id"), accountId);
+    if (!draft) return c.json({ error: "not_found" }, 404);
+    const updated = await publishDraft(c.req.param("id"), accountId, user.id);
+    return c.json({ draft: updated });
   });
 
   r.post("/:accountId/drafts/:id/unschedule", async (c) => {
