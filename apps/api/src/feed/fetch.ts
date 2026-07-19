@@ -12,6 +12,23 @@ const truncate = (s: string, n = 500) => (s.length > n ? s.slice(0, n).trimEnd()
 // rendered through a sanitizing renderer on the client (react-markdown strips
 // javascript:/data: hrefs), so the reader pane stays safe.
 const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-" });
+// Scrub link/image URLs at the source: a feed's <a href="javascript:…"> must
+// never survive into the stored Markdown. Only http(s) URLs are emitted.
+const getAttr = (node: unknown, name: string): string => (node as { getAttribute?(n: string): string | null }).getAttribute?.(name) ?? "";
+turndown.addRule("safeLink", {
+  filter: "a",
+  replacement: (content, node) => {
+    const href = httpOnly(getAttr(node, "href"));
+    return href ? `[${content}](${href})` : content;
+  },
+});
+turndown.addRule("safeImage", {
+  filter: "img",
+  replacement: (_content, node) => {
+    const src = httpOnly(getAttr(node, "src"));
+    return src ? `![${getAttr(node, "alt")}](${src})` : "";
+  },
+});
 function htmlToMarkdown(html: string, max = 8000): string | null {
   const h = html.trim();
   if (!h) return null;

@@ -55,6 +55,20 @@ function safeHref(u: string | null | undefined): string | undefined {
   }
 }
 
+// urlTransform for the Markdown reader — the article body is untrusted feed
+// content, so every link/image href is scrubbed: keep http(s)/mailto, keep
+// scheme-less relative/anchor URLs (not executable), drop everything else
+// (javascript:/data:/vbscript:). Paired with skipHtml on the renderer.
+function safeMarkdownUrl(u: string): string {
+  if (!u) return "";
+  try {
+    const p = new URL(u);
+    return p.protocol === "http:" || p.protocol === "https:" || p.protocol === "mailto:" ? u : "";
+  } catch {
+    return u; // relative / #anchor (no scheme) — safe, keep it
+  }
+}
+
 function formatDate(locale: string, iso: string | null): string | null {
   if (!iso) return null;
   return new Intl.DateTimeFormat(locale, {
@@ -639,7 +653,13 @@ function ArticleReader({
           )}
 
           {body ? (
-            <MessageResponse className="mt-6 text-[0.95rem] leading-relaxed">{body}</MessageResponse>
+            <MessageResponse
+              className="mt-6 text-[0.95rem] leading-relaxed"
+              skipHtml
+              urlTransform={safeMarkdownUrl}
+            >
+              {body}
+            </MessageResponse>
           ) : (
             <p className="text-muted-foreground mt-6 text-sm">{item.excerpt}</p>
           )}
