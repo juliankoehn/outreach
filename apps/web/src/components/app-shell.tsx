@@ -5,13 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   CalendarClock,
+  ChevronRight,
+  LayoutDashboard,
   LayoutGrid,
   LogOut,
   PenLine,
   Settings,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import { BreadcrumbSetter, type Crumb } from "./breadcrumb";
 import { BRAND } from "@/config/brand";
 import { AppControls } from "@/components/app-controls";
 import { Button } from "@/components/ui/button";
@@ -21,14 +23,16 @@ import { cn } from "@/lib/utils";
 
 interface NavItem {
   href: string;
-  key: "accounts" | "analysis" | "content" | "schedule" | "settings";
+  key: "home" | "accounts" | "content" | "schedule" | "settings";
   icon: LucideIcon;
   soon?: boolean;
 }
 
+// Creator profiles live per-account now (Accounts → account → Profile tab), so
+// there's no standalone Profile nav entry.
 const NAV: NavItem[] = [
+  { href: "/dashboard", key: "home", icon: LayoutDashboard },
   { href: "/accounts", key: "accounts", icon: LayoutGrid },
-  { href: "/profile", key: "analysis", icon: Sparkles },
   { href: "/studio", key: "content", icon: PenLine },
   { href: "/schedule", key: "schedule", icon: CalendarClock, soon: true },
   { href: "/settings", key: "settings", icon: Settings, soon: true },
@@ -46,6 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
+  const [crumbs, setCrumbs] = useState<Crumb[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -161,12 +166,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Inset content */}
       <div className="bg-background m-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm md:ml-0">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-5">
-          <span className="text-sm font-medium">{active ? t(`nav.${active.key}`) : BRAND.name}</span>
+          {crumbs.length > 0 ? (
+            <nav className="flex items-center gap-1.5 text-sm">
+              {crumbs.map((c, i) => {
+                const last = i === crumbs.length - 1;
+                return (
+                  <span key={i} className="flex items-center gap-1.5">
+                    {i > 0 && <ChevronRight className="text-muted-foreground size-3.5 opacity-60" />}
+                    {c.href && !last ? (
+                      <a href={c.href} className="text-muted-foreground hover:text-foreground transition-colors">
+                        {c.label}
+                      </a>
+                    ) : (
+                      <span className={cn("truncate", last ? "font-medium" : "text-muted-foreground")}>
+                        {c.label}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </nav>
+          ) : (
+            <span className="text-sm font-medium">{active ? t(`nav.${active.key}`) : BRAND.name}</span>
+          )}
           <div className="ml-auto">
             <AppControls />
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <BreadcrumbSetter.Provider value={setCrumbs}>{children}</BreadcrumbSetter.Provider>
+        </div>
       </div>
     </div>
   );

@@ -1,16 +1,19 @@
 "use client";
 
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, ImagePlus, RefreshCw, Send, Trash2 } from "lucide-react";
+import type { UIMessage } from "ai";
+import { ArrowLeft, ImagePlus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/accounts";
-import type { ChatMessage, Draft } from "@/lib/studio";
+import type { Draft } from "@/lib/studio";
+import { StudioChat } from "./studio-chat";
+import { LinkedInPreview } from "./linkedin-preview";
 
 type PageState = "loading" | "not-found" | "ready";
 
@@ -20,12 +23,26 @@ function statusVariant(status: string): "success" | "muted" | "secondary" {
   return "muted";
 }
 
+// Only rows the studio agent persisted (AI-SDK UI messages) can rehydrate the
+// chat; older/other shapes are ignored rather than crashing the transcript.
+function toInitialMessages(chat: unknown[]): UIMessage[] {
+  return chat.filter(
+    (m): m is UIMessage =>
+      !!m &&
+      typeof m === "object" &&
+      typeof (m as { id?: unknown }).id === "string" &&
+      ((m as { id: string }).id.length > 0) &&
+      Array.isArray((m as { parts?: unknown }).parts),
+  );
+}
+
 export default function StudioDraftPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const t = useTranslations();
   const router = useRouter();
 
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [author, setAuthor] = useState<{ name: string; avatarUrl: string | null }>({ name: "", avatarUrl: null });
   const [state, setState] = useState<PageState>("loading");
   const [draft, setDraft] = useState<Draft | null>(null);
 
@@ -34,10 +51,6 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
 
-  const [chat, setChat] = useState<ChatMessage[]>([]);
-  const [chatDraft, setChatDraft] = useState("");
-  const [thinking, setThinking] = useState(false);
-
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
@@ -45,7 +58,6 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const [noProfile, setNoProfile] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const transcriptRef = useRef<HTMLDivElement>(null);
   const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyDraft = useCallback((d: Draft) => {
@@ -57,7 +69,6 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       if (d.imagePrompt) return d.imagePrompt;
       return (d.text.split("\n").find((line) => line.trim().length > 0) ?? "").trim();
     });
-    setChat(d.chat);
   }, []);
 
   useEffect(() => {
@@ -71,6 +82,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       const first = accounts[0];
       if (!first) return setState("not-found");
       setAccountId(first.id);
+      setAuthor({ name: first.displayName, avatarUrl: first.avatarUrl ?? null });
 
       const res = await fetch(`/api/studio/${first.id}/drafts/${id}`, { credentials: "include" });
       if (!alive) return;
@@ -85,14 +97,14 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   }, [id, router, applyDraft]);
 
   useEffect(() => {
-    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
-  }, [chat, thinking]);
-
-  useEffect(() => {
     return () => {
       if (savedTimeout.current) clearTimeout(savedTimeout.current);
     };
   }, []);
+
+  // The persisted transcript is read once, when the workspace first becomes
+  // ready; useChat owns the live message state after that.
+  const initialMessages = useMemo(() => (draft ? toInitialMessages(draft.chat) : []), [draft]);
 
   function flashSaved() {
     setSaved(true);
@@ -117,22 +129,20 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
     }
   }
 
-  async function sendChat() {
-    const instruction = chatDraft.trim();
-    if (!instruction || !accountId || thinking) return;
-    setChatDraft("");
-    setChat((m) => [...m, { role: "user", content: instruction }]);
-    setThinking(true);
-    const res = await fetch(`/api/studio/${accountId}/drafts/${id}/chat`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ instruction }),
-    });
-    setThinking(false);
-    if (res.status === 401) return router.push("/login");
-    if (res.ok) applyDraft(((await res.json()) as { draft: Draft }).draft);
-  }
+  // The agent edits the canvas through its tools; these keep the UI in step as
+  // the stream arrives, then re-sync the baseline once the turn completes.
+  const handlePostText = useCallback((text: string) => setPostText(text), []);
+  const handleImageUrl = useCallback((url: string) => setImageUrl(url), []);
+  const handleTurnFinished = useCallback(async () => {
+    if (!accountId) return;
+    const res = await fetch(`/api/studio/${accountId}/drafts/${id}`, { credentials: "include" });
+    if (res.ok) {
+      const { draft: d } = (await res.json()) as { draft: Draft };
+      setDraft(d);
+      setPostText(d.text);
+      setImageUrl(d.imageUrl);
+    }
+  }, [accountId, id]);
 
   async function generateImage() {
     if (!accountId || generatingImage || !imagePrompt.trim()) return;
@@ -183,7 +193,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   if (state === "loading") {
     return (
       <div className="flex h-full">
-        <div className="hidden w-[340px] shrink-0 border-r p-4 lg:block">
+        <div className="hidden w-[360px] shrink-0 border-r p-4 lg:block">
           <Skeleton className="h-8 w-full" />
         </div>
         <div className="flex-1 p-8">
@@ -206,55 +216,16 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="flex h-full flex-col-reverse lg:flex-row">
-      {/* Chat pane */}
-      <aside className="bg-sidebar/40 flex h-[42vh] w-full shrink-0 flex-col border-t lg:h-full lg:w-[340px] lg:border-t-0 lg:border-r">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
-          <span className="text-sm font-medium">{t("studio.chatTitle")}</span>
-        </div>
-        <div ref={transcriptRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-          {chat.length === 0 && !thinking && (
-            <p className="text-muted-foreground text-sm">{t("studio.chatHint")}</p>
-          )}
-          {chat.map((m, i) => (
-            <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap",
-                  m.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-sm"
-                    : "bg-muted rounded-bl-sm",
-                )}
-              >
-                {m.content}
-              </div>
-            </div>
-          ))}
-          {thinking && (
-            <div className="flex justify-start">
-              <div className="bg-muted text-muted-foreground rounded-2xl rounded-bl-sm px-3.5 py-2 text-sm">
-                {t("studio.thinking")}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2 border-t p-3">
-          <Input
-            value={chatDraft}
-            onChange={(e) => setChatDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void sendChat();
-              }
-            }}
-            placeholder={t("studio.chatPlaceholder")}
-            disabled={thinking}
-          />
-          <Button onClick={() => void sendChat()} disabled={thinking || !chatDraft.trim()} size="icon">
-            <Send className="size-4" />
-          </Button>
-        </div>
-      </aside>
+      {accountId && (
+        <StudioChat
+          accountId={accountId}
+          draftId={id}
+          initialMessages={initialMessages}
+          onPostText={handlePostText}
+          onImageUrl={handleImageUrl}
+          onTurnFinished={handleTurnFinished}
+        />
+      )}
 
       {/* Canvas pane */}
       <div className="flex min-h-0 flex-1 flex-col">
@@ -305,23 +276,17 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
               </div>
             )}
 
-            <div className="bg-card rounded-xl border shadow-sm">
-              <textarea
-                value={postText}
-                onChange={(e) => setPostText(e.target.value)}
-                onBlur={() => {
-                  if (draft && postText !== draft.text) void savePatch({ text: postText });
-                }}
-                placeholder={t("studio.postPlaceholder")}
-                className="min-h-[46vh] w-full resize-none bg-transparent p-6 text-[15px] leading-relaxed outline-none"
-              />
-              {imageUrl && (
-                <div className="border-t p-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imageUrl} alt="" className="w-full rounded-lg border object-contain" />
-                </div>
-              )}
-            </div>
+            <LinkedInPreview
+              authorName={author.name}
+              avatarUrl={author.avatarUrl}
+              value={postText}
+              onChange={setPostText}
+              onBlur={() => {
+                if (draft && postText !== draft.text) void savePatch({ text: postText });
+              }}
+              imageUrl={imageUrl}
+              placeholder={t("studio.postPlaceholder")}
+            />
 
             {/* Compose controls */}
             <div className="mt-4 flex flex-wrap items-center gap-2">

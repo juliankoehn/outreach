@@ -5,6 +5,7 @@ export interface ChatMessage {
 
 export interface DerivedInsights {
   voiceSummary: string;
+  visualStyle: string;
   themes: string[];
   styleTraits: string[];
   cadence: string;
@@ -14,6 +15,14 @@ export interface DerivedInsights {
 export interface ProfileAccountRef {
   id: string;
   displayName: string;
+}
+
+export type FacetKind = "tone" | "pillar" | "visual" | "do" | "dont";
+
+export interface ProfileFacet {
+  kind: FacetKind;
+  value: string;
+  rationale: string;
 }
 
 export interface CreatorProfile {

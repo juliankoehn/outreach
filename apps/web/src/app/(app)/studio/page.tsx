@@ -103,7 +103,7 @@ export default function StudioPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("studio.title")}</h1>

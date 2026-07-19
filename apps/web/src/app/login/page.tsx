@@ -37,7 +37,7 @@ export default function LoginPage() {
     const res = await authRequest("sign-in", { email, password });
     setLoading(false);
     if (res.ok) {
-      router.push("/accounts");
+      router.push("/dashboard");
       return;
     }
     setFormError(t(`errors.${res.code}`));

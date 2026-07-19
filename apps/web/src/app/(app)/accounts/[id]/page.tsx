@@ -1,25 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, RefreshCw, Upload } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { ArrowRight, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type { Account, Metrics, Post } from "@/lib/accounts";
+import type { Metrics, Post } from "@/lib/accounts";
+import { useAccount } from "./account-context";
+import { PostRow } from "./post-row";
 
-const DATA_EXPORT_URL = "https://www.linkedin.com/mypreferences/d/download-my-data";
-
-export default function AccountDetailPage() {
+export default function AccountOverviewPage() {
   const t = useTranslations();
   const locale = useLocale();
-  const router = useRouter();
-  const { id } = useParams<{ id: string }>();
+  const { id } = useAccount();
   const nf = new Intl.NumberFormat(locale);
-  const df = new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" });
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const rel = (iso: string | null) => {
     if (!iso) return "";
@@ -30,98 +26,36 @@ export default function AccountDetailPage() {
     return rtf.format(Math.round(hrs / 24), "day");
   };
 
-  const [account, setAccount] = useState<Account | null>(null);
-  const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
-
-  const [busy, setBusy] = useState(false);
-  const [enriching, setEnriching] = useState(false);
-  const [result, setResult] = useState<{ text: string; muted?: boolean } | null>(null);
-
   const [analytics, setAnalytics] = useState<Metrics | null>(null);
   const [analyticsState, setAnalyticsState] = useState<"loading" | "ok" | "error">("loading");
-  const [analyticsMeta, setAnalyticsMeta] = useState<{ cachedAt: string | null; stale: boolean }>({
-    cachedAt: null,
-    stale: false,
-  });
+  const [meta, setMeta] = useState<{ cachedAt: string | null; stale: boolean }>({ cachedAt: null, stale: false });
   const [refreshing, setRefreshing] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [postsLoaded, setPostsLoaded] = useState(false);
-
-  const loadPosts = useCallback(async () => {
-    const res = await fetch(`/api/linkedin/accounts/${id}/posts`, { credentials: "include" });
-    if (res.ok) setPosts(((await res.json()) as { posts: Post[] }).posts);
-    setPostsLoaded(true);
-  }, [id]);
 
   const loadAnalytics = useCallback(
     async (force = false) => {
       if (force) setRefreshing(true);
-      const res = await fetch(
-        `/api/linkedin/accounts/${id}/analytics${force ? "?refresh=1" : ""}`,
-        { credentials: "include" },
-      );
+      const res = await fetch(`/api/linkedin/accounts/${id}/analytics${force ? "?refresh=1" : ""}`, {
+        credentials: "include",
+      });
       if (res.ok) {
         const d = (await res.json()) as { metrics: Metrics; cachedAt: string | null; stale: boolean };
         setAnalytics(d.metrics);
-        setAnalyticsMeta({ cachedAt: d.cachedAt, stale: d.stale });
+        setMeta({ cachedAt: d.cachedAt, stale: d.stale });
         setAnalyticsState("ok");
-      } else {
-        setAnalyticsState("error");
-      }
+      } else setAnalyticsState("error");
       setRefreshing(false);
     },
     [id],
   );
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      const res = await fetch(`/api/linkedin/accounts/${id}`, { credentials: "include" });
-      if (!alive) return;
-      if (res.status === 401) return router.push("/login");
-      if (res.ok) {
-        setAccount(((await res.json()) as { account: Account }).account);
-        setState("ok");
-      } else setState("missing");
-    })();
     void loadAnalytics();
-    void loadPosts();
-    return () => {
-      alive = false;
-    };
-  }, [id, router, loadPosts, loadAnalytics]);
-
-  async function importCsv(file: File) {
-    setBusy(true);
-    setResult(null);
-    const res = await fetch(`/api/linkedin/accounts/${id}/import`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "text/csv" },
-      body: await file.text(),
-    });
-    setBusy(false);
-    if (res.ok) {
-      const d = (await res.json()) as { inserted: number; skipped: number };
-      setResult({ text: t("accounts.imported", { inserted: d.inserted, skipped: d.skipped }) });
-      void loadPosts();
-    } else setResult({ text: t("errors.generic"), muted: true });
-  }
-
-  async function enrich() {
-    setEnriching(true);
-    setResult(null);
-    const res = await fetch(`/api/linkedin/accounts/${id}/enrich`, { method: "POST", credentials: "include" });
-    setEnriching(false);
-    if (res.ok) {
-      const d = (await res.json()) as { enriched: number; total: number };
-      if (d.total === 0) setResult({ text: t("accounts.enrichNone"), muted: true });
-      else {
-        setResult({ text: t("accounts.enriched", { count: d.enriched, total: d.total }) });
-        void loadPosts();
-      }
-    } else setResult({ text: t("errors.generic"), muted: true });
-  }
+    void (async () => {
+      const res = await fetch(`/api/linkedin/accounts/${id}/posts`, { credentials: "include" });
+      if (res.ok) setPosts(((await res.json()) as { posts: Post[] }).posts);
+    })();
+  }, [id, loadAnalytics]);
 
   const tiles: { key: keyof Metrics; label: string }[] = [
     { key: "impressions", label: t("accounts.impressions") },
@@ -132,177 +66,81 @@ export default function AccountDetailPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <a
-        href="/accounts"
-        className="text-muted-foreground hover:text-foreground mb-5 inline-flex items-center gap-1.5 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        {t("accounts.back")}
-      </a>
-
-      {state === "missing" && (
-        <div className="text-muted-foreground rounded-xl border border-dashed py-10 text-center text-sm">
-          {t("accounts.notFound")}
-        </div>
-      )}
-
-      {state === "loading" && <Skeleton className="h-9 w-56" />}
-
-      {state === "ok" && account && (
-        <>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">{account.displayName}</h1>
-            <Badge variant="success" className="capitalize">{account.status}</Badge>
-          </div>
-          <div className="text-muted-foreground mt-1 font-mono text-xs">{account.memberUrn}</div>
-
-          {/* Analytics */}
-          <Card className="mt-6 gap-0 overflow-hidden py-0">
-            <CardHeader className="flex-row items-center justify-between border-b px-5 py-3">
-              <CardTitle className="text-sm">{t("accounts.metricsTitle")}</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => loadAnalytics(true)}
-                disabled={refreshing}
-                className="text-muted-foreground -mr-2 h-7"
-              >
-                <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
-                {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="grid grid-cols-2 sm:grid-cols-5">
-                {tiles.map((m, i) => (
-                  <div
-                    key={m.key}
-                    className={cn(
-                      "px-5 py-4",
-                      i > 0 && "sm:border-l",
-                      i >= 2 && "border-t sm:border-t-0",
-                    )}
-                  >
-                    {analyticsState === "ok" && analytics ? (
-                      <div className="text-2xl font-semibold tabular-nums tracking-tight">
-                        {nf.format(analytics[m.key])}
-                      </div>
-                    ) : analyticsState === "loading" ? (
-                      <Skeleton className="h-7 w-14" />
-                    ) : (
-                      <div className="text-muted-foreground text-2xl font-semibold">—</div>
-                    )}
-                    <div className="text-muted-foreground mt-1 text-xs">{m.label}</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          <p className={cn("mt-2 text-xs", analyticsMeta.stale ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground")}>
-            {analyticsState === "error"
-              ? t("accounts.metricsUnavailable")
-              : analyticsMeta.stale
-                ? t("accounts.rateLimited")
-                : analyticsMeta.cachedAt
-                  ? `${t("accounts.metricsNote")} · ${t("accounts.updatedAt", { when: rel(analyticsMeta.cachedAt) })}`
-                  : t("accounts.metricsNote")}
-          </p>
-
-          {/* Import */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="text-sm">{t("accounts.importTitle")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">
-                {t.rich("accounts.importHelp", {
-                  link: (chunks) => (
-                    <a
-                      className="text-foreground font-medium underline underline-offset-4"
-                      href={DATA_EXPORT_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {chunks}
-                    </a>
-                  ),
-                })}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <label className={cn(buttonVariants({ variant: "default" }), "cursor-pointer")}>
-                  <Upload className="size-4" />
-                  {busy ? t("accounts.importing") : t("accounts.importCsv")}
-                  <input
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="sr-only"
-                    disabled={busy}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void importCsv(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-                <Button variant="outline" onClick={enrich} disabled={enriching || posts.length === 0}>
-                  <RefreshCw className={cn("size-4", enriching && "animate-spin")} />
-                  {enriching ? t("accounts.enriching") : t("accounts.enrich")}
-                </Button>
-                {result && (
-                  <span className={cn("text-sm", result.muted ? "text-muted-foreground" : "text-success")}>
-                    {result.text}
-                  </span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Posts */}
-          {postsLoaded && (
-            <Card className="mt-6 gap-0 py-0">
-              <CardHeader className="border-b px-5 py-4">
-                <CardTitle className="text-sm">{t("accounts.postsTitle")}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {posts.length === 0 ? (
-                  <p className="text-muted-foreground p-5 text-sm">{t("accounts.postsEmpty")}</p>
-                ) : (
-                  <ul className="divide-y">
-                    {posts.map((p) => (
-                      <li key={p.id} className="px-5 py-4">
-                        <p className={cn("line-clamp-3 text-sm", !p.text && "text-muted-foreground italic")}>
-                          {p.text || t("accounts.noText")}
-                        </p>
-                        <div className="text-muted-foreground mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                          {p.metrics ? (
-                            <>
-                              <Metric n={nf.format(p.metrics.impressions)} label={t("accounts.impressions")} />
-                              <Metric n={nf.format(p.metrics.reactions)} label={t("accounts.reactions")} />
-                              <Metric n={nf.format(p.metrics.comments)} label={t("accounts.comments")} />
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground/70">{t("accounts.enrich").toLowerCase()}</span>
-                          )}
-                          <span className="ml-auto">{df.format(new Date(p.publishedAt))}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
+    <div className="space-y-6">
+      <div>
+        <Card className="gap-0 overflow-hidden py-0">
+          <CardHeader className="flex-row items-center justify-between border-b px-5 py-3">
+            <CardTitle className="text-sm">{t("accounts.metricsTitle")}</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => loadAnalytics(true)}
+              disabled={refreshing}
+              className="text-muted-foreground -mr-2 h-7"
+            >
+              <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
+              {refreshing ? t("accounts.refreshing") : t("accounts.refresh")}
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-2 sm:grid-cols-5">
+              {tiles.map((m, i) => (
+                <div key={m.key} className={cn("px-5 py-4", i > 0 && "sm:border-l", i >= 2 && "border-t sm:border-t-0")}>
+                  {analyticsState === "ok" && analytics ? (
+                    <div className="text-2xl font-semibold tabular-nums tracking-tight">
+                      {nf.format(analytics[m.key])}
+                    </div>
+                  ) : analyticsState === "loading" ? (
+                    <Skeleton className="h-7 w-14" />
+                  ) : (
+                    <div className="text-muted-foreground text-2xl font-semibold">—</div>
+                  )}
+                  <div className="text-muted-foreground mt-1 text-xs">{m.label}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <p
+          className={cn(
+            "mt-2 text-xs",
+            meta.stale ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground",
           )}
-        </>
-      )}
-    </div>
-  );
-}
+        >
+          {analyticsState === "error"
+            ? t("accounts.metricsUnavailable")
+            : meta.stale
+              ? t("accounts.rateLimited")
+              : meta.cachedAt
+                ? `${t("accounts.metricsNote")} · ${t("accounts.updatedAt", { when: rel(meta.cachedAt) })}`
+                : t("accounts.metricsNote")}
+        </p>
+      </div>
 
-function Metric({ n, label }: { n: string; label: string }) {
-  return (
-    <span>
-      <span className="text-foreground font-medium tabular-nums">{n}</span>{" "}
-      <span className="lowercase">{label}</span>
-    </span>
+      {/* Recent posts preview */}
+      <Card className="gap-0 py-0">
+        <CardHeader className="flex-row items-center justify-between border-b px-5 py-4">
+          <CardTitle className="text-sm">{t("accounts.recentPosts")}</CardTitle>
+          <a
+            href={`/accounts/${id}/posts`}
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
+          >
+            {t("accounts.viewAllPosts")}
+            <ArrowRight className="size-3.5" />
+          </a>
+        </CardHeader>
+        <CardContent className="p-0">
+          {posts.length === 0 ? (
+            <p className="text-muted-foreground p-5 text-sm">{t("accounts.postsEmpty")}</p>
+          ) : (
+            <ul className="divide-y">
+              {posts.slice(0, 3).map((p) => (
+                <PostRow key={p.id} post={p} />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

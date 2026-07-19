@@ -41,7 +41,7 @@ export default function SignupPage() {
     const res = await authRequest("sign-up", { name, email, password });
     setLoading(false);
     if (res.ok) {
-      router.push("/accounts");
+      router.push("/dashboard");
       return;
     }
     setFormError(t(`errors.${res.code}`));

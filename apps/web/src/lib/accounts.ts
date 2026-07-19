@@ -3,7 +3,16 @@ export interface Account {
   displayName: string;
   memberUrn: string;
   status: string;
+  avatarUrl?: string | null;
+  // Present on the list endpoint (GET /accounts), not on the single-account summary.
+  createdAt?: string;
+  analyticsAt?: string | null;
+  profile?: { id: string; name: string } | null;
+  postCount?: number;
+  draftCount?: number;
 }
+
+export type PostSource = "manual" | "embed" | "linkedin_api" | "csv_import";
 
 export interface Metrics {
   impressions: number;
@@ -19,5 +28,8 @@ export interface Post {
   publishedAt: string;
   mediaType: string;
   externalId: string | null;
-  metrics: Metrics | null;
+  // Manual/embed posts may carry only a subset (impressions/reactions/comments).
+  metrics: Partial<Metrics> | null;
+  source: PostSource;
+  imageUrl?: string | null;
 }

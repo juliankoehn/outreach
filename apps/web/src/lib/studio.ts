@@ -10,7 +10,8 @@ export interface Draft {
   imagePrompt: string | null;
   status: string;
   source: string;
-  chat: ChatMessage[];
+  // Persisted AI-SDK UI messages from the studio agent (see studio-chat.tsx).
+  chat: unknown[];
   scheduledAt: string | null;
   publishedAt: string | null;
   externalId: string | null;
