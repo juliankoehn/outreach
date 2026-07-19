@@ -73,3 +73,52 @@ describe("studio routes", () => {
     await prisma.user.delete({ where: { id: u.id } });
   });
 });
+
+describe("schedule endpoints", () => {
+  let draftId = "";
+
+  async function req(path: string, body: unknown) {
+    return app.request(`/studio/${accountId}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify(body),
+    });
+  }
+
+  beforeAll(async () => {
+    const res = await app.request(`/studio/${accountId}/drafts`, {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ text: "schedulable draft" }),
+    });
+    const { draft } = (await res.json()) as { draft: { id: string } };
+    draftId = draft.id;
+  });
+
+  it("schedules a draft in the future", async () => {
+    const when = new Date(Date.now() + 86400e3).toISOString();
+    const res = await req(`/drafts/${draftId}/schedule`, { scheduledAt: when });
+    expect(res.status).toBe(200);
+    const { draft } = (await res.json()) as { draft: { status: string } };
+    expect(draft.status).toBe("scheduled");
+  });
+
+  it("rejects a past schedule with 400", async () => {
+    const past = new Date(Date.now() - 86400e3).toISOString();
+    const res = await req(`/drafts/${draftId}/schedule`, { scheduledAt: past });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an invalid datetime with 400", async () => {
+    const res = await req(`/drafts/${draftId}/schedule`, { scheduledAt: "not-a-date" });
+    expect(res.status).toBe(400);
+  });
+
+  it("unschedules back to draft", async () => {
+    const when = new Date(Date.now() + 86400e3).toISOString();
+    await req(`/drafts/${draftId}/schedule`, { scheduledAt: when });
+    const res = await req(`/drafts/${draftId}/unschedule`, {});
+    expect(res.status).toBe(200);
+    const { draft } = (await res.json()) as { draft: { status: string } };
+    expect(draft.status).toBe("draft");
+  });
+});

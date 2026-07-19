@@ -5,6 +5,7 @@ import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
 import { getAccountProfile, updateProfileById } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
+import { scheduleDraft, unscheduleDraft } from "../repos/schedule.js";
 import { findSimilarPosts } from "../repos/post.js";
 import { imageReferenceHint } from "../repos/resource.js";
 import { retrieveKnowledge } from "../repos/knowledge.js";
@@ -269,6 +270,30 @@ export function studioRoutes() {
     const { topic } = await c.req.json<{ topic?: string }>().catch(() => ({ topic: undefined }));
     const text = await draftPost(profile.brandBrief, { topic, noGos: profile.noGos, toneWords: profile.toneWords });
     return c.json({ draft: await updateDraft(c.req.param("id"), accountId, { text }) });
+  });
+
+  r.post("/:accountId/drafts/:id/schedule", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("accountId");
+    if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const draft = await getDraft(c.req.param("id"), accountId);
+    if (!draft) return c.json({ error: "not_found" }, 404);
+
+    const { scheduledAt } = await c.req.json<{ scheduledAt?: string }>().catch(() => ({ scheduledAt: undefined }));
+    const when = scheduledAt ? new Date(scheduledAt) : null;
+    if (!when || Number.isNaN(when.getTime())) return c.json({ error: "invalid_datetime" }, 400);
+    if (when.getTime() <= Date.now()) return c.json({ error: "must_be_future" }, 400);
+
+    return c.json({ draft: await scheduleDraft(c.req.param("id"), accountId, when) });
+  });
+
+  r.post("/:accountId/drafts/:id/unschedule", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("accountId");
+    if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const draft = await getDraft(c.req.param("id"), accountId);
+    if (!draft) return c.json({ error: "not_found" }, 404);
+    return c.json({ draft: await unscheduleDraft(c.req.param("id"), accountId) });
   });
 
   r.patch("/:accountId/drafts/:id", async (c) => {
