@@ -44,6 +44,7 @@ export function ResourcesTab({ accountId }: { accountId: string }) {
     image: false,
     document: false,
   });
+  const [error, setError] = useState<string | null>(null);
 
   const imageInput = useRef<HTMLInputElement>(null);
   const docInput = useRef<HTMLInputElement>(null);
@@ -61,21 +62,33 @@ export function ResourcesTab({ accountId }: { accountId: string }) {
   async function upload(kind: "image" | "document", file: File | undefined) {
     if (!file) return;
     setUploading((u) => ({ ...u, [kind]: true }));
+    setError(null);
     const form = new FormData();
     form.append("file", file);
-    await fetch(base, { method: "POST", credentials: "include", body: form });
+    try {
+      const res = await fetch(base, { method: "POST", credentials: "include", body: form });
+      if (!res.ok) setError(t("resources.uploadFailed"));
+    } catch {
+      setError(t("resources.uploadFailed"));
+    }
     await load();
     setUploading((u) => ({ ...u, [kind]: false }));
   }
 
   async function toggleRef(r: Resource) {
     setPendingRef((s) => new Set(s).add(r.id));
-    await fetch(`${base}/${r.id}/image-ref`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ on: !r.isImageRef }),
-    });
+    setError(null);
+    try {
+      const res = await fetch(`${base}/${r.id}/image-ref`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ on: !r.isImageRef }),
+      });
+      if (!res.ok) setError(t("resources.toggleRefFailed"));
+    } catch {
+      setError(t("resources.toggleRefFailed"));
+    }
     await load();
     setPendingRef((s) => {
       const next = new Set(s);
@@ -85,9 +98,21 @@ export function ResourcesTab({ accountId }: { accountId: string }) {
   }
 
   async function remove(r: Resource) {
-    // Optimistic removal — the row/tile vanishes immediately.
+    // Optimistic removal — the row/tile vanishes immediately, but on a
+    // server-side failure we re-sync via load() so it reappears rather than
+    // leaving the UI showing a false "deleted" state.
     setResources((rs) => rs.filter((x) => x.id !== r.id));
-    await fetch(`${base}/${r.id}`, { method: "DELETE", credentials: "include" });
+    setError(null);
+    try {
+      const res = await fetch(`${base}/${r.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) {
+        setError(t("resources.deleteFailed"));
+        await load();
+      }
+    } catch {
+      setError(t("resources.deleteFailed"));
+      await load();
+    }
   }
 
   const images = resources.filter((r) => r.kind === "image");
@@ -95,6 +120,12 @@ export function ResourcesTab({ accountId }: { accountId: string }) {
 
   return (
     <div className="space-y-10">
+      {error && (
+        <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-md border px-4 py-2.5 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Images ------------------------------------------------------------ */}
       <section className="space-y-4">
         <SectionHeader

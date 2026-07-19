@@ -240,7 +240,10 @@
     "imagesEmpty": "Lade Fotos von dir oder Markenbilder hoch — die KI nutzt sie, um generierte Post-Bilder zu steuern.",
     "knowledgeEmpty": "Lade PDFs hoch (Normen, Gesetze, Richtlinien). Sie werden jetzt abgelegt; fundierte Post-Generierung folgt in einem späteren Schritt.",
     "docPendingBadge": "Abgelegt · Analyse folgt",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "uploadFailed": "Upload fehlgeschlagen. Bitte erneut versuchen.",
+    "toggleRefFailed": "Referenz konnte nicht aktualisiert werden. Bitte erneut versuchen.",
+    "deleteFailed": "Löschen fehlgeschlagen. Bitte erneut versuchen."
   },
   "studio": {
     "kicker": "konsole / studio",

@@ -240,7 +240,10 @@
     "imagesEmpty": "Upload photos of yourself or brand imagery — the AI uses them to steer generated post images.",
     "knowledgeEmpty": "Upload PDFs (norms, laws, guidelines). They're stored now; grounded post generation activates in a later step.",
     "docPendingBadge": "Stored · analysis coming",
-    "delete": "Delete"
+    "delete": "Delete",
+    "uploadFailed": "Upload failed. Please try again.",
+    "toggleRefFailed": "Couldn't update the reference. Please try again.",
+    "deleteFailed": "Couldn't delete. Please try again."
   },
   "studio": {
     "kicker": "console / studio",
