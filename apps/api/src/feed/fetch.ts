@@ -1,11 +1,29 @@
 // apps/api/src/feed/fetch.ts
 import Parser from "rss-parser";
+import TurndownService from "turndown";
 import { safeFetchText } from "../net.js";
 import type { ParsedItem } from "../repos/feed.js";
 
 const parser = new Parser();
 const stripHtml = (s: string) => s.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 const truncate = (s: string, n = 500) => (s.length > n ? s.slice(0, n).trimEnd() + "…" : s);
+
+// Turndown drops <script>/<style>/<head> by default; the resulting Markdown is
+// rendered through a sanitizing renderer on the client (react-markdown strips
+// javascript:/data: hrefs), so the reader pane stays safe.
+const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-" });
+function htmlToMarkdown(html: string, max = 8000): string | null {
+  const h = html.trim();
+  if (!h) return null;
+  let md = "";
+  try {
+    md = turndown.turndown(h).replace(/\n{3,}/g, "\n\n").trim();
+  } catch {
+    md = "";
+  }
+  if (!md) return null;
+  return md.length > max ? md.slice(0, max).trimEnd() + "\n\n…" : md;
+}
 
 // Feed content is attacker-controllable — a malicious feed could carry a
 // `javascript:`/`data:` link that becomes stored XSS in an <a href>/<img src>.
@@ -40,6 +58,7 @@ export async function parseFeedXml(xml: string, sourceUrl: string): Promise<{ ti
 				title: (i.title ?? "Untitled").trim(),
 				url: link,
 				excerpt: truncate(stripHtml(String(raw))),
+				content: htmlToMarkdown(String(i.content ?? i.summary ?? "")),
 				imageUrl: enclosure || null,
 				author: i.creator ?? (i as { author?: string }).author ?? null,
 				publishedAt: i.isoDate ? new Date(i.isoDate) : null,

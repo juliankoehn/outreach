@@ -21,10 +21,12 @@
     "hono": "^4.6.0",
     "pg-boss": "^12.26.1",
     "rss-parser": "^3.13.0",
+    "turndown": "^7.2.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "@types/turndown": "^5.0.6",
     "tsx": "^4.19.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"

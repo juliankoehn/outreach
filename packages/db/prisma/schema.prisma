@@ -220,6 +220,7 @@ model FeedItem {
   title       String
   url         String
   excerpt     String
+  content     String?  // full item body as Markdown (HTML→MD), for the reader pane + post context
   imageUrl    String?
   author      String?
   publishedAt DateTime?

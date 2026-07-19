@@ -6,6 +6,7 @@ export interface ParsedItem {
 	title: string;
 	url: string;
 	excerpt: string;
+	content?: string | null;
 	imageUrl?: string | null;
 	author?: string | null;
 	publishedAt?: Date | null;
@@ -50,6 +51,7 @@ export async function insertItems(
 			title: i.title,
 			url: i.url,
 			excerpt: i.excerpt,
+			content: i.content ?? null,
 			imageUrl: i.imageUrl ?? null,
 			author: i.author ?? null,
 			publishedAt: i.publishedAt ?? null,
