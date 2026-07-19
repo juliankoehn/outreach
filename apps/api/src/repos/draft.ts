@@ -45,3 +45,14 @@ export async function updateDraft(
 export async function deleteDraft(id: string, accountId: string): Promise<void> {
   await prisma.draft.deleteMany({ where: { id, linkedinAccountId: accountId } });
 }
+
+// Dedicated writer for publish-result fields (status/externalId/publishError/publishedAt).
+// updateDraft() deliberately whitelists those out -- callers must never set them
+// via the generic mutation path, only via the publish orchestration.
+export async function setPublishResult(
+  id: string,
+  accountId: string,
+  data: { status: string; publishedAt?: Date | null; externalId?: string | null; publishError?: string | null },
+): Promise<void> {
+  await prisma.draft.updateMany({ where: { id, linkedinAccountId: accountId }, data });
+}
