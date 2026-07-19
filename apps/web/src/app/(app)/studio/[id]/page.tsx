@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { UIMessage } from "ai";
@@ -16,6 +16,9 @@ import { StudioChat } from "./studio-chat";
 import { LinkedInPreview } from "./linkedin-preview";
 
 type PageState = "loading" | "not-found" | "ready";
+
+// Stable empty reference so the pre-load render doesn't churn useChat's messages.
+const NO_MESSAGES: UIMessage[] = [];
 
 function statusVariant(status: string): "success" | "muted" | "secondary" {
   if (status === "published") return "success";
@@ -104,7 +107,16 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
 
   // The persisted transcript is read once, when the workspace first becomes
   // ready; useChat owns the live message state after that.
-  const initialMessages = useMemo(() => (draft ? toInitialMessages(draft.chat) : []), [draft]);
+  // Capture the chat history ONCE, on the first render a draft is loaded. After
+  // that useChat owns the live message stream — re-syncing it from `draft` on
+  // every setDraft (e.g. after each finished turn) churned the messages
+  // reference and looped the canvas-mirror effect ("Maximum update depth
+  // exceeded"). Navigating to another draft remounts this page, resetting it.
+  const initialChatRef = useRef<UIMessage[] | null>(null);
+  if (initialChatRef.current === null && draft) {
+    initialChatRef.current = toInitialMessages(draft.chat);
+  }
+  const initialMessages = initialChatRef.current ?? NO_MESSAGES;
 
   function flashSaved() {
     setSaved(true);
