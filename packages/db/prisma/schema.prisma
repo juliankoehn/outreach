@@ -151,6 +151,7 @@ model Draft {
   status            String   @default("draft") // draft | scheduled | published
   source            String   @default("ai")    // ai | manual
   chat              Json     @default("[]")     // canvas refine conversation
+  sourceFeedItemId  String?   // if drafted from a Feed article — the agent pulls it into context
   scheduledAt       DateTime? // reserved for the scheduler phase
   publishedAt       DateTime? // reserved for publishing
   externalId        String?   // LinkedIn post URN once published

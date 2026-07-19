@@ -281,6 +281,7 @@
     "untitled": "Unbenannter Entwurf",
     "back": "Zurück zu den Entwürfen",
     "postingAs": "Als {name}",
+    "basedOn": "Basierend auf: {title}",
     "deleteTitle": "Diesen Entwurf löschen?",
     "deleteBody": "Das entfernt den Entwurf und seinen Chat dauerhaft. Nicht rückgängig zu machen.",
     "deleteCancel": "Abbrechen",
@@ -370,7 +371,7 @@
     "postNoAccount": "Verbinde zuerst ein LinkedIn-Konto",
     "pickAccount": "Post daraus",
     "pickAccountDesc": "Zu welchem Konto soll dieser Entwurf gehören?",
-    "postPrompt": "Schreib meinen eigenen LinkedIn-Post inspiriert von diesem Artikel — meine Sicht, kein Nacherzählen. Titel: \"{title}\". Kern: {excerpt}. Quelle: {url}",
+    "postPrompt": "Schreib meinen eigenen LinkedIn-Post zu diesem Artikel — meine Sicht, kein Nacherzählen.",
     "emptyNoSources": "Noch keine Quellen. Füge einen RSS-Feed hinzu, um Artikel zu verfolgen.",
     "emptyNoItems": "Noch nichts reingekommen — füge eine Quelle hinzu oder aktualisiere."
   },

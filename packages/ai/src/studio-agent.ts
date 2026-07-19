@@ -45,6 +45,9 @@ export interface StudioAgentOptions {
   // (voice, themes, what drives engagement). Grounds generation in reality.
   insights?: string;
   currentText: string;
+  // When the draft was started from a Feed article — the full article (Markdown)
+  // the creator wants to write their own take on.
+  sourceArticle?: { title: string; url: string; content: string };
   handlers: StudioAgentHandlers;
   model?: LanguageModel;
   // Called once the turn finishes with the full updated message list, so the
@@ -59,6 +62,7 @@ interface StudioSystemInput {
   toneWords?: string[];
   pillars?: string[];
   noGos?: string[];
+  sourceArticle?: { title: string; url: string; content: string };
 }
 
 function studioSystem(input: StudioSystemInput): string {
@@ -81,11 +85,15 @@ function studioSystem(input: StudioSystemInput): string {
         .join("\n")}\nRead them literally: "Emojis" → use ZERO emoji characters; "Em-Dashes" → no "—" characters; "Buzzwords"/"Füllwörter" → plain, specific words only. When in doubt, comply.`
     : "";
 
+  const article = input.sourceArticle
+    ? `\n\nSOURCE ARTICLE — the creator wants a LinkedIn post inspired by this article. Use it as the factual basis and write THEIR OWN take / point of view — do NOT summarise or rehash it, and do NOT copy its wording. It is given in Markdown for your reading only; the post itself is PLAIN TEXT with no Markdown.\nTitle: ${input.sourceArticle.title}\nURL: ${input.sourceArticle.url}\nArticle:\n"""${input.sourceArticle.content}"""`
+    : "";
+
   return `You are the creator's LinkedIn writing partner inside a studio. You work on a single post that lives on a canvas to the right of this chat.
 
 CREATOR BRAND BRIEF
 ${brief}${tone}${pillars}${noGos}
-${learned}
+${learned}${article}
 ${LINKEDIN_PLAYBOOK}
 
 HOW YOU WORK
@@ -110,6 +118,7 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
       toneWords: opts.toneWords,
       pillars: opts.pillars,
       noGos: opts.noGos,
+      sourceArticle: opts.sourceArticle,
     }),
     messages: await convertToModelMessages(opts.messages),
     stopWhen: stepCountIs(6),

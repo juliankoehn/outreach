@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { UIMessage } from "ai";
-import { ArrowLeft, ImagePlus, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, ImagePlus, Newspaper, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,8 @@ type PageState = "loading" | "not-found" | "ready";
 
 // Stable empty reference so the pre-load render doesn't churn useChat's messages.
 const NO_MESSAGES: UIMessage[] = [];
+
+type SourceFeedItem = { id: string; title: string; url: string };
 
 function statusVariant(status: string): "success" | "muted" | "secondary" {
   if (status === "published") return "success";
@@ -58,6 +60,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const [author, setAuthor] = useState<{ name: string; avatarUrl: string | null }>({ name: "", avatarUrl: null });
   const [state, setState] = useState<PageState>("loading");
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [sourceFeedItem, setSourceFeedItem] = useState<SourceFeedItem | null>(null);
 
   const [postText, setPostText] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
@@ -101,7 +104,9 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       if (!alive) return;
       if (res.status === 401) return router.push("/login");
       if (!res.ok) return setState("not-found");
-      applyDraft(((await res.json()) as { draft: Draft }).draft);
+      const data = (await res.json()) as { draft: Draft; sourceFeedItem?: SourceFeedItem | null };
+      applyDraft(data.draft);
+      setSourceFeedItem(data.sourceFeedItem ?? null);
       setState("ready");
     })();
     return () => {
@@ -288,6 +293,20 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
           <Badge variant={statusVariant(draft?.status ?? "draft")} className="capitalize">
             {draft?.status}
           </Badge>
+          {sourceFeedItem && (
+            <a
+              href={sourceFeedItem.url}
+              target="_blank"
+              rel="noreferrer"
+              title={sourceFeedItem.title}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors"
+            >
+              <Newspaper className="size-3.5 shrink-0" />
+              <span className="max-w-[18rem] truncate">
+                {t("studio.basedOn", { title: sourceFeedItem.title })}
+              </span>
+            </a>
+          )}
           <div className="ml-auto flex items-center gap-2">
             {saved && <span className="text-success text-xs">{t("studio.saved")}</span>}
             <Button

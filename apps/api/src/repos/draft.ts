@@ -3,7 +3,7 @@ import { prisma } from "@outreach/db";
 
 export function createDraft(
   accountId: string,
-  data: { text: string; imageUrl?: string; imagePrompt?: string; source?: string },
+  data: { text: string; imageUrl?: string; imagePrompt?: string; source?: string; sourceFeedItemId?: string },
 ) {
   return prisma.draft.create({
     data: {
@@ -12,6 +12,7 @@ export function createDraft(
       imageUrl: data.imageUrl,
       imagePrompt: data.imagePrompt,
       source: data.source,
+      sourceFeedItemId: data.sourceFeedItemId,
     },
   });
 }

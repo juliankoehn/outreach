@@ -8,6 +8,7 @@ import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../
 import { findSimilarPosts } from "../repos/post.js";
 import { imageReferenceHint } from "../repos/resource.js";
 import { retrieveKnowledge } from "../repos/knowledge.js";
+import { getItem as getFeedItem } from "../repos/feed.js";
 import { saveImage } from "../images.js";
 
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
@@ -74,7 +75,14 @@ export function studioRoutes() {
     if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
     const draft = await getDraft(c.req.param("id"), accountId);
     if (!draft) return c.json({ error: "not_found" }, 404);
-    return c.json({ draft });
+    // Surface the source article (if drafted from a Feed item) so the studio can
+    // show + later attach it.
+    let sourceFeedItem: { id: string; title: string; url: string } | null = null;
+    if (draft.sourceFeedItemId) {
+      const it = await getFeedItem(draft.sourceFeedItemId, user.id);
+      if (it) sourceFeedItem = { id: it.id, title: it.title, url: it.url };
+    }
+    return c.json({ draft, sourceFeedItem });
   });
 
   r.post("/:accountId/drafts", async (c) => {
@@ -84,9 +92,8 @@ export function studioRoutes() {
     if (!acct) return c.json({ error: "not_found" }, 404);
 
     // A new draft may start empty (workspace-first flow); text is optional.
-    const body = await c
-      .req.json<{ text?: string; imageUrl?: string; imagePrompt?: string }>()
-      .catch(() => ({}) as { text?: string; imageUrl?: string; imagePrompt?: string });
+    type NewDraftBody = { text?: string; imageUrl?: string; imagePrompt?: string; sourceFeedItemId?: string };
+    const body = await c.req.json<NewDraftBody>().catch(() => ({}) as NewDraftBody);
     return c.json({ draft: await createDraft(accountId, { ...body, text: body.text ?? "" }) });
   });
 
@@ -138,6 +145,17 @@ export function studioRoutes() {
     let currentText = draft.text;
     const referenceHint = await imageReferenceHint(accountId);
 
+    // Drafted from a Feed article → pull the full article into the agent's
+    // context (instead of stuffing it into the chat/URL) so it writes an
+    // informed, original take.
+    let sourceArticle: { title: string; url: string; content: string } | undefined;
+    if (draft.sourceFeedItemId) {
+      const article = await getFeedItem(draft.sourceFeedItemId, user.id);
+      if (article) {
+        sourceArticle = { title: article.title, url: article.url, content: article.content ?? article.excerpt };
+      }
+    }
+
     return streamStudioAgent({
       messages,
       brandBrief: profile?.brandBrief ?? undefined,
@@ -146,6 +164,7 @@ export function studioRoutes() {
       noGos: profile?.noGos,
       insights,
       currentText,
+      sourceArticle,
       handlers: {
         updatePost: async (text) => {
           // LinkedIn is plain text — strip any Markdown the model slipped in.

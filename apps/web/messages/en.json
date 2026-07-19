@@ -281,6 +281,7 @@
     "untitled": "Untitled draft",
     "back": "Back to drafts",
     "postingAs": "As {name}",
+    "basedOn": "Based on: {title}",
     "deleteTitle": "Delete this draft?",
     "deleteBody": "This permanently removes the draft and its chat. This can't be undone.",
     "deleteCancel": "Cancel",
@@ -370,7 +371,7 @@
     "postNoAccount": "Connect a LinkedIn account first",
     "pickAccount": "Turn into post",
     "pickAccountDesc": "Which account should this draft belong to?",
-    "postPrompt": "Write my own LinkedIn post inspired by this article — my take, not a recap. Title: \"{title}\". Core: {excerpt}. Source: {url}",
+    "postPrompt": "Write my own LinkedIn post inspired by this article — my take, not a recap.",
     "emptyNoSources": "No sources yet. Add an RSS feed to start tracking articles.",
     "emptyNoItems": "Nothing here yet — add a source or refresh to pull in articles."
   },

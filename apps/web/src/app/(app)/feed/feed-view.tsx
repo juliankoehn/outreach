@@ -268,19 +268,18 @@ export function FeedView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "read" }),
     }).catch(() => {});
+    // Attach the article to the draft — the studio agent pulls the FULL article
+    // into its context server-side, so the kickoff prompt stays short (no title/
+    // excerpt/url stuffed into the URL).
     const res = await fetch(`/api/studio/${accountId}/drafts`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ sourceFeedItemId: item.id }),
     }).catch(() => null);
     if (res && res.ok) {
       const { draft } = (await res.json()) as { draft: Draft };
-      const prompt = t("feed.postPrompt", {
-        title: item.title,
-        excerpt: item.excerpt,
-        url: item.url,
-      });
+      const prompt = t("feed.postPrompt");
       router.push(`/studio/${draft.id}?prompt=${encodeURIComponent(prompt)}`);
       return; // keep postingId set: the page is navigating away
     }
