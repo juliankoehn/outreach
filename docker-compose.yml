@@ -15,9 +15,11 @@ services:
     environment:
       MINIO_ROOT_USER: outreach
       MINIO_ROOT_PASSWORD: outreach-secret
+    # Host ports default to 9000/9001; override per-machine in the gitignored
+    # root .env (e.g. MINIO_API_PORT=9010) if those ports are already taken.
     ports:
-      - "9010:9000"
-      - "9011:9001"
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - miniodata:/data
 volumes:
