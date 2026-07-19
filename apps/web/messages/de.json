@@ -262,6 +262,8 @@
     "postPlaceholder": "Dein Post erscheint hier — frei bearbeitbar.",
     "imagePromptPlaceholder": "Beschreibe das Bild…",
     "generateImage": "Bild generieren",
+    "sectionPost": "Post",
+    "sectionImage": "Bild",
     "generatingImage": "Bild wird erstellt… das kann eine Minute dauern",
     "saveDraft": "Entwurf speichern",
     "saved": "Gespeichert.",
@@ -323,7 +325,7 @@
     "metaTitle": "Details",
     "created": "Erstellt",
     "updated": "Aktualisiert",
-    "publishingSoon": "Veröffentlichung & Planung folgen bald.",
+    "publishingSoon": "Planung ist aktiv. Automatisches Veröffentlichen auf LinkedIn folgt als Nächstes.",
     "statusDraft": "Entwurf",
     "statusScheduled": "Geplant",
     "statusPublished": "Veröffentlicht"

@@ -262,6 +262,8 @@
     "postPlaceholder": "Your post will appear here — write or edit freely.",
     "imagePromptPlaceholder": "Describe the image…",
     "generateImage": "Generate image",
+    "sectionPost": "Post",
+    "sectionImage": "Image",
     "generatingImage": "Generating image… this can take a minute",
     "saveDraft": "Save draft",
     "saved": "Saved.",
@@ -323,7 +325,7 @@
     "metaTitle": "Details",
     "created": "Created",
     "updated": "Updated",
-    "publishingSoon": "Publishing & scheduling coming soon.",
+    "publishingSoon": "Scheduling is live. Auto-publishing to LinkedIn is coming next.",
     "statusDraft": "Draft",
     "statusScheduled": "Scheduled",
     "statusPublished": "Published"

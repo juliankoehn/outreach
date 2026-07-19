@@ -7,6 +7,7 @@ import type { UIMessage } from "ai";
 import { ArrowLeft, CalendarClock, ImagePlus, Newspaper, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -360,20 +361,6 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
               </button>
             </span>
           )}
-          {sourceFeedItem && (
-            <a
-              href={sourceFeedItem.url}
-              target="_blank"
-              rel="noreferrer"
-              title={sourceFeedItem.title}
-              className="text-muted-foreground hover:text-foreground hover:bg-accent flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors"
-            >
-              <Newspaper className="size-3.5 shrink-0" />
-              <span className="max-w-[18rem] truncate">
-                {t("studio.basedOn", { title: sourceFeedItem.title })}
-              </span>
-            </a>
-          )}
           <div className="ml-auto flex items-center gap-2">
             {saved && <span className="text-success text-xs">{t("studio.saved")}</span>}
             <Button
@@ -434,63 +421,100 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
-        {/* Document */}
+        {/* Document — post on the left, a tools sidebar on the right */}
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-2xl px-6 py-8">
-            {noProfile && (
-              <div className="border-destructive/30 bg-destructive/10 text-destructive mb-4 rounded-lg border px-3 py-2.5 text-sm">
-                {t("studio.noProfile")}{" "}
-                <a href="/profile" className="font-medium underline underline-offset-2">
-                  {t("studio.noProfileLink")}
+          <div className="mx-auto grid max-w-5xl gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            {/* Post column */}
+            <div className="min-w-0">
+              {noProfile && (
+                <div className="border-destructive/30 bg-destructive/10 text-destructive mb-4 rounded-lg border px-3 py-2.5 text-sm">
+                  {t("studio.noProfile")}{" "}
+                  <a href="/profile" className="font-medium underline underline-offset-2">
+                    {t("studio.noProfileLink")}
+                  </a>
+                </div>
+              )}
+
+              <LinkedInPreview
+                authorName={author.name}
+                avatarUrl={author.avatarUrl}
+                value={postText}
+                onChange={setPostText}
+                onBlur={() => {
+                  if (draft && postText !== draft.text) void savePatch({ text: postText });
+                }}
+                imageUrl={imageUrl}
+                placeholder={t("studio.postPlaceholder")}
+              />
+            </div>
+
+            {/* Tools sidebar */}
+            <aside className="flex flex-col gap-4">
+              <section className="bg-card rounded-xl border p-4">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("studio.sectionPost")}
+                </h3>
+                <div className="mt-3 flex flex-col gap-2">
+                  <Input
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder={t("studio.topicPlaceholder")}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void regenerate()}
+                    disabled={regenerating}
+                    className="w-full justify-center"
+                  >
+                    <RefreshCw className={cn("size-4", regenerating && "animate-spin")} />
+                    {regenerating ? t("studio.regenerating") : t("studio.regenerate")}
+                  </Button>
+                </div>
+              </section>
+
+              <section className="bg-card rounded-xl border p-4">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {t("studio.sectionImage")}
+                </h3>
+                <div className="mt-3 flex flex-col gap-2">
+                  <Textarea
+                    value={imagePrompt}
+                    onChange={(e) => setImagePrompt(e.target.value)}
+                    placeholder={t("studio.imagePromptPlaceholder")}
+                    rows={3}
+                    className="resize-none"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void generateImage()}
+                    disabled={generatingImage || !imagePrompt.trim()}
+                    className="w-full justify-center"
+                  >
+                    <ImagePlus className={cn("size-4", generatingImage && "animate-spin")} />
+                    {generatingImage ? t("studio.generatingImage") : t("studio.generateImage")}
+                  </Button>
+                </div>
+              </section>
+
+              {sourceFeedItem && (
+                <a
+                  href={sourceFeedItem.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={sourceFeedItem.title}
+                  className="text-muted-foreground hover:text-foreground hover:bg-accent flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs transition-colors"
+                >
+                  <Newspaper className="size-4 shrink-0" />
+                  <span className="min-w-0 truncate">
+                    {t("studio.basedOn", { title: sourceFeedItem.title })}
+                  </span>
                 </a>
-              </div>
-            )}
+              )}
 
-            <LinkedInPreview
-              authorName={author.name}
-              avatarUrl={author.avatarUrl}
-              value={postText}
-              onChange={setPostText}
-              onBlur={() => {
-                if (draft && postText !== draft.text) void savePatch({ text: postText });
-              }}
-              imageUrl={imageUrl}
-              placeholder={t("studio.postPlaceholder")}
-            />
-
-            {/* Compose controls */}
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <Input
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder={t("studio.topicPlaceholder")}
-                className="w-44"
-              />
-              <Button variant="outline" size="sm" onClick={() => void regenerate()} disabled={regenerating}>
-                <RefreshCw className={cn("size-4", regenerating && "animate-spin")} />
-                {regenerating ? t("studio.regenerating") : t("studio.regenerate")}
-              </Button>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Input
-                value={imagePrompt}
-                onChange={(e) => setImagePrompt(e.target.value)}
-                placeholder={t("studio.imagePromptPlaceholder")}
-                className="min-w-0 flex-1"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void generateImage()}
-                disabled={generatingImage || !imagePrompt.trim()}
-                className="shrink-0"
-              >
-                <ImagePlus className={cn("size-4", generatingImage && "animate-spin")} />
-                {generatingImage ? t("studio.generatingImage") : t("studio.generateImage")}
-              </Button>
-            </div>
-
-            <p className="text-muted-foreground mt-6 border-t pt-4 text-xs">{t("studio.publishingSoon")}</p>
+              <p className="text-muted-foreground px-1 text-xs">{t("studio.publishingSoon")}</p>
+            </aside>
           </div>
         </div>
       </div>
