@@ -1,7 +1,7 @@
 // apps/api/src/publish/publish-draft.ts
 import type { Draft } from "@outreach/db";
 import { LinkedInPublishClient, LinkedInPublishError, LinkedInOAuthClient, type TokenResponse } from "@outreach/linkedin";
-import { getDraft, setPublishResult } from "../repos/draft.js";
+import { getDraft, setPublishResult, claimDraftForPublish } from "../repos/draft.js";
 import { getDecryptedAccount, updateAccountTokens, setAccountStatus } from "../repos/linkedin-account.js";
 import { getObject } from "../storage.js";
 import { getItem } from "../repos/feed.js";
@@ -12,6 +12,12 @@ export interface PublishDeps {
   oauth?: { refresh(refreshToken: string): Promise<TokenResponse> };
   getObjectImpl?: typeof getObject;
   getItemImpl?: typeof getItem;
+  // Set only by the publish-due worker: `claimDuePublishDrafts` already atomically
+  // flipped this draft's status to "publishing" via a single UPDATE ... RETURNING
+  // before publishDraft was ever called, so re-claiming here would just see
+  // status="publishing" and (correctly, for any OTHER caller) refuse to publish.
+  // The worker is the legitimate owner of that claim, so it skips this check.
+  skipClaim?: boolean;
 }
 
 const REFRESH_SKEW_MS = 60_000;
@@ -25,6 +31,11 @@ export async function publishDraft(
   const draft = await getDraft(draftId, accountId);
   if (!draft) throw new Error("draft not found");
   if (draft.status === "published") return draft;
+
+  if (!deps.skipClaim) {
+    const claimed = await claimDraftForPublish(draftId, accountId);
+    if (!claimed) return (await getDraft(draftId, accountId)) as Draft;
+  }
 
   const account = await getDecryptedAccount(accountId, userId);
   if (!account) throw new Error("account not found");

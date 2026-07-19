@@ -71,7 +71,11 @@ serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
       const due = await claimDuePublishDrafts();
       for (const d of due) {
         try {
-          await publishDraft(d.id, d.linkedinAccountId, d.userId);
+          // skipClaim: claimDuePublishDrafts already atomically flipped this
+          // draft to "publishing" above, so publishDraft's own claim (which
+          // guards against a concurrent "Publish now" click) would otherwise
+          // see status="publishing" and wrongly refuse to publish here too.
+          await publishDraft(d.id, d.linkedinAccountId, d.userId, { skipClaim: true });
         } catch (e) {
           console.error("publish-due failed", d.id, e);
         }
@@ -83,7 +87,13 @@ serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
     // has to refresh (and risk failing) inline.
     await boss.work(REFRESH_TOKENS_QUEUE, async () => {
       const accts = await listAccountsNeedingRefresh();
-      for (const a of accts) await refreshAccountToken(a.id, a.userId);
+      for (const a of accts) {
+        try {
+          await refreshAccountToken(a.id, a.userId);
+        } catch (e) {
+          console.error("refresh-tokens failed", a.id, e);
+        }
+      }
     });
     await boss.schedule(REFRESH_TOKENS_QUEUE, "0 */6 * * *");
   } catch (e) {

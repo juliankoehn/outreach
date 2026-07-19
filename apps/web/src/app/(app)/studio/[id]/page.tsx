@@ -486,7 +486,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void publishDraft()}
+              onClick={() => setConfirmPublish(true)}
               disabled={publishing}
               className="border-destructive/30 text-destructive hover:bg-destructive/10 shrink-0"
             >

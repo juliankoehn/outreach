@@ -46,6 +46,17 @@ export async function deleteDraft(id: string, accountId: string): Promise<void> 
   await prisma.draft.deleteMany({ where: { id, linkedinAccountId: accountId } });
 }
 
+// Atomically claim a draft for publishing. Returns true iff THIS call flipped it
+// to "publishing" (status was draft/scheduled/failed). A concurrent claim, or an
+// already-published/publishing draft, returns false — the caller must not publish.
+export async function claimDraftForPublish(id: string, accountId: string): Promise<boolean> {
+  const res = await prisma.draft.updateMany({
+    where: { id, linkedinAccountId: accountId, status: { in: ["draft", "scheduled", "failed"] } },
+    data: { status: "publishing" },
+  });
+  return res.count === 1;
+}
+
 // Dedicated writer for publish-result fields (status/externalId/publishError/publishedAt).
 // updateDraft() deliberately whitelists those out -- callers must never set them
 // via the generic mutation path, only via the publish orchestration.

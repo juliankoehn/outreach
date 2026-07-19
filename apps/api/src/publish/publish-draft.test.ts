@@ -190,4 +190,18 @@ describe("publishDraft", () => {
     expect(result.status).toBe("published");
     expect(result.externalId).toBe("urn:li:share:old");
   });
+
+  it("already publishing guard: concurrent claim (worker mid-publish or double-click) returns without calling the client", async () => {
+    const account = await makeAccount();
+    const draft = await prisma.draft.create({
+      data: { linkedinAccountId: account.id, text: "in flight", status: "publishing" },
+    });
+    const client = fakeClient();
+    const deps: PublishDeps = { makeClient: () => client as never };
+
+    const result = await publishDraft(draft.id, account.id, userId, deps);
+
+    expect(client.createPost).not.toHaveBeenCalled();
+    expect(result.status).toBe("publishing");
+  });
 });

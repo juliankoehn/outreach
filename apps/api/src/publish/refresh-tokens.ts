@@ -14,10 +14,12 @@ function oauth() {
 export async function refreshAccountToken(accountId: string, userId: string): Promise<void> {
   const acct = await getDecryptedAccount(accountId, userId);
   if (!acct?.refreshToken) return;
+  let t;
   try {
-    const t = await oauth().refresh(acct.refreshToken);
-    await updateAccountTokens(accountId, t);
+    t = await oauth().refresh(acct.refreshToken);
   } catch {
     await setAccountStatus(accountId, "expired");
+    return;
   }
+  await updateAccountTokens(accountId, t);
 }

@@ -4,9 +4,10 @@ import { prisma } from "@outreach/db";
 // Atomically claims due scheduled drafts by flipping them to "publishing" in
 // a single UPDATE ... RETURNING. This prevents two overlapping worker runs
 // from both picking up the same draft and double-posting it publicly.
-// publishDraft's only "already handled" guard is status==="published", so a
-// claimed "publishing" draft proceeds normally through publishDraft and ends
-// up "published" or "failed".
+// Since this claim already happened here, the worker calls publishDraft with
+// { skipClaim: true } so publishDraft's own atomic claim (used to guard the
+// draft/scheduled/failed -> publishing transition for any OTHER caller, e.g.
+// a "Publish now" click) doesn't see status="publishing" and wrongly refuse.
 export async function claimDuePublishDrafts(): Promise<
   Array<{ id: string; linkedinAccountId: string; userId: string }>
 > {
