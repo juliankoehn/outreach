@@ -190,6 +190,12 @@ export function getImageModel(): ImageModel {
 // most vertical space on mobile); square/landscape are opt-in.
 const SIZE_MAP = { portrait: "1024x1536", square: "1024x1024", landscape: "1536x1024" } as const;
 
+// Steers image generation away from the tell-tale "AI slop" look toward what a
+// tasteful creator would actually post on LinkedIn. Shared by the art-director
+// brief step and the raw renderer.
+const IMAGE_AESTHETIC =
+  "AESTHETIC — this runs on a real LinkedIn feed, so it must NOT look AI-generated. Hard avoid: glowing neon circuit boards, futuristic sci-fi cityscapes, floating holograms or HUD overlays, glossy 3D-render blobs, hexagon grids, robot hands, binary-code rain, over-saturated 'digital tech' collages, and any generic abstract 'technology/innovation' stock look. Instead aim for what a tasteful creator actually posts: authentic editorial or documentary photography, a real workplace or human moment, or a clean, minimal editorial illustration — restrained natural palette, real lighting, believable and understated over flashy and synthetic.";
+
 export async function generateImage(
   prompt: string,
   opts?: {
@@ -225,6 +231,7 @@ export async function generateImage(
       `If a person appears, resemble this reference (style/subject guidance, not an exact likeness): ${opts.referenceHint.trim()}`,
     );
   }
+  parts.push(IMAGE_AESTHETIC);
   parts.push(`Image direction: ${prompt}`);
   const fullPrompt = parts.length > 1 ? parts.join("\n\n") : prompt;
   const { image } = await genImage({ model, prompt: fullPrompt, size: SIZE_MAP[opts?.size ?? "portrait"] });
@@ -265,7 +272,7 @@ export async function composeImageBrief(opts: {
 
   const { text } = await generateText({
     model,
-    system: `You are an art director for a professional LinkedIn creator. From the context, write ONE vivid, concrete image brief (2-4 sentences, English) for an image generator. Describe a specific scene, subject, composition, lighting, and mood that concretely represents the post's actual topic — never a generic abstract "technology" or "business" stock visual. It is for ${FORMAT_HINT[opts.size ?? "portrait"]}.${noGoLine}\nOutput only the brief, no preamble or quotes.`,
+    system: `You are an art director for a professional LinkedIn creator. From the context, write ONE vivid, concrete image brief (2-4 sentences, English) for an image generator. Describe a specific scene, subject, composition, lighting, and mood that concretely represents the post's actual topic — never a generic abstract "technology" or "business" stock visual. It is for ${FORMAT_HINT[opts.size ?? "portrait"]}.\n${IMAGE_AESTHETIC}${noGoLine}\nOutput only the brief, no preamble or quotes.`,
     prompt: ctx.join("\n\n") || "Write a strong, on-brand image brief for this creator's post.",
   });
   return text.trim();
