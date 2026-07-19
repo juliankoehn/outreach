@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ExternalLink, Loader2, PenLine, Plus, RefreshCw, Rss, Trash2 } from "lucide-react";
 import {
@@ -11,12 +12,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import type { Account } from "@/lib/accounts";
 import type { FeedItem, FeedSource } from "@/lib/feed";
+import type { Draft } from "@/lib/studio";
 
 type Filter = "new" | "all" | "dismissed";
 
@@ -25,6 +35,7 @@ const FILTERS: Filter[] = ["new", "all", "dismissed"];
 export function FeedView() {
   const t = useTranslations();
   const locale = useLocale();
+  const router = useRouter();
 
   const [sources, setSources] = useState<FeedSource[]>([]);
   const [items, setItems] = useState<FeedItem[]>([]);
@@ -36,6 +47,12 @@ export function FeedView() {
   // disabled until the re-sync lands, so a card can't be double-actioned.
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  // LinkedIn accounts, loaded on mount — gate/route the "turn into post" flow.
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  // The item whose post is being created (spinner + guards against double-fire).
+  const [postingId, setPostingId] = useState<string | null>(null);
+  // When >1 account, clicking "post" defers to an account picker for this item.
+  const [postItem, setPostItem] = useState<FeedItem | null>(null);
 
   const loadSources = useCallback(async () => {
     const res = await fetch("/api/feed/sources", { credentials: "include" });
@@ -52,6 +69,17 @@ export function FeedView() {
   useEffect(() => {
     void loadSources();
   }, [loadSources]);
+
+  // Accounts drive the "turn into post" button (0 → disabled, 1 → direct,
+  // >1 → picker). Best-effort: a failed load just leaves the button gated.
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/linkedin/accounts", { credentials: "include" }).catch(
+        () => null,
+      );
+      if (res && res.ok) setAccounts(((await res.json()) as { accounts: Account[] }).accounts);
+    })();
+  }, []);
 
   useEffect(() => {
     setItemsLoaded(false);
@@ -107,6 +135,43 @@ export function FeedView() {
       next.delete(item.id);
       return next;
     });
+  }
+
+  // Create a Studio draft seeded from the article, then hand off to the studio
+  // agent via ?prompt= (which auto-sends). Marking the item read is best-effort
+  // and must never block the redirect.
+  async function createPost(item: FeedItem, accountId: string) {
+    if (postingId) return;
+    setPostingId(item.id);
+    void fetch(`/api/feed/items/${item.id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "read" }),
+    }).catch(() => {});
+    const res = await fetch(`/api/studio/${accountId}/drafts`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }).catch(() => null);
+    if (res && res.ok) {
+      const { draft } = (await res.json()) as { draft: Draft };
+      const prompt = t("feed.postPrompt", {
+        title: item.title,
+        excerpt: item.excerpt,
+        url: item.url,
+      });
+      router.push(`/studio/${draft.id}?prompt=${encodeURIComponent(prompt)}`);
+      return; // keep postingId set: the page is navigating away
+    }
+    setPostingId(null);
+  }
+
+  function handlePost(item: FeedItem) {
+    if (accounts.length === 0 || postingId) return;
+    if (accounts.length === 1) void createPost(item, accounts[0]!.id);
+    else setPostItem(item);
   }
 
   const sourceTitle = (id: string) =>
@@ -214,12 +279,15 @@ export function FeedView() {
                 sourceTitle={sourceTitle(item.sourceId)}
                 locale={locale}
                 busy={pending.has(item.id)}
+                posting={postingId === item.id}
+                canPost={accounts.length > 0}
                 labels={{
                   post: t("feed.actionPost"),
                   read: t("feed.actionRead"),
                   dismiss: t("feed.actionDismiss"),
-                  postSoon: t("feed.actionPostSoon"),
+                  postNoAccount: t("feed.postNoAccount"),
                 }}
+                onPost={() => handlePost(item)}
                 onRead={() => void setStatus(item, "read")}
                 onDismiss={() => void setStatus(item, "dismissed")}
               />
@@ -235,6 +303,16 @@ export function FeedView() {
           void loadSources();
           void loadItems(filter);
         }}
+      />
+
+      <PostAccountDialog
+        item={postItem}
+        accounts={accounts}
+        busy={postingId !== null}
+        onConfirm={(accountId) => {
+          if (postItem) void createPost(postItem, accountId);
+        }}
+        onClose={() => setPostItem(null)}
       />
     </div>
   );
@@ -281,7 +359,10 @@ function FeedItemCard({
   sourceTitle,
   locale,
   busy,
+  posting,
+  canPost,
   labels,
+  onPost,
   onRead,
   onDismiss,
 }: {
@@ -289,7 +370,10 @@ function FeedItemCard({
   sourceTitle: string;
   locale: string;
   busy: boolean;
-  labels: { post: string; read: string; dismiss: string; postSoon: string };
+  posting: boolean;
+  canPost: boolean;
+  labels: { post: string; read: string; dismiss: string; postNoAccount: string };
+  onPost: () => void;
   onRead: () => void;
   onDismiss: () => void;
 }) {
@@ -342,8 +426,17 @@ function FeedItemCard({
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button size="sm" disabled title={labels.postSoon}>
-            <PenLine className="size-4" />
+          <Button
+            size="sm"
+            onClick={onPost}
+            disabled={busy || posting || !canPost}
+            title={!canPost ? labels.postNoAccount : undefined}
+          >
+            {posting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <PenLine className="size-4" />
+            )}
             {labels.post}
           </Button>
           {item.status !== "read" && (
@@ -446,6 +539,70 @@ function AddSourceDialog({
           <Button onClick={() => void submit()} disabled={busy || !url.trim()}>
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
             {busy ? t("feed.addSourceBusy") : t("feed.addSourceSubmit")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Shown only when the user has >1 LinkedIn account — pick which one the
+// article-seeded draft belongs to before kicking off the studio agent.
+function PostAccountDialog({
+  item,
+  accounts,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  item: FeedItem | null;
+  accounts: Account[];
+  busy: boolean;
+  onConfirm: (accountId: string) => void;
+  onClose: () => void;
+}) {
+  const t = useTranslations();
+  const [selected, setSelected] = useState("");
+
+  // Default to the first account whenever the picker opens for a new item.
+  useEffect(() => {
+    if (item) setSelected((cur) => cur || (accounts[0]?.id ?? ""));
+  }, [item, accounts]);
+
+  return (
+    <Dialog
+      open={item !== null}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("feed.pickAccount")}</DialogTitle>
+          <DialogDescription>{t("feed.pickAccountDesc")}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">{t("studio.createAccount")}</label>
+          <Select value={selected} onValueChange={setSelected}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {a.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={() => selected && onConfirm(selected)} disabled={busy || !selected}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <PenLine className="size-4" />}
+            {t("feed.actionPost")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -360,9 +360,12 @@
     "filter_all": "All",
     "filter_dismissed": "Dismissed",
     "actionPost": "Turn into post",
-    "actionPostSoon": "Coming soon",
     "actionRead": "Mark read",
     "actionDismiss": "Dismiss",
+    "postNoAccount": "Connect a LinkedIn account first",
+    "pickAccount": "Turn into post",
+    "pickAccountDesc": "Which account should this draft belong to?",
+    "postPrompt": "Write my own LinkedIn post inspired by this article — my take, not a recap. Title: \"{title}\". Core: {excerpt}. Source: {url}",
     "emptyNoSources": "No sources yet. Add an RSS feed to start tracking articles.",
     "emptyNoItems": "Nothing here yet — add a source or refresh to pull in articles."
   },
