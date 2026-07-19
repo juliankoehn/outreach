@@ -73,30 +73,45 @@ export function StudioChat({
     sendMessage({ text: initialPrompt.trim() });
   }, [initialPrompt, initialMessages.length, sendMessage]);
 
-  // Mirror the agent's tool activity onto the canvas as it streams: updatePost's
-  // (partial) text types out live, generateImage's URL lands when it's ready.
+  // Mirror the agent's LIVE tool activity onto the canvas as it streams:
+  // updatePost's text types out live, generateImage's URL lands when ready.
+  // On the first (hydration) pass we only SEED the refs — the persisted draft
+  // (draft.text/imageUrl from the page) is the source of truth on reload, so we
+  // must NOT replay old chat tool calls over it (that resurrected stale posts).
   const lastText = useRef<string | null>(null);
   const lastImage = useRef<string | null>(null);
+  const mirrorHydrated = useRef(false);
   useEffect(() => {
+    let latestText: string | null = null;
+    let latestImage: string | null = null;
     for (const m of messages) {
       if (m.role !== "assistant") continue;
       for (const part of m.parts) {
         if (!isToolUIPart(part)) continue;
         if (part.type === "tool-updatePost") {
           const text = (part.input as { text?: string } | undefined)?.text;
-          if (typeof text === "string" && text !== lastText.current) {
-            lastText.current = text;
-            onPostText(text);
-          }
+          if (typeof text === "string") latestText = text;
         }
         if (part.type === "tool-generateImage") {
           const url = (part.output as { imageUrl?: string } | undefined)?.imageUrl;
-          if (typeof url === "string" && url !== lastImage.current) {
-            lastImage.current = url;
-            onImageUrl(url);
-          }
+          if (typeof url === "string") latestImage = url;
         }
       }
+    }
+    if (!mirrorHydrated.current) {
+      // Reload: adopt the persisted history as the baseline, apply nothing.
+      mirrorHydrated.current = true;
+      lastText.current = latestText;
+      lastImage.current = latestImage;
+      return;
+    }
+    if (latestText !== null && latestText !== lastText.current) {
+      lastText.current = latestText;
+      onPostText(latestText);
+    }
+    if (latestImage !== null && latestImage !== lastImage.current) {
+      lastImage.current = latestImage;
+      onImageUrl(latestImage);
     }
   }, [messages, onPostText, onImageUrl]);
 
