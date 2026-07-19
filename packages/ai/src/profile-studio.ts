@@ -40,12 +40,19 @@ const PATCH_SCHEMA = z.object({
 // tools with NO execute — the AI stops after calling one and waits for the
 // user's decision (delivered via addToolResult on the client), then commits
 // the confirmed/picked patch through updateProfile.
+export interface KnowledgePassage {
+  content: string;
+  section: string | null;
+  resourceName: string;
+}
+
 export interface ProfileStudioHandlers {
   updateProfile(patch: ProfilePatch): Promise<void> | void;
   // Generate a matching visual for an example post and return a servable URL.
   // The route wires this to generateImage + saveImage (reusing the draft
   // studio's image pipeline), passing the creator's learned visualStyle.
   createExampleImage(opts: { postText: string; direction?: string }): Promise<{ imageUrl: string }>;
+  searchKnowledge(query: string): Promise<KnowledgePassage[]>;
 }
 
 export interface StreamProfileStudioOptions {
@@ -103,7 +110,8 @@ WHAT TO COVER (naturally, one step at a time): audience & the transformation the
 - Once you know voice, audience, pillars and positioning, write/refresh a short usable "brandBrief" via updateProfile — keep sharpening it as you learn more.
 - At milestones (right after the brand brief first exists, or when asked) call "writeExamplePost" with a short concrete LinkedIn post in their voice — it renders on the canvas; never paste a post into the chat.
 - A post feels complete with a matching visual: right after you write or meaningfully revise an example post (and whenever the user asks for an image), call "generateExampleImage" with that post's text so a matching picture appears in the preview. It uses the creator's visual style. Don't regenerate the image on trivial text tweaks.
-- Keep messages short (1-2 sentences), human, specific. Mirror the creator's language and register (informal "du" if they use it).${lang}`;
+- Keep messages short (1-2 sentences), human, specific. Mirror the creator's language and register (informal "du" if they use it).
+- You can call searchKnowledge to pull passages from the creator's uploaded documents (norms, guidelines). When you use them, ground your writing on the retrieved passages — but NEVER put citations, source names, section numbers, or quotes-with-attribution in the post text itself. The post must read clean; the sources are shown to the user separately in the UI.${lang}`;
 }
 
 export async function streamProfileStudio(opts: StreamProfileStudioOptions): Promise<Response> {
@@ -181,6 +189,14 @@ export async function streamProfileStudio(opts: StreamProfileStudioOptions): Pro
         execute: async ({ postText, direction }) => {
           return await opts.handlers.createExampleImage({ postText, direction });
         },
+      }),
+      searchKnowledge: tool({
+        description:
+          "Search the creator's uploaded documents (norms, guidelines) for passages relevant to a query. Use to ground the brand brief or example posts, but never cite sources in the text — sources are shown to the user separately.",
+        inputSchema: z.object({
+          query: z.string().describe("What to search for in the creator's uploaded documents."),
+        }),
+        execute: async ({ query }) => opts.handlers.searchKnowledge(query),
       }),
     },
   });

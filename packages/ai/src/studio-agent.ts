@@ -20,10 +20,17 @@ export interface SimilarPostMatch {
   excerpt: string;
 }
 
+export interface KnowledgePassage {
+  content: string;
+  section: string | null;
+  resourceName: string;
+}
+
 export interface StudioAgentHandlers {
   updatePost(text: string): Promise<void> | void;
   createImage(prompt: string): Promise<{ imageUrl: string }>;
   findSimilar(query: string): Promise<SimilarPostMatch[]>;
+  searchKnowledge(query: string): Promise<KnowledgePassage[]>;
 }
 
 export interface StudioAgentOptions {
@@ -65,6 +72,7 @@ HOW YOU WORK
 - When the creator asks for a visual, an image, or a graphic, call "generateImage" with a concrete visual direction.
 - After a tool call, reply in chat with a short, warm sentence about what you changed and why — not the post text itself. Match the creator's language.
 - One idea per post. Keep the creator's authentic voice. Don't invent facts about them; if you need a detail, ask.
+- You can call searchKnowledge to pull passages from the creator's uploaded documents (norms, guidelines). When you use them, ground your writing on the retrieved passages — but NEVER put citations, source names, section numbers, or quotes-with-attribution in the post text itself. The post must read clean; the sources are shown to the user separately in the UI.
 
 ${draft}`;
 }
@@ -107,6 +115,14 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
           const matches = await opts.handlers.findSimilar(query);
           return { matches, count: matches.length };
         },
+      }),
+      searchKnowledge: tool({
+        description:
+          "Search the creator's uploaded documents (norms, guidelines) for passages relevant to a query. Use to ground the post, but never cite sources in the post text — sources are shown to the user separately.",
+        inputSchema: z.object({
+          query: z.string().describe("What to search for in the creator's uploaded documents."),
+        }),
+        execute: async ({ query }) => opts.handlers.searchKnowledge(query),
       }),
     },
   });

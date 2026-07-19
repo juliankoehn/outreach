@@ -24,6 +24,7 @@ import { saveImage } from "../images.js";
 import { getAccountSummary, getAccountIdForProfile } from "../repos/linkedin-account.js";
 import { listPosts } from "../repos/post.js";
 import { imageReferenceHint } from "../repos/resource.js";
+import { retrieveKnowledge } from "../repos/knowledge.js";
 import {
   listProfiles,
   createProfile,
@@ -257,6 +258,12 @@ export function profileRoutes() {
           );
           const { url } = await saveImage(base64, mediaType);
           return { imageUrl: url };
+        },
+        searchKnowledge: async (query) => {
+          const acctId = await getAccountIdForProfile(id, user.id);
+          if (!acctId) return [];
+          const hits = await retrieveKnowledge(acctId, query);
+          return hits.map((h) => ({ content: h.content, section: h.section, resourceName: h.resourceName }));
         },
       },
       onFinish: (finalMessages) => {

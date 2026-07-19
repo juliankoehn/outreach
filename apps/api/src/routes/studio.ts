@@ -7,6 +7,7 @@ import { getAccountProfile } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
 import { findSimilarPosts } from "../repos/post.js";
 import { imageReferenceHint } from "../repos/resource.js";
+import { retrieveKnowledge } from "../repos/knowledge.js";
 import { saveImage } from "../images.js";
 
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
@@ -159,6 +160,10 @@ export function studioRoutes() {
           return { imageUrl: url };
         },
         findSimilar: (query) => findSimilarPosts(accountId, query, { excludeDraftId: draftId }),
+        searchKnowledge: (query) =>
+          retrieveKnowledge(accountId, query).then((hits) =>
+            hits.map((h) => ({ content: h.content, section: h.section, resourceName: h.resourceName })),
+          ),
       },
       onFinish: (finalMessages) => {
         void updateDraft(draftId, accountId, { chat: finalMessages });
