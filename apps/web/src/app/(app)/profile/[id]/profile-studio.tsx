@@ -16,6 +16,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { KnowledgeSources, type KnowledgeSource } from "@/components/ai-elements/knowledge-sources";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import {
   PromptInput,
@@ -414,6 +415,27 @@ function ProfileStudioInner({
                     }
 
                     if (!isToolUIPart(part) || part.type === "dynamic-tool") return null;
+
+                    // Grounding sources render as their own quiet collapsible,
+                    // independent of the proposal-card state gate below.
+                    if (part.type === "tool-searchKnowledge") {
+                      if (part.state === "output-available") {
+                        return (
+                          <MessageContent key={i}>
+                            <KnowledgeSources sources={part.output as KnowledgeSource[] | undefined} />
+                          </MessageContent>
+                        );
+                      }
+                      if (part.state === "input-streaming" || part.state === "input-available") {
+                        return (
+                          <MessageContent key={i}>
+                            <KnowledgeSources searching />
+                          </MessageContent>
+                        );
+                      }
+                      return null;
+                    }
+
                     if (part.state !== "output-available" && part.state !== "input-available") return null;
 
                     if (part.type === "tool-proposeConfirm") {

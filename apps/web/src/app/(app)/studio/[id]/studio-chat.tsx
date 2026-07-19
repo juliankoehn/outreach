@@ -11,6 +11,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { KnowledgeSources, type KnowledgeSource } from "@/components/ai-elements/knowledge-sources";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool";
 import {
@@ -116,6 +117,22 @@ export function StudioChat({
                 // Our agent only defines static tools, so the part type is
                 // always `tool-<name>` (never the dynamic-tool variant).
                 if (isToolUIPart(part) && part.type !== "dynamic-tool") {
+                  // The sources the agent grounded on render as a quiet
+                  // collapsible, not the raw JSON tool card the others use.
+                  if (part.type === "tool-searchKnowledge") {
+                    if (part.state === "output-available") {
+                      return (
+                        <KnowledgeSources
+                          key={i}
+                          sources={part.output as KnowledgeSource[] | undefined}
+                        />
+                      );
+                    }
+                    if (part.state === "input-streaming" || part.state === "input-available") {
+                      return <KnowledgeSources key={i} searching />;
+                    }
+                    return null;
+                  }
                   return (
                     <Tool key={i} className="w-full">
                       <ToolHeader type={part.type} state={part.state} title={toolTitle(part.type, t)} />
