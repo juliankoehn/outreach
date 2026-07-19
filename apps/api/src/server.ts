@@ -2,9 +2,21 @@ import { serve } from "@hono/node-server";
 import { prisma } from "@outreach/db";
 import { createApp } from "./app.js";
 import { env } from "./env.js";
-import { getBoss, enqueueIngest, INGEST_QUEUE, FEED_QUEUE, POLL_FEEDS_QUEUE, enqueueFeedFetch } from "./queue.js";
+import {
+  getBoss,
+  enqueueIngest,
+  INGEST_QUEUE,
+  FEED_QUEUE,
+  POLL_FEEDS_QUEUE,
+  PUBLISH_DUE_QUEUE,
+  REFRESH_TOKENS_QUEUE,
+  enqueueFeedFetch,
+} from "./queue.js";
 import { ingestDocument } from "./jobs/ingest-document.js";
 import { fetchFeedSource } from "./jobs/fetch-feed.js";
+import { publishDraft } from "./publish/publish-draft.js";
+import { claimDuePublishDrafts, listAccountsNeedingRefresh } from "./publish/due.js";
+import { refreshAccountToken } from "./publish/refresh-tokens.js";
 
 serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
   console.log(`api listening on http://localhost:${info.port}`);
@@ -50,6 +62,30 @@ serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
       for (const s of sources) await enqueueFeedFetch(s.id);
     });
     await boss.schedule(POLL_FEEDS_QUEUE, "*/30 * * * *");
+
+    // Publish due scheduled drafts. `claimDuePublishDrafts` atomically flips
+    // due drafts to "publishing" in a single UPDATE ... RETURNING so two
+    // overlapping runs of this scheduled job can never both pick up (and
+    // double-post) the same draft.
+    await boss.work(PUBLISH_DUE_QUEUE, async () => {
+      const due = await claimDuePublishDrafts();
+      for (const d of due) {
+        try {
+          await publishDraft(d.id, d.linkedinAccountId, d.userId);
+        } catch (e) {
+          console.error("publish-due failed", d.id, e);
+        }
+      }
+    });
+    await boss.schedule(PUBLISH_DUE_QUEUE, "* * * * *");
+
+    // Proactively refresh LinkedIn tokens nearing expiry so publishing never
+    // has to refresh (and risk failing) inline.
+    await boss.work(REFRESH_TOKENS_QUEUE, async () => {
+      const accts = await listAccountsNeedingRefresh();
+      for (const a of accts) await refreshAccountToken(a.id, a.userId);
+    });
+    await boss.schedule(REFRESH_TOKENS_QUEUE, "0 */6 * * *");
   } catch (e) {
     console.error("server: pg-boss ingestion worker failed to start", e);
   }
