@@ -7,5 +7,7 @@ export type {
 	InterviewSession,
 	Draft,
 	Resource,
+	FeedSource,
+	FeedItem,
 	Prisma,
 } from "./generated/prisma/client.js";

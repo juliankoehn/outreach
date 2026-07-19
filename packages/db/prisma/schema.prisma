@@ -20,6 +20,7 @@ model User {
   accounts      Account[]
   linkedin      LinkedInAccount[]
   creatorProfiles CreatorProfile[]
+  feedSources   FeedSource[]
 }
 
 model Session {
@@ -193,4 +194,36 @@ model ResourceChunk {
 
   @@index([accountId])
   @@index([resourceId])
+}
+
+model FeedSource {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url           String
+  title         String
+  status        String   @default("active")
+  error         String?
+  lastFetchedAt DateTime?
+  createdAt     DateTime @default(now())
+  items         FeedItem[]
+  @@unique([userId, url])
+}
+
+model FeedItem {
+  id          String   @id @default(cuid())
+  sourceId    String
+  source      FeedSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  userId      String
+  guid        String
+  title       String
+  url         String
+  excerpt     String
+  imageUrl    String?
+  author      String?
+  publishedAt DateTime?
+  status      String   @default("new")
+  createdAt   DateTime @default(now())
+  @@unique([sourceId, guid])
+  @@index([userId, status, publishedAt])
 }
