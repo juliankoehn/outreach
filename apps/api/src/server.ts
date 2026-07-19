@@ -2,8 +2,9 @@ import { serve } from "@hono/node-server";
 import { prisma } from "@outreach/db";
 import { createApp } from "./app.js";
 import { env } from "./env.js";
-import { getBoss, enqueueIngest, INGEST_QUEUE } from "./queue.js";
+import { getBoss, enqueueIngest, INGEST_QUEUE, FEED_QUEUE, POLL_FEEDS_QUEUE, enqueueFeedFetch } from "./queue.js";
 import { ingestDocument } from "./jobs/ingest-document.js";
+import { fetchFeedSource } from "./jobs/fetch-feed.js";
 
 serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
   console.log(`api listening on http://localhost:${info.port}`);
@@ -32,6 +33,18 @@ serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
       select: { id: true },
     });
     for (const r of pending) await enqueueIngest(r.id);
+
+    // Feed ingestion: a worker that fetches a single source, plus a
+    // scheduled poll that enqueues a fetch for every active source every
+    // 30 minutes.
+    await boss.work<{ sourceId: string }>(FEED_QUEUE, { batchSize: 2 }, async (jobs) => {
+      for (const j of jobs) await fetchFeedSource(j.data.sourceId);
+    });
+    await boss.work(POLL_FEEDS_QUEUE, async () => {
+      const sources = await prisma.feedSource.findMany({ where: { status: "active" }, select: { id: true } });
+      for (const s of sources) await enqueueFeedFetch(s.id);
+    });
+    await boss.schedule(POLL_FEEDS_QUEUE, "*/30 * * * *");
   } catch (e) {
     console.error("server: pg-boss ingestion worker failed to start", e);
   }

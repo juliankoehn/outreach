@@ -4,6 +4,8 @@ let boss: PgBoss | null = null;
 let starting: Promise<PgBoss> | null = null;
 
 export const INGEST_QUEUE = "ingest-document";
+export const FEED_QUEUE = "fetch-feed";
+export const POLL_FEEDS_QUEUE = "poll-feeds";
 
 export async function getBoss(): Promise<PgBoss> {
   if (boss) return boss;
@@ -13,6 +15,9 @@ export async function getBoss(): Promise<PgBoss> {
     // Capped retries with exponential backoff: a stuck/failing ingest job
     // shouldn't retry forever nor hammer the DB/embedding API immediately.
     await b.createQueue(INGEST_QUEUE, { retryLimit: 5, retryDelay: 30, retryBackoff: true });
+    // A single broken feed shouldn't retry forever; capped retries with backoff.
+    await b.createQueue(FEED_QUEUE, { retryLimit: 3, retryDelay: 60, retryBackoff: true });
+    await b.createQueue(POLL_FEEDS_QUEUE);
     boss = b;
     return b;
   })().catch((e: unknown) => {
@@ -27,4 +32,9 @@ export async function getBoss(): Promise<PgBoss> {
 export async function enqueueIngest(resourceId: string): Promise<void> {
   const b = await getBoss();
   await b.send(INGEST_QUEUE, { resourceId });
+}
+
+export async function enqueueFeedFetch(sourceId: string): Promise<void> {
+  const b = await getBoss();
+  await b.send(FEED_QUEUE, { sourceId });
 }
