@@ -21,9 +21,29 @@ export function stripMarkdown(input: string): string {
     .trim();
 }
 
+// Deterministically enforce the mechanically-removable no-gos (the prompt asks,
+// but models slip). Emojis and em/en-dashes can be stripped for real; semantic
+// no-gos (buzzwords etc.) stay the prompt's job.
+export function enforceNoGos(input: string, noGos?: string[]): string {
+  if (!noGos?.length) return input;
+  const lc = noGos.map((n) => n.toLowerCase());
+  let out = input;
+  if (lc.some((n) => n.includes("emoji"))) {
+    out = out.replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}️‍]/gu, "");
+  }
+  if (lc.some((n) => n.includes("dash"))) {
+    out = out.replace(/\s*[—–]\s*/g, " - "); // em/en-dash → spaced hyphen
+  }
+  return out
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}
+
 // Distilled playbook from top LinkedIn creators — injected into every draft so
 // posts follow what actually performs on the platform, in the creator's voice.
 export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, adapted to the creator's voice):
+- DELIVER REAL VALUE — this is the whole point of the post. Every post must give the reader ONE thing they can actually use or a genuinely fresh, non-obvious point of view: a concrete insight, a counter-intuitive lesson, a specific takeaway, a small actionable framework, or a sharp opinion backed by a reason. RUTHLESSLY avoid generic filler — "X is important", "stay vigilant", "the landscape is changing", "here's a new threat", "innovation brings challenges" — that says nothing. When writing from an article, find the ONE most surprising, specific, or actionable detail in it and build the post around THAT (a specific mechanism, number, tactic, or consequence), not a vague summary. A reader should finish thinking "huh, I didn't know that" or "I'm going to do that". If you genuinely have nothing specific to say, ask the creator for their angle instead of shipping fluff.
 - Hook in the first line: a bold claim, a specific number, a contrarian take, or an open loop that stops the scroll. The first 1-2 lines are all a reader sees before "…more".
 - One idea per post. Front-load the payoff; don't bury the lede.
 - Short lines and generous whitespace — most sentences on their own line, no dense paragraphs.
@@ -57,7 +77,7 @@ export async function draftPost(
     system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
     prompt: opts?.topic ? `Topic / angle: ${opts.topic}` : "Write a strong post on one of the creator's core pillars.",
   });
-  return stripMarkdown(text);
+  return enforceNoGos(stripMarkdown(text), opts?.noGos);
 }
 
 export async function refinePost(
@@ -72,7 +92,7 @@ export async function refinePost(
     system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
     prompt: `Current draft:\n"""${currentText}"""\n\nInstruction: ${instruction}`,
   });
-  return stripMarkdown(text);
+  return enforceNoGos(stripMarkdown(text), opts?.noGos);
 }
 
 export function getImageModel(): ImageModel {

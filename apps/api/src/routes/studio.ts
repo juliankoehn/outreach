@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, streamStudioAgent, stripMarkdown } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -167,8 +167,9 @@ export function studioRoutes() {
       sourceArticle,
       handlers: {
         updatePost: async (text) => {
-          // LinkedIn is plain text — strip any Markdown the model slipped in.
-          currentText = stripMarkdown(text);
+          // LinkedIn is plain text — strip Markdown, and deterministically
+          // enforce the mechanical no-gos (emojis, em-dashes) the model slipped.
+          currentText = enforceNoGos(stripMarkdown(text), profile?.noGos);
           await updateDraft(draftId, accountId, { text: currentText });
         },
         createImage: async (prompt) => {
