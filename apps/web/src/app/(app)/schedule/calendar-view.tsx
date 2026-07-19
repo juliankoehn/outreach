@@ -145,7 +145,7 @@ function EventButton({
         <title>{t("schedule.notPublished")}</title>
       </Clock>
       {showAccountAvatar && <EventAvatar account={ev.account} />}
-      <span className="truncate text-foreground">{ev.title}</span>
+      <span className="min-w-0 truncate text-foreground">{ev.title}</span>
       <span className="ml-auto shrink-0 text-muted-foreground">
         {new Date(ev.scheduledAt).toLocaleTimeString(locale, {
           hour: "2-digit",
@@ -464,7 +464,7 @@ export function CalendarView(props: CalendarViewProps) {
                       key={i}
                       dayDate={day}
                       hour={h}
-                      className="flex flex-1 flex-col gap-0.5 border-r p-0.5 last:border-r-0"
+                      className="flex min-w-0 flex-1 flex-col gap-0.5 border-r p-0.5 last:border-r-0"
                     >
                       {cellEvents.map((ev) => (
                         <EventButton
