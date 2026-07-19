@@ -27,7 +27,10 @@ export interface KnowledgePassage {
 }
 
 export interface StudioAgentHandlers {
-  updatePost(text: string): Promise<void> | void;
+  // Persists the post to the canvas AFTER an editorial review pass. Returns
+  // whether the reviewer had to revise it and what it fixed, so the agent can
+  // tell the creator.
+  updatePost(text: string): Promise<{ revised: boolean; issues: string[] }>;
   createImage(prompt: string): Promise<{ imageUrl: string }>;
   findSimilar(query: string): Promise<SimilarPostMatch[]>;
   searchKnowledge(query: string): Promise<KnowledgePassage[]>;
@@ -106,6 +109,7 @@ So, without exception:
 - NEVER announce "I'll update the canvas" / "let me put this on the canvas" and then stop — that is a failure. Saying it is not doing it. Call the tool.
 - Only AFTER updatePost has executed do you send a chat message, and it is ONE short plain sentence about what you changed (no post text, no Markdown).
 If you are about to type post text into the chat: STOP and call updatePost instead.
+- Every updatePost call passes through an editorial review before it lands on the canvas. The tool result tells you whether the reviewer revised your text ("revised": true) and what it fixed ("issues"). The canvas now holds the REVIEWED version — treat that as final. If it was revised, mention it briefly and naturally in your chat sentence (e.g. "hab den Post noch entschlackt — Corporate-Floskeln raus"); never re-submit to undo the reviewer's fixes.
 
 CREATOR BRAND BRIEF
 ${brief}${tone}${pillars}${noGos}
@@ -147,8 +151,8 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
           text: z.string().describe("The complete post text to show on the canvas."),
         }),
         execute: async ({ text }) => {
-          await opts.handlers.updatePost(text);
-          return { ok: true };
+          const review = await opts.handlers.updatePost(text);
+          return { ok: true, ...review };
         },
       }),
       generateImage: tool({

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { draftPost, refinePost, generateImage } from "./compose.js";
-import { recordingModel, imageModel, MockImageModel } from "./testing.js";
+import { draftPost, refinePost, reviewPost, generateImage } from "./compose.js";
+import { recordingModel, textModel, imageModel, MockImageModel } from "./testing.js";
 
 describe("compose", () => {
   it("drafts a post using the brandBrief as system context", async () => {
@@ -25,6 +25,33 @@ describe("compose", () => {
     const img = await generateImage("a minimalist poster", { model: imageModel("aGVsbG8=") });
     expect(img.base64).toBe("aGVsbG8=");
     expect(img.mediaType).toMatch(/image\//);
+  });
+
+  it("reviewPost passes a clean post through unchanged", async () => {
+    const model = textModel(JSON.stringify({ verdict: "pass", issues: [], revised: "Clean, specific post." }));
+    const r = await reviewPost({ text: "Clean, specific post.", model });
+    expect(r.verdict).toBe("pass");
+    expect(r.revised).toBe("Clean, specific post.");
+    expect(r.issues).toEqual([]);
+  });
+
+  it("reviewPost revises a bloated post and reports the defects, seeing the brief + no-gos", async () => {
+    const model = textModel(JSON.stringify({ verdict: "revise", issues: ["corporate bloat"], revised: "Tighter post." }));
+    const r = await reviewPost({
+      text: "Hier liegt unser strategischer Vorteil.",
+      brandBrief: "Write as Julian, informal du.",
+      noGos: ["Emojis"],
+      model,
+    });
+    expect(r.verdict).toBe("revise");
+    expect(r.revised).toBe("Tighter post.");
+    expect(r.issues).toContain("corporate bloat");
+  });
+
+  it("reviewPost short-circuits empty text without calling a model", async () => {
+    const r = await reviewPost({ text: "   " });
+    expect(r.verdict).toBe("pass");
+    expect(r.revised).toBe("   ");
   });
 
   it("maps size to LinkedIn dimensions and injects the reference hint", async () => {

@@ -1,5 +1,6 @@
-import { generateText, generateImage as genImage, type LanguageModel, type ImageModel } from "ai";
+import { generateText, generateObject, generateImage as genImage, type LanguageModel, type ImageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
 import { getTextModel } from "./provider.js";
 
 // LinkedIn renders plain text — Markdown would show its raw symbols. The prompt
@@ -94,6 +95,64 @@ export async function refinePost(
     prompt: `Current draft:\n"""${currentText}"""\n\nInstruction: ${instruction}`,
   });
   return enforceNoGos(stripMarkdown(text), opts?.noGos);
+}
+
+const REVIEW_SCHEMA = z.object({
+  verdict: z.enum(["pass", "revise"]).describe("'pass' if the post already meets the bar; 'revise' if you had to fix defects."),
+  issues: z
+    .array(z.string())
+    .describe("Concrete defects you found and fixed, each a short phrase. Empty when verdict is 'pass'."),
+  revised: z.string().describe("The final post text. When 'pass', return the input unchanged."),
+});
+
+export interface PostReview {
+  verdict: "pass" | "revise";
+  issues: string[];
+  revised: string;
+}
+
+// Editorial gate that runs before a post reaches the canvas. A strict LinkedIn
+// editor checks the draft against the creator's brand brief, hard no-gos, tone,
+// the playbook, on-topic-ness (when drafted from an article), plain-text, and
+// above all bans corporate bloat / generic filler. If it finds concrete
+// defects, it rewrites the post to fix ALL of them while preserving the
+// author's substance and voice; otherwise it passes the text through unchanged.
+export async function reviewPost(opts: {
+  text: string;
+  brandBrief?: string;
+  noGos?: string[];
+  toneWords?: string[];
+  // Title + excerpt of the source article, when the post was drafted from one —
+  // lets the reviewer catch off-topic drift.
+  article?: string;
+  model?: LanguageModel;
+}): Promise<PostReview> {
+  const text = opts.text.trim();
+  if (!text) return { verdict: "pass", issues: [], revised: opts.text };
+
+  const brief = opts.brandBrief?.trim() ? `CREATOR BRAND BRIEF:\n${opts.brandBrief.trim()}` : "No brand brief provided.";
+  const noGoLine = opts.noGos?.length ? `\nHARD NO-GOS (must not appear): ${opts.noGos.join("; ")}.` : "";
+  const toneLine = opts.toneWords?.length ? `\nREQUIRED TONE/REGISTER: ${opts.toneWords.join(", ")}.` : "";
+  const articleLine = opts.article?.trim()
+    ? `\nThe post was drafted from THIS article and MUST stay on its topic (flag any drift into unrelated subjects):\n"""${opts.article.trim()}"""`
+    : "";
+
+  const { object } = await generateObject({
+    model: opts.model ?? getTextModel(),
+    schema: REVIEW_SCHEMA,
+    system: `You are a ruthless LinkedIn editor. You gate every post before it reaches the creator's canvas. Check the draft for these defects, in order:
+1. CORPORATE BLOAT / generic filler — pompous signposts ("Ein entscheidender Punkt:", "Hier liegt unser strategischer Vorteil", "In der heutigen Zeit"), grand empty abstractions ("strategischer Vorteil", "ganzheitlicher Ansatz"), and hollow "nicht X, sondern Y" reveals. This is the top priority: any sentence that would fit unchanged in any company's post on any topic must be cut or replaced with something concrete.
+2. NO REAL VALUE — the post gives the reader nothing specific to use or think. It must carry at least one concrete, checkable point (a number, a mechanism, a named tactic, a real consequence).
+3. WRONG REGISTER — violates the required tone (e.g. uses formal "Sie" when "du" is required, or vice versa).
+4. NO-GO VIOLATIONS — anything on the hard no-go list.
+5. OFF-TOPIC — drifts away from the source article's subject (only when an article is given).
+6. MARKDOWN — any Markdown syntax (LinkedIn renders plain text only).
+
+If you find ANY defect, set verdict "revise", list the concrete defects in "issues", and put a fully corrected post in "revised" — fix every defect while keeping the author's substance, angle, and voice; do not blandify or shorten away real content. If the post already clears the bar, set verdict "pass", "issues" empty, and return the text UNCHANGED in "revised". Never invent facts. Output plain text only.
+${brief}${noGoLine}${toneLine}${articleLine}`,
+    prompt: `Review this draft post:\n"""${text}"""`,
+  });
+  return object;
 }
 
 export function getImageModel(): ImageModel {

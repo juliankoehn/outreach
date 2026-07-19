@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
+import { draftPost, refinePost, reviewPost, generateImage, composeImageBrief, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -167,10 +167,24 @@ export function studioRoutes() {
       sourceArticle,
       handlers: {
         updatePost: async (text) => {
-          // LinkedIn is plain text — strip Markdown, and deterministically
-          // enforce the mechanical no-gos (emojis, em-dashes) the model slipped.
-          currentText = enforceNoGos(stripMarkdown(text), profile?.noGos);
+          // LinkedIn is plain text — strip Markdown first, then run the editorial
+          // review gate (bans corporate bloat, enforces register/no-gos/value,
+          // on-topic) BEFORE the post reaches the canvas. Finally re-strip +
+          // deterministically enforce mechanical no-gos on the reviewed text.
+          const stripped = stripMarkdown(text);
+          const review = await reviewPost({
+            text: stripped,
+            brandBrief: profile?.brandBrief ?? undefined,
+            noGos: profile?.noGos,
+            toneWords: profile?.toneWords,
+            article: sourceArticle
+              ? `${sourceArticle.title}\n\n${sourceArticle.content.slice(0, 600)}`
+              : undefined,
+          });
+          const finalText = review.verdict === "revise" ? review.revised : stripped;
+          currentText = enforceNoGos(stripMarkdown(finalText), profile?.noGos);
           await updateDraft(draftId, accountId, { text: currentText });
+          return { revised: review.verdict === "revise", issues: review.issues };
         },
         createImage: async (prompt) => {
           // Multi-step: first turn the post + source article + the creator's
