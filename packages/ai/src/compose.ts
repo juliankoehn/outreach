@@ -12,9 +12,10 @@ export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, 
 - Tell it through a story, a lesson learned, or a small framework/list — people remember narratives and steps.
 - No outbound links in the body (they suppress reach) and hashtags only if genuinely on-brand (0-3).
 - End with a light CTA or a genuine question that invites comments.
-- Be useful or be honest — earn the reader's attention, never clickbait a promise the post doesn't keep.`;
+- Be useful or be honest — earn the reader's attention, never clickbait a promise the post doesn't keep.
+- Write PLAIN TEXT, never Markdown — LinkedIn renders it literally, so it would show the raw symbols. No **bold**, no ##/# headings, no backticks, no [label](url) links, no Markdown bullet/numbered lists (\`-\`, \`*\`, \`1.\`). Use plain line breaks, and if a list genuinely helps, plain characters (a dash typed as part of the sentence, • , or an emoji) — not Markdown syntax.`;
 
-const POST_INSTRUCTIONS = `Write a single LinkedIn post in the creator's authentic voice, following the brand brief exactly. Output only the post text — no preamble, no surrounding quotes.`;
+const POST_INSTRUCTIONS = `Write a single LinkedIn post in the creator's authentic voice, following the brand brief exactly. Output only the post text as PLAIN TEXT (no Markdown formatting) — no preamble, no surrounding quotes.`;
 
 export async function draftPost(
   brandBrief: string,

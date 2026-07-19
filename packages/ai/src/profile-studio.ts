@@ -165,7 +165,7 @@ export async function streamProfileStudio(opts: StreamProfileStudioOptions): Pro
       // Display-only, but server-side so the loop continues after writing.
       writeExamplePost: tool({
         description:
-          "Write a short example LinkedIn post in the creator's voice for the canvas (it mirrors there; never paste it into the chat). Call at milestones or when asked.",
+          "Write a short example LinkedIn post in the creator's voice, as PLAIN TEXT (no Markdown — LinkedIn renders it literally), for the canvas (it mirrors there; never paste it into the chat). Call at milestones or when asked.",
         inputSchema: z.object({
           text: z.string().describe("The complete example post text."),
         }),
