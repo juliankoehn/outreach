@@ -52,7 +52,7 @@ export function studioRoutes() {
     const { base64, mediaType } = await generateImage(prompt, {
       postText,
       visualStyle,
-      size: "portrait",
+      size: "square",
       referenceHint,
     });
     const { url } = await saveImage(base64, mediaType);
@@ -152,7 +152,7 @@ export function studioRoutes() {
           const { base64, mediaType } = await generateImage(prompt, {
             postText: currentText,
             visualStyle: derived?.visualStyle,
-            size: "portrait",
+            size: "square",
             referenceHint,
           });
           const { url } = await saveImage(base64, mediaType);
@@ -165,8 +165,22 @@ export function studioRoutes() {
             hits.map((h) => ({ content: h.content, section: h.section, resourceName: h.resourceName })),
           ),
       },
-      onFinish: (finalMessages) => {
-        void updateDraft(draftId, accountId, { chat: finalMessages });
+      onFinish: async (finalMessages) => {
+        // Merge into the persisted chat by message id rather than overwriting:
+        // if messages are sent in quick succession the client's snapshot can
+        // miss an in-flight assistant turn, and a blind overwrite would drop it
+        // (tool cards vanished after reload). Keep every message we've ever seen.
+        const current = await getDraft(draftId, accountId);
+        const existing = ((current?.chat as unknown as UIMessage[] | null) ?? []).filter(
+          (m) => !!m && typeof m.id === "string",
+        );
+        const incoming = new Map(finalMessages.map((m) => [m.id, m]));
+        const seen = new Set(existing.map((m) => m.id));
+        const merged = [
+          ...existing.map((m) => incoming.get(m.id) ?? m), // update in place if re-sent
+          ...finalMessages.filter((m) => !seen.has(m.id)), // append genuinely new turns
+        ];
+        await updateDraft(draftId, accountId, { chat: merged });
       },
     });
   });
