@@ -18,6 +18,7 @@ interface Resource {
   status: string;
   error: string | null;
   isImageRef: boolean;
+  meta: { chunkCount?: number } | null;
   createdAt: string;
 }
 
@@ -58,6 +59,15 @@ export function ResourcesTab({ accountId }: { accountId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // While any document is still ingesting, poll so the row advances to
+  // "ready" (with its chunk count) without a manual refresh.
+  const ingesting = resources.some((r) => r.status === "pending" || r.status === "processing");
+  useEffect(() => {
+    if (!ingesting) return;
+    const t = setInterval(() => void load(), 3000);
+    return () => clearInterval(t);
+  }, [ingesting, load]);
 
   async function upload(kind: "image" | "document", file: File | undefined) {
     if (!file) return;
@@ -258,7 +268,6 @@ export function ResourcesTab({ accountId }: { accountId: string }) {
                     key={r.id}
                     resource={r}
                     onDelete={() => void remove(r)}
-                    pendingBadge={t("resources.docPendingBadge")}
                     deleteLabel={t("resources.delete")}
                   />
                 ))}
@@ -390,12 +399,10 @@ function ImageTile({
 function DocRow({
   resource,
   onDelete,
-  pendingBadge,
   deleteLabel,
 }: {
   resource: Resource;
   onDelete: () => void;
-  pendingBadge: string;
   deleteLabel: string;
 }) {
   const locale = useLocale();
@@ -408,12 +415,8 @@ function DocRow({
         <p className="truncate text-sm font-medium">{resource.name}</p>
         <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-xs">
           <span className="tabular-nums">{formatSize(resource.sizeBytes)}</span>
-          {resource.status !== "ready" && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{pendingBadge}</span>
-            </>
-          )}
+          <span aria-hidden>·</span>
+          <DocStatus resource={resource} />
         </div>
       </div>
       <span className="text-muted-foreground/70 hidden text-xs tabular-nums sm:inline">
@@ -431,4 +434,30 @@ function DocRow({
       </button>
     </li>
   );
+}
+
+// The document's ingestion state — queued → analyzing → ready (with its section
+// count) → failed. Replaces the old static "stored" badge so the row reflects
+// what the RAG pipeline actually did.
+function DocStatus({ resource }: { resource: Resource }) {
+  const t = useTranslations();
+  if (resource.status === "processing") {
+    return (
+      <span className="text-primary inline-flex items-center gap-1">
+        <Loader2 className="size-3 animate-spin" />
+        {t("resources.docProcessing")}
+      </span>
+    );
+  }
+  if (resource.status === "failed") {
+    return (
+      <span className="text-destructive" title={resource.error ?? undefined}>
+        {t("resources.docFailed")}
+      </span>
+    );
+  }
+  if (resource.status === "ready") {
+    return <span className="text-success">{t("resources.docReady", { count: resource.meta?.chunkCount ?? 0 })}</span>;
+  }
+  return <span>{t("resources.docQueued")}</span>; // pending
 }
