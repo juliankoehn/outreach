@@ -147,6 +147,13 @@ export function StudioChat({
               })}
             </Message>
           ))}
+          {status === "submitted" && (
+            <div className="flex justify-start">
+              <div className="bg-muted text-muted-foreground rounded-2xl rounded-bl-sm px-3.5 py-2 text-sm">
+                {t("studio.thinking")}
+              </div>
+            </div>
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

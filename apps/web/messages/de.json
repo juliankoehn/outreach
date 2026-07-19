@@ -272,6 +272,7 @@
     "newDraft": "Neuer Entwurf",
     "untitled": "Unbenannter Entwurf",
     "back": "Zurück zu den Entwürfen",
+    "postingAs": "Als {name}",
     "notFound": "Dieser Entwurf wurde nicht gefunden.",
     "chatTitle": "Chat",
     "chatHint": "Sag mir, was ich schreiben soll — „ein Post über unseren Launch“, „Hook knackiger“, „Bild dazu“. Ich entwerfe es auf dem Canvas.",

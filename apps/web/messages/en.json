@@ -272,6 +272,7 @@
     "newDraft": "New draft",
     "untitled": "Untitled draft",
     "back": "Back to drafts",
+    "postingAs": "As {name}",
     "notFound": "This draft could not be found.",
     "chatTitle": "Chat",
     "chatHint": "Tell me what to write — \"a post about our launch\", \"make the hook punchier\", \"add an image\". I'll draft it on the canvas.",

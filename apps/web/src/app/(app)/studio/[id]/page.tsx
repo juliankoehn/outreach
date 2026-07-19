@@ -250,6 +250,26 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
             <ArrowLeft className="size-4" />
             {t("studio.back")}
           </a>
+          {author.name && (
+            <>
+              <span className="text-border" aria-hidden>
+                |
+              </span>
+              <div className="flex min-w-0 items-center gap-2">
+                {author.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={author.avatarUrl} alt="" className="size-6 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <div className="bg-primary/10 text-primary grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold">
+                    {author.name.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-muted-foreground truncate text-sm">
+                  {t("studio.postingAs", { name: author.name })}
+                </span>
+              </div>
+            </>
+          )}
           <Badge variant={statusVariant(draft?.status ?? "draft")} className="capitalize">
             {draft?.status}
           </Badge>
