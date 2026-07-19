@@ -1,13 +1,14 @@
 // apps/api/src/images.test.ts
 import { describe, it, expect } from "vitest";
-import { readFile } from "node:fs/promises";
 import { saveImage } from "./images.js";
+import { getObject } from "./storage.js";
 
 describe("saveImage", () => {
-  it("writes base64 bytes and returns a /uploads url", async () => {
-    const base64 = Buffer.from("hello-png").toString("base64");
-    const { url, path } = await saveImage(base64, "image/png");
-    expect(url).toMatch(/^\/uploads\/[a-z0-9]+\.png$/);
-    expect((await readFile(path)).toString()).toBe("hello-png");
+  it("stores a base64 image in object storage and returns a /generated url", async () => {
+    const b64 = Buffer.from([137, 80, 78, 71]).toString("base64");
+    const { url } = await saveImage(b64, "image/png");
+    expect(url).toMatch(/^\/generated\/[a-f0-9-]+\.png$/);
+    const key = "generated/" + url.split("/").pop();
+    expect(await getObject(key)).not.toBeNull();
   });
 });

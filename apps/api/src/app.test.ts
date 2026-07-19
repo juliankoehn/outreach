@@ -16,7 +16,7 @@ describe("api app", () => {
     expect(res.status).toBe(401);
   });
 
-  it("serves a saved upload publicly, without auth", async () => {
+  it("serves a saved generated image publicly, without auth", async () => {
     const app = createApp();
     const { url } = await saveImage(Buffer.from("pixel-bytes").toString("base64"), "image/png");
     const res = await app.request(url);
@@ -25,9 +25,9 @@ describe("api app", () => {
     expect(Buffer.from(await res.arrayBuffer()).toString()).toBe("pixel-bytes");
   });
 
-  it("404s an unknown upload and rejects path traversal", async () => {
+  it("404s an unknown generated image and rejects path traversal", async () => {
     const app = createApp();
-    expect((await app.request("/uploads/does-not-exist.png")).status).toBe(404);
-    expect((await app.request("/uploads/..%2Fapp.ts")).status).toBe(404);
+    expect((await app.request("/generated/does-not-exist.png")).status).toBe(404);
+    expect((await app.request("/generated/..%2Fapp.ts")).status).toBe(404);
   });
 });

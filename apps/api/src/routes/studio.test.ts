@@ -48,7 +48,7 @@ describe("studio routes", () => {
       body: JSON.stringify({ prompt: "poster" }),
     });
     const imageUrl = ((await img.json()) as { imageUrl: string }).imageUrl;
-    expect(imageUrl).toMatch(/^\/uploads\//);
+    expect(imageUrl).toMatch(/^\/generated\//);
 
     const save = await app.request(`/studio/${accountId}/drafts`, {
       method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
