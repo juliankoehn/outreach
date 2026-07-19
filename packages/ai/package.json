@@ -16,6 +16,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^4.0.16",
     "ai": "^7.0.31",
+    "js-tiktoken": "^1.0.21",
+    "unpdf": "^1.6.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

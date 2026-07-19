@@ -14,3 +14,5 @@ export type { StudioAgentHandlers, StudioAgentOptions, SimilarPostMatch } from "
 export { streamProfileStudio } from "./profile-studio.js";
 export type { ProfilePatch, ProfileStudioHandlers, StreamProfileStudioOptions } from "./profile-studio.js";
 export type { UIMessage } from "ai";
+export { extractText, chunkText } from "./ingest.js";
+export type { Chunk } from "./ingest.js";
