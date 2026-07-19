@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentPropsWithoutRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -68,6 +68,23 @@ function safeMarkdownUrl(u: string): string {
     return u; // relative / #anchor (no scheme) — safe, keep it
   }
 }
+
+// Render Markdown links as plain, scrubbed anchors — bypasses Streamdown's
+// link-safety popover, which renders a <div> inside the paragraph <p> and trips
+// a hydration error on link-heavy feed content.
+function FeedLink({ href, children }: ComponentPropsWithoutRef<"a">) {
+  return (
+    <a
+      href={safeHref(href) ?? "#"}
+      target="_blank"
+      rel="noreferrer"
+      className="underline underline-offset-2"
+    >
+      {children}
+    </a>
+  );
+}
+const FEED_MD_COMPONENTS = { a: FeedLink };
 
 function formatDate(locale: string, iso: string | null): string | null {
   if (!iso) return null;
@@ -694,6 +711,7 @@ function ArticleReader({
               className="mt-6 text-[0.95rem] leading-relaxed"
               skipHtml
               urlTransform={safeMarkdownUrl}
+              components={FEED_MD_COMPONENTS}
             >
               {body}
             </MessageResponse>
