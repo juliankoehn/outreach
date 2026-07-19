@@ -18,8 +18,8 @@ import { BreadcrumbSetter, type Crumb } from "./breadcrumb";
 import { BRAND } from "@/config/brand";
 import { AppControls } from "@/components/app-controls";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -80,11 +80,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <div className="bg-sidebar flex h-dvh overflow-hidden">
-        <div className="hidden w-64 shrink-0 p-3 md:block">
-          <Skeleton className="mb-6 h-9 w-full" />
-          <div className="space-y-2">
+        <div className="hidden w-16 shrink-0 flex-col items-center gap-2 p-2 md:flex">
+          <Skeleton className="size-9 rounded-lg" />
+          <div className="mt-3 flex flex-col items-center gap-2">
             {NAV.map((n) => (
-              <Skeleton key={n.key} className="h-9 w-full" />
+              <Skeleton key={n.key} className="size-10 rounded-md" />
             ))}
           </div>
         </div>
@@ -99,70 +99,70 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="bg-sidebar text-sidebar-foreground flex h-dvh overflow-hidden">
-      {/* Sidebar rail */}
-      <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col p-3 md:flex">
-        <div className="flex items-center gap-2.5 px-2 py-2">
-          <div className="bg-primary text-primary-foreground grid size-8 place-items-center rounded-lg text-sm font-semibold">
-            {BRAND.name.charAt(0)}
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold">{BRAND.name}</div>
-            <div className="text-muted-foreground text-xs">{tb("vendorPrefix")} {BRAND.vendor}</div>
-          </div>
-        </div>
+      {/* Sidebar icon rail */}
+      <aside className="sticky top-0 hidden h-svh w-16 shrink-0 flex-col items-center gap-1 p-2 md:flex">
+        <a
+          href="/dashboard"
+          title={`${BRAND.name} ${tb("vendorPrefix")} ${BRAND.vendor}`}
+          className="bg-primary text-primary-foreground grid size-9 place-items-center rounded-lg text-sm font-semibold"
+        >
+          {BRAND.name.charAt(0)}
+        </a>
 
-        <nav className="mt-4 flex flex-1 flex-col gap-1">
-          {NAV.map((n) => {
-            const Icon = n.icon;
-            const isActive = active?.key === n.key;
-            const base =
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors";
-            if (n.soon) {
-              return (
+        <TooltipProvider delayDuration={0}>
+          <nav className="mt-3 flex flex-1 flex-col items-center gap-1">
+            {NAV.map((n) => {
+              const Icon = n.icon;
+              const isActive = active?.key === n.key;
+              const base = "grid size-10 place-items-center rounded-md transition-colors";
+              const trigger = n.soon ? (
                 <span
-                  key={n.key}
                   aria-disabled="true"
-                  className={cn(base, "text-muted-foreground/70 cursor-default")}
+                  className={cn(base, "text-muted-foreground/50 cursor-default")}
                 >
-                  <Icon className="size-4" />
-                  {t(`nav.${n.key}`)}
-                  <Badge variant="muted" className="ml-auto text-[10px]">
-                    {t("nav.soon")}
-                  </Badge>
+                  <Icon className="size-5" />
                 </span>
+              ) : (
+                <a
+                  href={n.href}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-label={t(`nav.${n.key}`)}
+                  className={cn(
+                    base,
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                  )}
+                >
+                  <Icon className="size-5" />
+                </a>
               );
-            }
-            return (
-              <a
-                key={n.key}
-                href={n.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  base,
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                )}
-              >
-                <Icon className="size-4" />
-                {t(`nav.${n.key}`)}
-              </a>
-            );
-          })}
-        </nav>
+              return (
+                <Tooltip key={n.key}>
+                  <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+                  <TooltipContent side="right">
+                    {t(`nav.${n.key}`)}
+                    {n.soon ? ` · ${t("nav.soon")}` : ""}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </nav>
 
-        <div className="border-sidebar-border mt-2 flex items-center gap-2.5 border-t px-1 pt-3">
-          <div className="bg-sidebar-accent text-sidebar-accent-foreground grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold">
-            {initials}
+          <div className="mt-2 flex flex-col items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="bg-sidebar-accent text-sidebar-accent-foreground grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold">
+                  {initials}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">{user?.name ?? user?.email}</TooltipContent>
+            </Tooltip>
+            <Button variant="ghost" size="icon" onClick={signOut} aria-label={t("accounts.signOut")} className="size-9">
+              <LogOut className="size-4" />
+            </Button>
           </div>
-          <div className="min-w-0 flex-1 leading-tight">
-            <div className="truncate text-sm font-medium">{user?.name ?? user?.email}</div>
-            <div className="text-muted-foreground truncate text-xs">{t("nav.signedInAs")}</div>
-          </div>
-          <Button variant="ghost" size="icon" onClick={signOut} aria-label={t("accounts.signOut")} className="size-8">
-            <LogOut className="size-4" />
-          </Button>
-        </div>
+        </TooltipProvider>
       </aside>
 
       {/* Inset content */}
