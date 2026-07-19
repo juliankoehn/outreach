@@ -38,7 +38,8 @@ export function feedRoutes() {
 
   r.get("/items", async (c) => {
     const status = c.req.query("status") ?? "new";
-    return c.json({ items: await listItems(c.get("user")!.id, status) });
+    const limit = Math.min(Math.max(Number(c.req.query("limit")) || 100, 1), 200);
+    return c.json({ items: await listItems(c.get("user")!.id, status, limit) });
   });
 
   r.patch("/items/:id", async (c) => {

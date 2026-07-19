@@ -41,7 +41,12 @@ serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
       for (const j of jobs) await fetchFeedSource(j.data.sourceId);
     });
     await boss.work(POLL_FEEDS_QUEUE, async () => {
-      const sources = await prisma.feedSource.findMany({ where: { status: "active" }, select: { id: true } });
+      // Include "error" sources so a feed that hit a transient blip recovers on
+      // the next poll (a successful fetch resets it to "active").
+      const sources = await prisma.feedSource.findMany({
+        where: { status: { in: ["active", "error"] } },
+        select: { id: true },
+      });
       for (const s of sources) await enqueueFeedFetch(s.id);
     });
     await boss.schedule(POLL_FEEDS_QUEUE, "*/30 * * * *");
