@@ -7,6 +7,7 @@ import { env } from "./env.js";
 import { uploadsDir } from "./images.js";
 import { linkedinRoutes } from "./routes/linkedin.js";
 import { profileRoutes } from "./routes/profile.js";
+import { resourcesRoutes } from "./routes/resources.js";
 import { studioRoutes } from "./routes/studio.js";
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -67,6 +68,7 @@ export function createApp() {
   });
 
   app.route("/linkedin", linkedinRoutes());
+  app.route("/linkedin", resourcesRoutes());
 
   app.use("/profiles/*", async (c, next) => {
     if (!c.get("user")) return c.json({ error: "unauthorized" }, 401);
