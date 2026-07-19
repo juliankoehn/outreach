@@ -84,7 +84,16 @@ function FeedLink({ href, children }: ComponentPropsWithoutRef<"a">) {
     </a>
   );
 }
-const FEED_MD_COMPONENTS = { a: FeedLink };
+
+// Plain <img> too — streamdown's image wraps it in a <div> (hover overlay),
+// which is invalid inside the paragraph <p> and trips the same hydration error.
+function FeedImage({ src, alt }: ComponentPropsWithoutRef<"img">) {
+  const safe = safeHref(typeof src === "string" ? src : undefined);
+  if (!safe) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={safe} alt={alt ?? ""} loading="lazy" className="my-3 max-w-full rounded-md border" />;
+}
+const FEED_MD_COMPONENTS = { a: FeedLink, img: FeedImage };
 
 function formatDate(locale: string, iso: string | null): string | null {
   if (!iso) return null;
