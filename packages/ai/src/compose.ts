@@ -1,10 +1,10 @@
-import { generateText, experimental_generateImage as genImage, type LanguageModel, type ImageModel } from "ai";
+import { generateText, generateImage as genImage, type LanguageModel, type ImageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { getTextModel } from "./provider.js";
 
 // Distilled playbook from top LinkedIn creators — injected into every draft so
 // posts follow what actually performs on the platform, in the creator's voice.
-const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, adapted to the creator's voice):
+export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, adapted to the creator's voice):
 - Hook in the first line: a bold claim, a specific number, a contrarian take, or an open loop that stops the scroll. The first 1-2 lines are all a reader sees before "…more".
 - One idea per post. Front-load the payoff; don't bury the lede.
 - Short lines and generous whitespace — most sentences on their own line, no dense paragraphs.
@@ -52,13 +52,22 @@ export function getImageModel(): ImageModel {
 
 export async function generateImage(
   prompt: string,
-  opts?: { model?: ImageModel; postText?: string },
+  opts?: { model?: ImageModel; postText?: string; visualStyle?: string },
 ): Promise<{ base64: string; mediaType: string }> {
   const model = opts?.model ?? getImageModel();
-  // Give the image model the post it accompanies so the visual is on-topic.
-  const fullPrompt = opts?.postText
-    ? `Create an image to accompany this LinkedIn post. Make it visually relevant to the post's message; no text or captions in the image unless asked.\n\nLinkedIn post:\n"""${opts.postText}"""\n\nImage direction: ${prompt}`
-    : prompt;
+  // Give the image model the post it accompanies (so the visual is on-topic) and
+  // the creator's learned visual language (so it looks like their brand).
+  const parts: string[] = [];
+  if (opts?.postText) {
+    parts.push(
+      `Create an image to accompany this LinkedIn post. Make it visually relevant to the post's message; no text or captions in the image unless asked.\n\nLinkedIn post:\n"""${opts.postText}"""`,
+    );
+  }
+  if (opts?.visualStyle?.trim()) {
+    parts.push(`Match this creator's established visual language: ${opts.visualStyle.trim()}`);
+  }
+  parts.push(`Image direction: ${prompt}`);
+  const fullPrompt = parts.length > 1 ? parts.join("\n\n") : prompt;
   const { image } = await genImage({ model, prompt: fullPrompt });
   return { base64: image.base64, mediaType: image.mediaType ?? "image/png" };
 }

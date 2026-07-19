@@ -7,4 +7,4 @@ export type {
 	InterviewSession,
 	Draft,
 	Prisma,
-} from "@prisma/client";
+} from "./generated/prisma/client.js";

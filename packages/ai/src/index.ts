@@ -1,6 +1,14 @@
 export { getTextModel } from "./provider.js";
 export type { ChatMessage, PostForAnalysis, DerivedInsights, SynthesizedProfile } from "./types.js";
-export { nextTurn, INTERVIEW_SYSTEM } from "./interview.js";
-export { synthesizeProfile, PROFILE_SCHEMA } from "./profile.js";
+export { nextTurn, streamInterview, INTERVIEW_SYSTEM } from "./interview.js";
+export type { InterviewHandlers, StreamInterviewOptions } from "./interview.js";
+export { synthesizeProfile, refineProfile, PROFILE_SCHEMA } from "./profile.js";
+export { suggestFacets, FACET_KINDS, FACET_SCHEMA } from "./facets.js";
+export type { ProfileFacet, FacetKind, SuggestFacetsInput } from "./facets.js";
 export { analyzePosts, DERIVED_SCHEMA } from "./analyze.js";
-export { draftPost, refinePost, generateImage, getImageModel } from "./compose.js";
+export { draftPost, refinePost, generateImage, getImageModel, LINKEDIN_PLAYBOOK } from "./compose.js";
+export { streamStudioAgent } from "./studio-agent.js";
+export type { StudioAgentHandlers, StudioAgentOptions, SimilarPostMatch } from "./studio-agent.js";
+export { streamProfileStudio } from "./profile-studio.js";
+export type { ProfilePatch, ProfileStudioHandlers, StreamProfileStudioOptions } from "./profile-studio.js";
+export type { UIMessage } from "ai";

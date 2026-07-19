@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { MockLanguageModelV2 } from "ai/test";
 import { synthesizeProfile } from "./profile.js";
+import { textModel } from "./testing.js";
 
 const OBJECT = {
   goals: ["Thought leadership in AI governance"],
@@ -15,14 +15,7 @@ const OBJECT = {
 
 describe("synthesizeProfile", () => {
   it("returns the structured profile from the model object", async () => {
-    const model = new MockLanguageModelV2({
-      doGenerate: async () => ({
-        finishReason: "stop",
-        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-        content: [{ type: "text", text: JSON.stringify(OBJECT) }],
-        warnings: [],
-      }),
-    });
+    const model = textModel(JSON.stringify(OBJECT));
     const profile = await synthesizeProfile(
       [{ role: "user", content: "I run a GRC startup." }],
       { model },

@@ -1,4 +1,4 @@
-export type MediaType = "none" | "image" | "video" | "article";
+export type MediaType = "none" | "image" | "video" | "article" | "carousel";
 
 export interface PostMetrics {
   likes?: number;

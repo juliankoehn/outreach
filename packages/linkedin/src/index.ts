@@ -7,3 +7,5 @@ export { CsvShareIngestor } from "./csv-ingestor.js";
 export { LinkedInApiIngestor } from "./api-ingestor.js";
 export { MemberAnalyticsClient } from "./analytics.js";
 export type { AggregateAnalytics, AggregateMetric } from "./analytics.js";
+export { extractEmbedUrl, parseEmbedHtml } from "./embed.js";
+export type { ParsedEmbedPost } from "./embed.js";

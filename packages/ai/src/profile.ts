@@ -16,6 +16,31 @@ export const PROFILE_SCHEMA = z.object({
   ),
 });
 
+// The editable profile fields we feed back into a refinement pass.
+export type CurrentProfile = SynthesizedProfile;
+
+/**
+ * Refine an existing profile using fresh analysis of the creator's real posts
+ * (voice, visual style, themes, what actually drives engagement). Keeps what
+ * works, sharpens the rest, and folds the visual style into the brandBrief so
+ * generated images match. This is what makes the profile adapt over time.
+ */
+export async function refineProfile(
+  current: CurrentProfile,
+  derived: DerivedInsights,
+  opts?: { model?: LanguageModel },
+): Promise<SynthesizedProfile> {
+  const model = opts?.model ?? getTextModel();
+  const { object } = await generateObject({
+    model,
+    schema: PROFILE_SCHEMA,
+    system:
+      "You are a brand strategist refining an existing creator profile with fresh analysis of the creator's REAL posts (voice, visual style, recurring themes, and what actually drives engagement). Keep what's working; sharpen tone words, pillars and positioning based on the evidence; and rewrite the brandBrief so it reflects what the data shows performs. Fold the visual style into the brief so image generation matches their look. Do not invent facts — ground every change in the analysis.",
+    prompt: `Current profile:\n${JSON.stringify(current, null, 2)}\n\nAnalysis of their real posts:\n${JSON.stringify(derived, null, 2)}`,
+  });
+  return object;
+}
+
 export async function synthesizeProfile(
   messages: ChatMessage[],
   opts?: { model?: LanguageModel; derived?: DerivedInsights },
