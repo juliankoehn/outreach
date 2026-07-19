@@ -36,6 +36,23 @@ function statusVariant(status: string): "success" | "muted" | "secondary" {
   return "muted";
 }
 
+// An assistant turn is only worth rehydrating if it actually produced
+// something: a non-empty text part, or a tool call that reached a terminal
+// state (output-available/output-error). Turns interrupted mid-stream persist a
+// tool part stuck in "input-available" (no output) — those rendered as a
+// permanent "Running" card on reload. User/system messages are always kept.
+function isRenderableMessage(m: UIMessage): boolean {
+  if (m.role !== "assistant") return true;
+  return m.parts.some((p) => {
+    if (p.type === "text") return typeof p.text === "string" && p.text.trim().length > 0;
+    if (typeof p.type === "string" && p.type.startsWith("tool-")) {
+      const state = (p as { state?: string }).state;
+      return state === "output-available" || state === "output-error";
+    }
+    return false;
+  });
+}
+
 // Only rows the studio agent persisted (AI-SDK UI messages) can rehydrate the
 // chat; older/other shapes are ignored rather than crashing the transcript.
 function toInitialMessages(chat: unknown[]): UIMessage[] {
@@ -46,7 +63,7 @@ function toInitialMessages(chat: unknown[]): UIMessage[] {
       typeof (m as { id?: unknown }).id === "string" &&
       ((m as { id: string }).id.length > 0) &&
       Array.isArray((m as { parts?: unknown }).parts),
-  );
+  ).filter(isRenderableMessage);
 }
 
 export default function StudioDraftPage({ params }: { params: Promise<{ id: string }> }) {

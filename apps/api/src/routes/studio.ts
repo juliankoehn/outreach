@@ -11,6 +11,24 @@ import { retrieveKnowledge } from "../repos/knowledge.js";
 import { getItem as getFeedItem } from "../repos/feed.js";
 import { saveImage } from "../images.js";
 
+// An assistant turn is only worth persisting if it produced something: a
+// non-empty text part or a tool call that reached a terminal state. Turns
+// interrupted mid-stream (e.g. the user navigates away during the review loop)
+// otherwise persist a tool part stuck in "input-available", which rendered as a
+// permanent "Running" card on reload. User/system messages are always kept.
+function isRenderableMessage(m: UIMessage): boolean {
+  if (!m || !Array.isArray(m.parts)) return false;
+  if (m.role !== "assistant") return true;
+  return m.parts.some((p) => {
+    if (p.type === "text") return typeof p.text === "string" && p.text.trim().length > 0;
+    if (typeof p.type === "string" && p.type.startsWith("tool-")) {
+      const state = (p as { state?: string }).state;
+      return state === "output-available" || state === "output-error";
+    }
+    return false;
+  });
+}
+
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
 // (rather than a shared middleware) keeps each handler simply typed against
 // Hono's generics. `getAccountSummary` is a single indexed lookup, so the
@@ -251,15 +269,16 @@ export function studioRoutes() {
         // miss an in-flight assistant turn, and a blind overwrite would drop it
         // (tool cards vanished after reload). Keep every message we've ever seen.
         const current = await getDraft(draftId, accountId);
-        const existing = ((current?.chat as unknown as UIMessage[] | null) ?? []).filter(
-          (m) => !!m && typeof m.id === "string",
-        );
-        const incoming = new Map(finalMessages.map((m) => [m.id, m]));
+        // Require a real, non-empty id (empty ids collided in the merge and were
+        // filtered on reload — legacy debris self-cleans on the next write).
+        const hasId = (m: UIMessage) => !!m && typeof m.id === "string" && m.id.length > 0;
+        const existing = ((current?.chat as unknown as UIMessage[] | null) ?? []).filter(hasId);
+        const incoming = new Map(finalMessages.filter(hasId).map((m) => [m.id, m]));
         const seen = new Set(existing.map((m) => m.id));
         const merged = [
           ...existing.map((m) => incoming.get(m.id) ?? m), // update in place if re-sent
-          ...finalMessages.filter((m) => !seen.has(m.id)), // append genuinely new turns
-        ];
+          ...finalMessages.filter((m) => hasId(m) && !seen.has(m.id)), // append genuinely new turns
+        ].filter(isRenderableMessage); // drop interrupted/empty assistant turns ("Running" cards)
         await updateDraft(draftId, accountId, { chat: merged });
       },
     });
