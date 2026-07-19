@@ -194,7 +194,7 @@ const SIZE_MAP = { portrait: "1024x1536", square: "1024x1024", landscape: "1536x
 // tasteful creator would actually post on LinkedIn. Shared by the art-director
 // brief step and the raw renderer.
 const IMAGE_AESTHETIC =
-  "AESTHETIC — this runs on a real LinkedIn feed, so it must NOT look AI-generated. Hard avoid: glowing neon circuit boards, futuristic sci-fi cityscapes, floating holograms or HUD overlays, glossy 3D-render blobs, hexagon grids, robot hands, binary-code rain, over-saturated 'digital tech' collages, and any generic abstract 'technology/innovation' stock look. Instead aim for what a tasteful creator actually posts: authentic editorial or documentary photography, a real workplace or human moment, or a clean, minimal editorial illustration — restrained natural palette, real lighting, believable and understated over flashy and synthetic.";
+  "AESTHETIC (this is the TOP priority, above cleverly illustrating the topic) — this runs on a real LinkedIn feed and must look like a real photo or a tasteful editorial illustration, NOT AI-generated concept art. It must read as a believable REAL-WORLD scene: real people, real workplaces, real objects, natural light. HARD BAN, no exceptions even for security/tech topics: glowing or holographic padlocks, locks, keyholes, shields, fortresses, or any floating security icon; neon circuit boards; futuristic sci-fi cityscapes; holograms or HUD overlays; glossy 3D-render blobs; hexagon grids or honeycomb patterns; robot hands; binary-code rain; over-saturated 'digital tech' collages; and any abstract 'technology/innovation' visual metaphor. Do NOT illustrate an abstract concept as a glowing symbol — show a concrete real scene instead (e.g. for security: a person at a workstation, a real data-center aisle, an office at night — never a glowing lock). Restrained natural palette, real lighting, understated over flashy. Render NO readable text, words, labels, or logos anywhere (image models garble them); any screens or signage stay unlabeled/illegible.";
 
 export async function generateImage(
   prompt: string,
@@ -267,12 +267,16 @@ export async function composeImageBrief(opts: {
   if (opts.referenceHint?.trim()) ctx.push(`IF A PERSON APPEARS, resemble this reference (guidance, not exact likeness): ${opts.referenceHint.trim()}`);
   if (opts.seed?.trim()) ctx.push(`ROUGH IDEA FROM THE CREATOR (refine, don't just repeat): ${opts.seed.trim()}`);
   const noGoLine = opts.noGos?.length
-    ? `\nHARD NO-GOS (obey literally): ${opts.noGos.join("; ")}. Unless explicitly asked, put NO text, letters, words, or logos in the image.`
-    : "\nUnless explicitly asked, put NO text, letters, words, or logos in the image.";
+    ? `\nHARD NO-GOS (obey literally): ${opts.noGos.join("; ")}.`
+    : "";
+  // Image models render any text as garbled nonsense, so the brief must never
+  // ask for readable words — describe screens/maps/signage as unlabeled.
+  const noTextLine =
+    "\nNO READABLE TEXT: image generators turn text into garbled gibberish, so your brief must NOT describe any words, letters, labels, captions, headlines, signage, place/map names, logos, or on-screen UI copy. If screens, monitors, maps, or dashboards appear, describe them as abstract glowing graphics, unlabeled shapes, dot patterns, or softly blurred/illegible content — nothing meant to be read.";
 
   const { text } = await generateText({
     model,
-    system: `You are an art director for a professional LinkedIn creator. From the context, write ONE vivid, concrete image brief (2-4 sentences, English) for an image generator. Describe a specific scene, subject, composition, lighting, and mood that concretely represents the post's actual topic — never a generic abstract "technology" or "business" stock visual. It is for ${FORMAT_HINT[opts.size ?? "portrait"]}.\n${IMAGE_AESTHETIC}${noGoLine}\nOutput only the brief, no preamble or quotes.`,
+    system: `You are an art director for a professional LinkedIn creator. From the context, write ONE vivid, concrete image brief (2-4 sentences, English) for an image generator. Describe a specific scene, subject, composition, lighting, and mood that concretely represents the post's actual topic — never a generic abstract "technology" or "business" stock visual. It is for ${FORMAT_HINT[opts.size ?? "portrait"]}.\n${IMAGE_AESTHETIC}${noTextLine}${noGoLine}\nOutput only the brief, no preamble or quotes.`,
     prompt: ctx.join("\n\n") || "Write a strong, on-brand image brief for this creator's post.",
   });
   return text.trim();
