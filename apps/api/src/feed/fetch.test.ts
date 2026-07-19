@@ -41,7 +41,34 @@ const ATOM_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
   </entry>
 </feed>`;
 
+const MALICIOUS_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Malicious Feed</title>
+    <item>
+      <title>JS Link</title>
+      <link>javascript:alert(document.cookie)</link>
+      <description>Should be dropped.</description>
+    </item>
+    <item>
+      <title>Safe item, bad image</title>
+      <link>https://example.com/ok</link>
+      <enclosure url="javascript:evil()" type="image/png"/>
+      <description>Kept, but image nulled.</description>
+    </item>
+  </channel>
+</rss>`;
+
 describe("parseFeedXml", () => {
+  it("drops items with a non-http(s) link and nulls a non-http(s) image (XSS guard)", async () => {
+    const { items } = await parseFeedXml(MALICIOUS_FIXTURE, "https://example.com/feed.xml");
+    expect(items.find((i) => i.title === "JS Link")).toBeUndefined(); // javascript: link filtered
+    const safe = items.find((i) => i.title === "Safe item, bad image");
+    expect(safe).toBeDefined();
+    expect(safe!.url).toBe("https://example.com/ok");
+    expect(safe!.imageUrl).toBeNull(); // javascript: enclosure dropped
+  });
+
   it("maps an RSS feed's title and items", async () => {
     const { title, items } = await parseFeedXml(RSS_FIXTURE, "https://example.com/feed.xml");
     expect(title).toBe("Example RSS Feed");

@@ -32,6 +32,18 @@ type Filter = "new" | "all" | "dismissed";
 
 const FILTERS: Filter[] = ["new", "all", "dismissed"];
 
+// Feed URLs come from external content — guard against a `javascript:`/`data:`
+// scheme reaching an href/src (the server already filters, this is belt-and-braces).
+function safeHref(u: string | null | undefined): string | undefined {
+  if (!u) return undefined;
+  try {
+    const p = new URL(u);
+    return p.protocol === "http:" || p.protocol === "https:" ? u : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function FeedView() {
   const t = useTranslations();
   const locale = useLocale();
@@ -390,10 +402,10 @@ function FeedItemCard({
         item.status === "read" && "opacity-70",
       )}
     >
-      {item.imageUrl && (
+      {safeHref(item.imageUrl) && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={item.imageUrl}
+          src={safeHref(item.imageUrl)}
           alt=""
           loading="lazy"
           className="bg-muted hidden size-24 shrink-0 rounded-md border object-cover sm:block"
@@ -412,7 +424,7 @@ function FeedItemCard({
         </div>
 
         <a
-          href={item.url}
+          href={safeHref(item.url) ?? "#"}
           target="_blank"
           rel="noreferrer"
           className="group/link mt-1.5 flex items-start gap-1 font-medium hover:underline"

@@ -7,6 +7,19 @@ const parser = new Parser();
 const stripHtml = (s: string) => s.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 const truncate = (s: string, n = 500) => (s.length > n ? s.slice(0, n).trimEnd() + "…" : s);
 
+// Feed content is attacker-controllable — a malicious feed could carry a
+// `javascript:`/`data:` link that becomes stored XSS in an <a href>/<img src>.
+// Only persist http(s) URLs; everything else becomes empty/null.
+function httpOnly(u: string | undefined | null): string {
+  if (!u) return "";
+  try {
+    const p = new URL(u);
+    return p.protocol === "http:" || p.protocol === "https:" ? u : "";
+  } catch {
+    return "";
+  }
+}
+
 function cryptoRandom(): string {
 	return globalThis.crypto.randomUUID();
 }
@@ -19,15 +32,15 @@ export async function parseFeedXml(xml: string, sourceUrl: string): Promise<{ ti
 	const feed = await parser.parseString(xml);
 	const items: ParsedItem[] = (feed.items ?? [])
 		.map((i) => {
-			const link = i.link ?? "";
+			const link = httpOnly(i.link);
 			const raw = i.contentSnippet ?? i.content ?? i.summary ?? "";
-			const enclosure = i.enclosure?.url;
+			const enclosure = httpOnly(i.enclosure?.url);
 			return {
 				guid: i.guid ?? link ?? i.title ?? cryptoRandom(),
 				title: (i.title ?? "Untitled").trim(),
 				url: link,
 				excerpt: truncate(stripHtml(String(raw))),
-				imageUrl: enclosure ?? null,
+				imageUrl: enclosure || null,
 				author: i.creator ?? (i as { author?: string }).author ?? null,
 				publishedAt: i.isoDate ? new Date(i.isoDate) : null,
 			};
