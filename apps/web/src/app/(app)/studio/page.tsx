@@ -120,9 +120,11 @@ export default function StudioPage() {
     }
     if (res.ok) {
       const d = (await res.json()) as { draft: Draft };
-      const p = promptText.trim();
+      // Empty prompt → a default kickoff so the studio always opens with a
+      // profile-based draft (never a blank canvas).
+      const p = promptText.trim() || t("studio.createDefaultPrompt");
       setDialogOpen(false);
-      router.push(p ? `/studio/${d.draft.id}?prompt=${encodeURIComponent(p)}` : `/studio/${d.draft.id}`);
+      router.push(`/studio/${d.draft.id}?prompt=${encodeURIComponent(p)}`);
     }
   }
 
