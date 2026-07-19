@@ -31,6 +31,12 @@ export function resourcesRoutes() {
     const accountId = await owned(c);
     if (!accountId) return c.json({ error: "not_found" }, 404);
 
+    // Reject an oversized body before buffering it into memory — the
+    // per-kind check below runs only after the full body has been read, so a
+    // huge upload could otherwise exhaust memory before we ever get there.
+    const contentLength = Number(c.req.header("content-length") ?? "0");
+    if (contentLength > MAX_DOC) return c.json({ error: "too_large" }, 413);
+
     const body = await c.req.parseBody();
     const file = body["file"];
     if (!(file instanceof File)) return c.json({ error: "no_file" }, 400);
@@ -93,22 +99,34 @@ export function resourcesRoutes() {
     const { on } = await c.req.json<{ on: boolean }>().catch(() => ({ on: false }));
     const id = c.req.param("id");
 
-    // Turning a reference ON: derive a short vision descriptor of the photo once
-    // and cache it on the resource, so image generation can reuse it as a text
-    // hint without re-reading pixels every time. Turning OFF is a pure toggle.
-    let refDescription: string | undefined;
-    if (on) {
-      const res = await getResource(id, accountId);
-      if (!res) return c.json({ error: "not_found" }, 404);
-      const obj = await getObject(res.storageKey);
-      if (obj) {
-        const base64 = Buffer.from(obj.body).toString("base64");
-        refDescription = await describeImageReferences([{ base64, mediaType: res.mimeType }]);
-      }
+    if (!on) {
+      const updated = await setResourceImageRef(id, accountId, false);
+      if (!updated) return c.json({ error: "not_found" }, 404);
+      return c.json({ resource: updated });
     }
 
-    const updated = await setResourceImageRef(id, accountId, on, refDescription);
+    // Turning a reference ON: flip the flag first so the toggle itself never
+    // depends on the vision call succeeding. Then best-effort derive a short
+    // descriptor of the photo and cache it on the resource, so image
+    // generation can reuse it as a text hint without re-reading pixels every
+    // time. A flaky/absent vision provider must not fail the toggle — it just
+    // means the resource is a reference without a cached description yet.
+    let updated = await setResourceImageRef(id, accountId, true);
     if (!updated) return c.json({ error: "not_found" }, 404);
+
+    try {
+      const res = await getResource(id, accountId);
+      const obj = res ? await getObject(res.storageKey) : null;
+      if (res && obj) {
+        const base64 = Buffer.from(obj.body).toString("base64");
+        const refDescription = await describeImageReferences([{ base64, mediaType: res.mimeType }]);
+        const withDescription = await setResourceImageRef(id, accountId, true, refDescription);
+        if (withDescription) updated = withDescription;
+      }
+    } catch (e) {
+      console.warn("image-ref: vision descriptor failed, leaving reference without description", e);
+    }
+
     return c.json({ resource: updated });
   });
 
