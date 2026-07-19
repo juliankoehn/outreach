@@ -326,9 +326,17 @@
     "created": "Erstellt",
     "updated": "Aktualisiert",
     "publishingSoon": "Planung ist aktiv. Automatisches Veröffentlichen auf LinkedIn folgt als Nächstes.",
+    "autoPublishNote": "Ein geplanter Post wird automatisch zur geplanten Zeit auf LinkedIn veröffentlicht.",
     "statusDraft": "Entwurf",
     "statusScheduled": "Geplant",
-    "statusPublished": "Veröffentlicht"
+    "statusPublished": "Veröffentlicht",
+    "publish": "Veröffentlichen",
+    "publishConfirmTitle": "Diesen Post veröffentlichen?",
+    "publishConfirmBody": "Das veröffentlicht den Post jetzt öffentlich auf LinkedIn. Nicht rückgängig zu machen.",
+    "publishing": "Veröffentliche…",
+    "published": "Veröffentlicht",
+    "viewOnLinkedin": "Auf LinkedIn ansehen",
+    "publishFailed": "Veröffentlichen fehlgeschlagen"
   },
   "errors": {
     "nameRequired": "Gib deinen Namen ein.",

@@ -326,9 +326,17 @@
     "created": "Created",
     "updated": "Updated",
     "publishingSoon": "Scheduling is live. Auto-publishing to LinkedIn is coming next.",
+    "autoPublishNote": "A scheduled post is published to LinkedIn automatically at its time.",
     "statusDraft": "Draft",
     "statusScheduled": "Scheduled",
-    "statusPublished": "Published"
+    "statusPublished": "Published",
+    "publish": "Publish",
+    "publishConfirmTitle": "Publish this post?",
+    "publishConfirmBody": "This posts publicly to LinkedIn right now. This can't be undone.",
+    "publishing": "Publishing…",
+    "published": "Published",
+    "viewOnLinkedin": "View on LinkedIn",
+    "publishFailed": "Publishing failed"
   },
   "errors": {
     "nameRequired": "Enter your name.",

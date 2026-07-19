@@ -15,6 +15,7 @@ export interface Draft {
   scheduledAt: string | null;
   publishedAt: string | null;
   externalId: string | null;
+  publishError: string | null;
   createdAt: string;
   updatedAt: string;
 }

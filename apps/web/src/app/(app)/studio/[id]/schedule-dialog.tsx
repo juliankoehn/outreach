@@ -65,6 +65,7 @@ export function ScheduleDialog({ open, onOpenChange, initial, onConfirm }: Sched
             className="border-input bg-transparent flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
           />
           {error && <p className="text-destructive text-xs">{error}</p>}
+          <p className="text-muted-foreground text-xs">{t("studio.autoPublishNote")}</p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

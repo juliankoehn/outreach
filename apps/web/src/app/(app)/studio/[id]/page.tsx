@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { UIMessage } from "ai";
-import { ArrowLeft, CalendarClock, ImagePlus, Newspaper, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, CalendarClock, ImagePlus, Newspaper, RefreshCw, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +77,8 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const [accountId, setAccountId] = useState<string | null>(null);
   const [author, setAuthor] = useState<{ name: string; avatarUrl: string | null }>({ name: "", avatarUrl: null });
@@ -259,6 +261,18 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
     setScheduleError(t("schedule.planInvalid"));
   }
 
+  async function publishDraft() {
+    if (!accountId || publishing) return;
+    setPublishing(true);
+    const res = await fetch(`/api/studio/${accountId}/drafts/${id}/publish`, {
+      method: "POST",
+      credentials: "include",
+    });
+    setPublishing(false);
+    if (res.status === 401) return router.push("/login");
+    if (res.ok) setDraft(((await res.json()) as { draft: Draft }).draft);
+  }
+
   async function unscheduleDraft() {
     if (!accountId || scheduling) return;
     setScheduling(true);
@@ -385,6 +399,48 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
               onConfirm={(when) => void scheduleDraft(when)}
             />
             {scheduleError && <span className="text-destructive text-xs">{scheduleError}</span>}
+            {draft?.status === "published" && draft.externalId ? (
+              <a
+                href={`https://www.linkedin.com/feed/update/${draft.externalId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-success inline-flex items-center gap-1.5 text-sm underline underline-offset-2"
+              >
+                {t("studio.viewOnLinkedin")}
+              </a>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmPublish(true)}
+                disabled={publishing}
+              >
+                <Send className={cn("size-4", publishing && "animate-pulse")} />
+                {publishing ? t("studio.publishing") : t("studio.publish")}
+              </Button>
+            )}
+            <Dialog open={confirmPublish} onOpenChange={setConfirmPublish}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>{t("studio.publishConfirmTitle")}</DialogTitle>
+                  <DialogDescription>{t("studio.publishConfirmBody")}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmPublish(false)} disabled={publishing}>
+                    {t("studio.deleteCancel")}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setConfirmPublish(false);
+                      void publishDraft();
+                    }}
+                    disabled={publishing}
+                  >
+                    {publishing ? t("studio.publishing") : t("studio.publish")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Button
               variant="ghost"
               size="icon"
@@ -420,6 +476,25 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
             </Dialog>
           </div>
         </div>
+
+        {draft?.status === "failed" && (
+          <div className="border-destructive/30 bg-destructive/10 text-destructive flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2 text-sm">
+            <span>
+              {t("studio.publishFailed")}
+              {draft.publishError ? `: ${draft.publishError}` : ""}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void publishDraft()}
+              disabled={publishing}
+              className="border-destructive/30 text-destructive hover:bg-destructive/10 shrink-0"
+            >
+              <RefreshCw className={cn("size-4", publishing && "animate-spin")} />
+              {t("schedule.retry")}
+            </Button>
+          </div>
+        )}
 
         {/* Document — post on the left, a tools sidebar on the right */}
         <div className="flex-1 overflow-y-auto">
@@ -513,7 +588,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
                 </a>
               )}
 
-              <p className="text-muted-foreground px-1 text-xs">{t("studio.publishingSoon")}</p>
+              <p className="text-muted-foreground px-1 text-xs">{t("studio.autoPublishNote")}</p>
             </aside>
           </div>
         </div>
