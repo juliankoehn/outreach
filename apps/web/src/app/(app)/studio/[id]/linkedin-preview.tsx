@@ -82,11 +82,12 @@ export function LinkedInPreview({
         className="mt-2 field-sizing-content min-h-[7rem] w-full resize-none bg-transparent px-4 pb-1 text-[15px] leading-[1.45] outline-none placeholder:text-muted-foreground"
       />
 
-      {/* Image, edge-to-edge like LinkedIn */}
+      {/* Image, edge-to-edge like LinkedIn — show the whole image (no crop);
+          our generated images are square, LinkedIn displays them in full. */}
       {imageUrl && (
-        <div className="mt-1 border-y">
+        <div className="bg-muted mt-1 border-y">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt="" className="max-h-[28rem] w-full object-cover" />
+          <img src={imageUrl} alt="" className="mx-auto max-h-[32rem] w-auto max-w-full object-contain" />
         </div>
       )}
 

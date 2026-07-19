@@ -32,6 +32,7 @@ export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, 
 - No outbound links in the body (they suppress reach) and hashtags only if genuinely on-brand (0-3).
 - End with a light CTA or a genuine question that invites comments.
 - Be useful or be honest — earn the reader's attention, never clickbait a promise the post doesn't keep.
+- MATCH THE BRAND BRIEF'S REGISTER EXACTLY. If the brief is written informally (German "du" / first-name, casual English), address the reader that way too — never switch to formal "Sie". If the brief is formal ("Sie"), stay formal. When the brief uses "du", the post MUST use "du" and its forms (dein/dir/dich), never "Sie/Ihr/Ihnen". This is not optional.
 - Write PLAIN TEXT, never Markdown — LinkedIn renders it literally, so it would show the raw symbols. No **bold**, no ##/# headings, no backticks, no [label](url) links, no Markdown bullet/numbered lists (\`-\`, \`*\`, \`1.\`). Use plain line breaks, and if a list genuinely helps, plain characters (a dash typed as part of the sentence, • , or an emoji) — not Markdown syntax.`;
 
 const POST_INSTRUCTIONS = `Write a single LinkedIn post in the creator's authentic voice, following the brand brief exactly. Output only the post text as PLAIN TEXT (no Markdown formatting) — no preamble, no surrounding quotes.`;
