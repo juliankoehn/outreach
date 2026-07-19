@@ -36,7 +36,7 @@ const NAV: NavItem[] = [
   { href: "/accounts", key: "accounts", icon: LayoutGrid },
   { href: "/studio", key: "content", icon: PenLine },
   { href: "/feed", key: "feed", icon: Rss },
-  { href: "/schedule", key: "schedule", icon: CalendarClock, soon: true },
+  { href: "/schedule", key: "schedule", icon: CalendarClock },
   { href: "/settings", key: "settings", icon: Settings, soon: true },
 ];
 

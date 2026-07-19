@@ -423,7 +423,10 @@
     "weekdayFri": "F",
     "weekdaySat": "S",
     "weekdaySun": "S",
-    "emptyDay": "Keine Posts geplant"
+    "emptyDay": "Keine Posts geplant",
+    "untitled": "Post ohne Titel",
+    "loadError": "Der Zeitplan konnte nicht geladen werden.",
+    "retry": "Erneut versuchen"
   },
   "meta": {
     "theme": "Design",

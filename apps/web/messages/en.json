@@ -423,7 +423,10 @@
     "weekdayFri": "F",
     "weekdaySat": "S",
     "weekdaySun": "S",
-    "emptyDay": "No posts scheduled"
+    "emptyDay": "No posts scheduled",
+    "untitled": "Untitled post",
+    "loadError": "Couldn't load the schedule.",
+    "retry": "Retry"
   },
   "meta": {
     "theme": "Theme",
