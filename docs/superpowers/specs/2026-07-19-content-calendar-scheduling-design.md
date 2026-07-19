@@ -28,10 +28,11 @@ reusable component used in both places.
 
 ## Non-goals / constraints (global)
 
-- **No new dependencies.** Use native `Date` math for the grid, native
+- **One new dependency, `@atlaskit/pragmatic-drag-and-drop`** (the modern
+  Atlassian DnD lib, not `react-beautiful-dnd`), for drag-to-reschedule.
+  Everything else stays dep-free: native `Date` math for the grid, native
   `<input type="datetime-local">` for the picker (inside the existing shadcn
-  `Dialog`), and native HTML5 drag-and-drop for reschedule. No date-fns / dayjs /
-  react-day-picker / dnd library.
+  `Dialog`). No date-fns / dayjs / react-day-picker.
 - **shadcn design system**, not the reference's indigo/heroicons/headlessui: use
   lucide icons, shadcn `DropdownMenu`/`Dialog`/`Badge`/`Button`, and the app's
   colour tokens (`bg-card`, `border`, `primary`, `muted-foreground`, `accent`).
@@ -115,13 +116,24 @@ interface CalendarViewProps {
   `DropdownMenu` view switcher (Monat/Woche/Tag), and a "Neuer Post" button.
 - **Month:** 6×7 grid computed from `cursor` (Mon-first week). Each day cell lists
   up to 2 events (title + time) then "+N mehr". Today and out-of-month days styled
-  via tokens. Events are `draggable`; a day cell is a drop target → `onReschedule`
-  keeps the event's time-of-day, changes the date.
+  via tokens. Dropping an event on a day cell keeps its time-of-day, changes the
+  date → `onReschedule`.
 - **Week:** 7 day columns × hourly rows (00–23), computed from `cursor`'s week.
   A post is a point in time (no duration), so each event is a fixed-height block
-  anchored at its start time, not a spanning range. Draggable to another day/hour
+  anchored at its start time, not a spanning range. Dropping on another day/hour
   slot → `onReschedule` with the new day+hour (minutes preserved).
-- **Day:** single day, hourly rows; same event blocks + drag as week.
+- **Day:** single day, hourly rows; same event blocks + drop slots as week.
+
+**Drag-and-drop** via `@atlaskit/pragmatic-drag-and-drop` element adapter:
+- Each event registers `draggable({ element, getInitialData: () => ({ eventId }) })`.
+- Each drop target (month day cell / week+day hour slot) registers
+  `dropTargetForElements({ element, getData: () => ({ date /* the cell's day */,
+  hour? }) })` and toggles a highlight on `onDragEnter`/`onDragLeave`.
+- A single `monitorForElements({ onDrop })` resolves source `eventId` + target
+  `date`/`hour`, computes the next `Date` (month: keep time-of-day; week/day: set
+  the dropped hour, keep minutes) and calls `onReschedule(eventId, next)`. Register
+  in an effect and call the returned cleanup on unmount. A drop resolving to a past
+  slot is ignored (snap back), never hitting the server.
 - Each event shows title + local time + (if `showAccountAvatar`) the account avatar.
 - **Honesty indicator:** every event carries a small clock/"nicht veröffentlicht"
   marker (tooltip) while publishing isn't wired.
