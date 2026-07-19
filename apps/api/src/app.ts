@@ -6,6 +6,7 @@ import { feedRoutes } from "./routes/feed.js";
 import { linkedinRoutes } from "./routes/linkedin.js";
 import { profileRoutes } from "./routes/profile.js";
 import { resourcesRoutes } from "./routes/resources.js";
+import { scheduleRoutes } from "./routes/schedule.js";
 import { studioRoutes } from "./routes/studio.js";
 import { getObject } from "./storage.js";
 
@@ -67,6 +68,13 @@ export function createApp() {
   });
 
   app.route("/feed", feedRoutes());
+
+  app.use("/schedule/*", async (c, next) => {
+    if (!c.get("user")) return c.json({ error: "unauthorized" }, 401);
+    await next();
+  });
+
+  app.route("/schedule", scheduleRoutes());
 
   return app;
 }
