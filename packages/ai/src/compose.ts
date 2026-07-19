@@ -101,7 +101,7 @@ const REVIEW_SCHEMA = z.object({
   verdict: z.enum(["pass", "revise"]).describe("'pass' if the post clears the bar; 'revise' if it has defects the writer must fix."),
   issues: z
     .array(z.string())
-    .describe("Concrete, actionable defects for the writer to fix, each a short phrase (quote the offending text when useful). Empty when verdict is 'pass'."),
+    .describe("Concrete, actionable defects for the writer to fix, each a short phrase (quote the offending text when useful), written in the SAME language as the draft post. Empty when verdict is 'pass'."),
 });
 
 export interface PostReview {
@@ -146,6 +146,7 @@ export async function reviewPost(opts: {
 6. MARKDOWN — any Markdown syntax (LinkedIn renders plain text only).
 
 Be strict but fair: if the post genuinely clears the bar, set verdict "pass" with empty "issues" — do NOT invent nitpicks to justify another round. Otherwise set verdict "revise" and list each concrete defect as a short, actionable instruction the writer can act on (quote the offending phrase where it helps).
+LANGUAGE OF ISSUES: the ENTIRE text of every issue — the description, not just a quoted snippet — MUST be written in the SAME language as the draft post; these are shown to the creator in the UI. Do NOT use the English defect category names above ("Corporate Bloat", "No real value", etc.); describe the problem in the post's own language. For a German post, write fully German issues, e.g. "Corporate-Floskel: '…' sagt nichts Konkretes" or "Kein greifbarer Mehrwert — nenne eine konkrete Maßnahme".
 ${brief}${noGoLine}${toneLine}${articleLine}`,
     prompt: `Review this draft post:\n"""${text}"""`,
   });
