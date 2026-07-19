@@ -29,7 +29,7 @@ turndown.addRule("safeImage", {
     return src ? `![${getAttr(node, "alt")}](${src})` : "";
   },
 });
-function htmlToMarkdown(html: string, max = 8000): string | null {
+export function htmlToMarkdown(html: string, max = 8000): string | null {
   const h = html.trim();
   if (!h) return null;
   let md = "";

@@ -1,10 +1,20 @@
 // apps/api/src/routes/feed.ts
 import { Hono } from "hono";
 import type { AppEnv } from "../app.js";
-import { createSource, listSources, deleteSource, getSource, listItems, setItemStatus } from "../repos/feed.js";
+import {
+  createSource,
+  listSources,
+  deleteSource,
+  getSource,
+  getItem,
+  listItems,
+  setItemStatus,
+  updateItemContent,
+  insertItems,
+} from "../repos/feed.js";
 import { fetchFeed } from "../feed/fetch.js";
+import { extractFullText } from "../feed/fulltext.js";
 import { enqueueFeedFetch } from "../queue.js";
-import { insertItems } from "../repos/feed.js";
 
 export function feedRoutes() {
   const r = new Hono<AppEnv>();
@@ -47,6 +57,21 @@ export function feedRoutes() {
     if (!status || !["new", "read", "dismissed"].includes(status)) return c.json({ error: "invalid_body" }, 400);
     const updated = await setItemStatus(c.req.param("id"), c.get("user")!.id, status);
     return updated ? c.json({ item: updated }) : c.json({ error: "not_found" }, 404);
+  });
+
+  // Reader mode: RSS carries only a teaser, so fetch the article itself and
+  // extract the full body as Markdown. Cached onto the item when it's richer
+  // than what we already have.
+  r.post("/items/:id/full", async (c) => {
+    const user = c.get("user")!;
+    const item = await getItem(c.req.param("id"), user.id);
+    if (!item) return c.json({ error: "not_found" }, 404);
+    const md = await extractFullText(item.url);
+    if (md && md.length > (item.content?.length ?? 0)) {
+      const updated = await updateItemContent(item.id, user.id, md);
+      return c.json({ content: updated?.content ?? md });
+    }
+    return c.json({ content: item.content ?? item.excerpt });
   });
 
   return r;

@@ -110,6 +110,31 @@ export function FeedView() {
     return items.find((i) => i.id === selectedItem.id) ?? selectedItem;
   }, [items, selectedItem]);
 
+  // Reader mode: RSS only carries a teaser, so when an article is opened, fetch
+  // its full body from the source once and cache it onto the item.
+  const [fullLoadedIds, setFullLoadedIds] = useState<Set<string>>(new Set());
+  const [fullLoadingId, setFullLoadingId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = selected?.id;
+    if (!id || fullLoadedIds.has(id) || fullLoadingId === id) return;
+    setFullLoadingId(id);
+    void (async () => {
+      const res = await fetch(`/api/feed/items/${id}/full`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => null);
+      if (res && res.ok) {
+        const { content } = (await res.json()) as { content: string | null };
+        if (content) {
+          setItems((prev) => prev.map((i) => (i.id === id ? { ...i, content } : i)));
+          setSelectedItem((s) => (s && s.id === id ? { ...s, content } : s));
+        }
+      }
+      setFullLoadedIds((s) => new Set(s).add(id));
+      setFullLoadingId((cur) => (cur === id ? null : cur));
+    })();
+  }, [selected?.id, fullLoadedIds, fullLoadingId]);
+
   const loadSources = useCallback(async () => {
     const res = await fetch("/api/feed/sources", { credentials: "include" });
     if (res.ok) setSources(((await res.json()) as { sources: FeedSource[] }).sources);
@@ -393,12 +418,14 @@ export function FeedView() {
             busy={pending.has(selected.id)}
             posting={postingId === selected.id}
             canPost={accounts.length > 0}
+            loadingFull={fullLoadingId === selected.id}
             labels={{
               back: t("feed.backToList"),
               post: t("feed.actionPost"),
               openOriginal: t("feed.openOriginal"),
               dismiss: t("feed.actionDismiss"),
               postNoAccount: t("feed.postNoAccount"),
+              loadingFull: t("feed.loadingFull"),
             }}
             onBack={() => setSelectedItem(null)}
             onPost={() => handlePost(selected)}
@@ -552,6 +579,7 @@ function ArticleReader({
   busy,
   posting,
   canPost,
+  loadingFull,
   labels,
   onBack,
   onPost,
@@ -563,12 +591,14 @@ function ArticleReader({
   busy: boolean;
   posting: boolean;
   canPost: boolean;
+  loadingFull: boolean;
   labels: {
     back: string;
     post: string;
     openOriginal: string;
     dismiss: string;
     postNoAccount: string;
+    loadingFull: string;
   };
   onBack: () => void;
   onPost: () => void;
@@ -650,6 +680,13 @@ function ArticleReader({
               alt=""
               className="bg-muted mt-5 aspect-video w-full rounded-lg border object-cover"
             />
+          )}
+
+          {loadingFull && (
+            <div className="text-muted-foreground mt-5 flex items-center gap-2 text-xs">
+              <Loader2 className="size-3.5 animate-spin" />
+              {labels.loadingFull}
+            </div>
           )}
 
           {body ? (

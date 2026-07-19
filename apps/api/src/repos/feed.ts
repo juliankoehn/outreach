@@ -83,3 +83,8 @@ export async function setItemStatus(
 	if (!it) return null;
 	return prisma.feedItem.update({ where: { id }, data: { status } });
 }
+export async function updateItemContent(id: string, userId: string, content: string): Promise<FeedItem | null> {
+	const it = await getItem(id, userId);
+	if (!it) return null;
+	return prisma.feedItem.update({ where: { id }, data: { content } });
+}

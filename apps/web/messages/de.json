@@ -363,6 +363,7 @@
     "actionRead": "Gelesen",
     "actionDismiss": "Verwerfen",
     "openOriginal": "Original öffnen",
+    "loadingFull": "Volltext wird geladen…",
     "backToList": "Liste",
     "readerEmptyTitle": "Nichts ausgewählt",
     "readerEmptyDesc": "Wähle links eine News, um sie hier zu lesen.",

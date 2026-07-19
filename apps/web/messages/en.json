@@ -363,6 +363,7 @@
     "actionRead": "Mark read",
     "actionDismiss": "Dismiss",
     "openOriginal": "Open original",
+    "loadingFull": "Loading the full article…",
     "backToList": "List",
     "readerEmptyTitle": "Nothing selected",
     "readerEmptyDesc": "Select a story on the left to read it here.",
