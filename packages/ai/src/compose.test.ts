@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { draftPost, refinePost, reviewPost, rewriteForReview, generateImage } from "./compose.js";
-import { recordingModel, textModel, imageModel, MockImageModel } from "./testing.js";
+import { MockLanguageModelV3 } from "ai/test";
+import { draftPost, refinePost, reviewPost, rewriteForReview, composeImageBrief, reviewImageBrief, generateImage } from "./compose.js";
+import { recordingModel, textModel, textResult, imageModel, MockImageModel } from "./testing.js";
 
 describe("compose", () => {
   it("drafts a post using the brandBrief as system context", async () => {
@@ -64,6 +65,34 @@ describe("compose", () => {
     const prompt = JSON.stringify(calls[0]!.prompt);
     expect(prompt).toContain("strategischer Vorteil");
     expect(prompt).toContain("no concrete value");
+  });
+
+  it("reviewImageBrief passes a believable real-world scene", async () => {
+    const model = textModel(JSON.stringify({ verdict: "pass", issues: [] }));
+    const r = await reviewImageBrief("An engineer at a workstation in a server room, natural window light.", { model });
+    expect(r.verdict).toBe("pass");
+  });
+
+  it("reviewImageBrief flags glowing-symbol AI-slop", async () => {
+    const model = textModel(JSON.stringify({ verdict: "revise", issues: ["glowing holographic padlock made of hexagons"] }));
+    const r = await reviewImageBrief("A glowing holographic padlock of hexagons floats in a neon server room.", { model });
+    expect(r.verdict).toBe("revise");
+    expect(r.issues[0]).toContain("padlock");
+  });
+
+  it("composeImageBrief runs the guard and returns a brief once it passes", async () => {
+    // One model serves both the brief writer (generateText) and the guard
+    // (generateObject); tell them apart by the guard's prompt marker.
+    const model = new MockLanguageModelV3({
+      doGenerate: async (options) => {
+        const isReview = JSON.stringify(options.prompt).includes("Image brief to check");
+        return isReview
+          ? textResult(JSON.stringify({ verdict: "pass", issues: [] }))
+          : textResult("A photographer's shot of a data-center aisle at night, one engineer walking between the racks.");
+      },
+    });
+    const brief = await composeImageBrief({ postText: "about exposed servers", model });
+    expect(brief).toContain("data-center");
   });
 
   it("maps size to LinkedIn dimensions and injects the reference hint", async () => {

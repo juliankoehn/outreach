@@ -7,7 +7,7 @@ export { synthesizeProfile, refineProfile, PROFILE_SCHEMA } from "./profile.js";
 export { suggestFacets, FACET_KINDS, FACET_SCHEMA } from "./facets.js";
 export type { ProfileFacet, FacetKind, SuggestFacetsInput } from "./facets.js";
 export { analyzePosts, DERIVED_SCHEMA } from "./analyze.js";
-export { draftPost, refinePost, reviewPost, rewriteForReview, generateImage, composeImageBrief, getImageModel, LINKEDIN_PLAYBOOK, stripMarkdown, enforceNoGos } from "./compose.js";
+export { draftPost, refinePost, reviewPost, rewriteForReview, generateImage, composeImageBrief, reviewImageBrief, getImageModel, LINKEDIN_PLAYBOOK, stripMarkdown, enforceNoGos } from "./compose.js";
 export type { PostReview } from "./compose.js";
 export { describeImageReferences } from "./references.js";
 export { streamStudioAgent } from "./studio-agent.js";

@@ -249,6 +249,30 @@ const FORMAT_HINT = {
 // visual language into ONE concrete, on-topic image brief. The result is fed to
 // generateImage as its direction, so feed-drafted posts get an image that
 // actually depicts the article's subject rather than a generic stock visual.
+const IMAGE_BRIEF_REVIEW_SCHEMA = z.object({
+  verdict: z.enum(["pass", "revise"]).describe("'pass' if the brief is a believable real-world scene; 'revise' if it has AI-slop or readable text."),
+  issues: z.array(z.string()).describe("Concrete slop/text problems for the art director to fix. Empty when verdict is 'pass'."),
+});
+
+// Guard on the image brief BEFORE it's rendered: a strict art director that
+// rejects the tell-tale AI-slop / stock-cliché look (glowing symbols, holograms,
+// hexagons, floating tech metaphors) and any readable text. Same judge→rewrite
+// pattern as the post review loop, so images don't gamble on the prompt alone.
+export async function reviewImageBrief(
+  brief: string,
+  opts?: { model?: LanguageModel },
+): Promise<{ verdict: "pass" | "revise"; issues: string[] }> {
+  const text = brief.trim();
+  if (!text) return { verdict: "pass", issues: [] };
+  const { object } = await generateObject({
+    model: opts?.model ?? getTextModel(),
+    schema: IMAGE_BRIEF_REVIEW_SCHEMA,
+    system: `You are a strict art director gating an image brief before it is rendered for a LinkedIn post. REJECT it (verdict "revise") if it describes ANY of the AI-slop / stock cliché look: glowing or holographic symbols (padlocks, locks, keyholes, shields, fortresses), holograms or HUD overlays, neon circuit boards, hexagon/honeycomb grids, futuristic sci-fi cityscapes, robot hands, binary-code rain, floating abstract "technology/innovation" metaphors, an over-saturated synthetic "digital tech" look, OR any readable text, words, labels, or signage. PASS (verdict "pass", empty issues) only if it describes a believable real-world scene — real people, real places, real objects, natural light — with nothing meant to be read. List each concrete problem in "issues".`,
+    prompt: `Image brief to check:\n"""${text}"""`,
+  });
+  return object;
+}
+
 export async function composeImageBrief(opts: {
   seed?: string; // the agent's / creator's rough visual idea, if any
   postText?: string;
@@ -273,11 +297,25 @@ export async function composeImageBrief(opts: {
   // ask for readable words — describe screens/maps/signage as unlabeled.
   const noTextLine =
     "\nNO READABLE TEXT: image generators turn text into garbled gibberish, so your brief must NOT describe any words, letters, labels, captions, headlines, signage, place/map names, logos, or on-screen UI copy. If screens, monitors, maps, or dashboards appear, describe them as abstract glowing graphics, unlabeled shapes, dot patterns, or softly blurred/illegible content — nothing meant to be read.";
+  const system = `You are an art director for a professional LinkedIn creator. From the context, write ONE vivid, concrete image brief (2-4 sentences, English) for an image generator. Describe a specific scene, subject, composition, lighting, and mood that concretely represents the post's actual topic — never a generic abstract "technology" or "business" stock visual. It is for ${FORMAT_HINT[opts.size ?? "portrait"]}.\n${IMAGE_AESTHETIC}${noTextLine}${noGoLine}\nOutput only the brief, no preamble or quotes.`;
+  const promptBase = ctx.join("\n\n") || "Write a strong, on-brand image brief for this creator's post.";
 
-  const { text } = await generateText({
-    model,
-    system: `You are an art director for a professional LinkedIn creator. From the context, write ONE vivid, concrete image brief (2-4 sentences, English) for an image generator. Describe a specific scene, subject, composition, lighting, and mood that concretely represents the post's actual topic — never a generic abstract "technology" or "business" stock visual. It is for ${FORMAT_HINT[opts.size ?? "portrait"]}.\n${IMAGE_AESTHETIC}${noTextLine}${noGoLine}\nOutput only the brief, no preamble or quotes.`,
-    prompt: ctx.join("\n\n") || "Write a strong, on-brand image brief for this creator's post.",
-  });
-  return text.trim();
+  const gen = async (extra?: string): Promise<string> => {
+    const { text } = await generateText({ model, system, prompt: extra ? `${promptBase}\n\n${extra}` : promptBase });
+    return text.trim();
+  };
+
+  // Judge→rewrite guard: prompt rules alone don't reliably keep image models off
+  // the slop look, so we review the brief and rewrite it until it passes (or the
+  // round budget runs out).
+  const MAX_BRIEF_REVISIONS = 2;
+  let brief = await gen();
+  for (let i = 0; i < MAX_BRIEF_REVISIONS; i++) {
+    const review = await reviewImageBrief(brief, { model });
+    if (review.verdict === "pass") break;
+    brief = await gen(
+      `The previous brief was REJECTED for looking AI-generated / stock: ${review.issues.join("; ")}. Rewrite it as a believable real-world scene that fixes EVERY problem — no glowing or holographic symbols, no padlocks/shields/fortresses, no hexagons, no floating tech metaphors, no readable text. Show a concrete real scene instead.\nPrevious brief:\n"""${brief}"""`,
+    );
+  }
+  return brief;
 }
