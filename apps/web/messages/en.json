@@ -406,6 +406,8 @@
   "schedule": {
     "title": "Schedule",
     "today": "Today",
+    "prev": "Previous",
+    "next": "Next",
     "month": "Month",
     "week": "Week",
     "day": "Day",

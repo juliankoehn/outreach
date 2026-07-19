@@ -406,6 +406,8 @@
   "schedule": {
     "title": "Zeitplan",
     "today": "Heute",
+    "prev": "Zurück",
+    "next": "Weiter",
     "month": "Monat",
     "week": "Woche",
     "day": "Tag",

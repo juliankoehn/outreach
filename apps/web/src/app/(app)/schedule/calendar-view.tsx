@@ -302,6 +302,7 @@ export function CalendarView(props: CalendarViewProps) {
             <Button
               variant="outline"
               size="icon-sm"
+              aria-label={t("schedule.prev")}
               onClick={() => onCursor(step(-1))}
             >
               <ChevronLeft className="size-4" />
@@ -309,6 +310,7 @@ export function CalendarView(props: CalendarViewProps) {
             <Button
               variant="outline"
               size="icon-sm"
+              aria-label={t("schedule.next")}
               onClick={() => onCursor(step(1))}
             >
               <ChevronRight className="size-4" />
