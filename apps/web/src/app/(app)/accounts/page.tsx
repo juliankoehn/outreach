@@ -133,9 +133,31 @@ function AccountsList() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="success" className="capitalize">
-                      {a.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {a.status === "expired" || a.status === "revoked" ? (
+                        <Badge
+                          variant="outline"
+                          className="border-destructive/30 bg-destructive/10 text-destructive capitalize"
+                        >
+                          {a.status}
+                        </Badge>
+                      ) : (
+                        <Badge variant="success" className="capitalize">
+                          {a.status}
+                        </Badge>
+                      )}
+                      {(a.status === "expired" || a.status === "revoked") && (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive/30 text-destructive hover:bg-destructive/10 h-7 px-2 text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <a href="/api/linkedin/connect">{t("accounts.reconnect")}</a>
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{nf.format(a.postCount ?? 0)}</TableCell>
                   <TableCell>
