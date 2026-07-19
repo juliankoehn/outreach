@@ -14,6 +14,7 @@ import {
 import { KnowledgeSources, type KnowledgeSource } from "@/components/ai-elements/knowledge-sources";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool";
+import { stripMarkdown } from "@/lib/text";
 import {
   PromptInput,
   PromptInputBody,
@@ -107,7 +108,7 @@ export function StudioChat({
     }
     if (latestText !== null && latestText !== lastText.current) {
       lastText.current = latestText;
-      onPostText(latestText);
+      onPostText(stripMarkdown(latestText));
     }
     if (latestImage !== null && latestImage !== lastImage.current) {
       lastImage.current = latestImage;

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, streamStudioAgent } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, streamStudioAgent, stripMarkdown } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -148,8 +148,9 @@ export function studioRoutes() {
       currentText,
       handlers: {
         updatePost: async (text) => {
-          currentText = text;
-          await updateDraft(draftId, accountId, { text });
+          // LinkedIn is plain text — strip any Markdown the model slipped in.
+          currentText = stripMarkdown(text);
+          await updateDraft(draftId, accountId, { text: currentText });
         },
         createImage: async (prompt) => {
           const { base64, mediaType } = await generateImage(prompt, {

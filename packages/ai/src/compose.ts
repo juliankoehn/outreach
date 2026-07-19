@@ -2,6 +2,25 @@ import { generateText, generateImage as genImage, type LanguageModel, type Image
 import { openai } from "@ai-sdk/openai";
 import { getTextModel } from "./provider.js";
 
+// LinkedIn renders plain text — Markdown would show its raw symbols. The prompt
+// asks for plain text, but models slip (especially when fed Markdown context),
+// so every post text is deterministically stripped of Markdown as a guarantee.
+export function stripMarkdown(input: string): string {
+  return input
+    .replace(/```[\s\S]*?```/g, (m) => m.replace(/```[^\n]*\n?/g, "").replace(/```/g, "")) // code fences → contents
+    .replace(/^#{1,6}[ \t]+/gm, "") // # headings
+    .replace(/^\s{0,3}>[ \t]?/gm, "") // > blockquotes
+    .replace(/^\s*([*_-])\1{2,}\s*$/gm, "") // --- *** ___ horizontal rules
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // ![alt](url) → alt
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // [text](url) → text
+    .replace(/(\*\*|__)(.*?)\1/g, "$2") // **bold** __bold__
+    .replace(/(?<![*\w])(\*|_)(?!\s)(.+?)(?<!\s)\1(?![*\w])/g, "$2") // *italic* _italic_
+    .replace(/`([^`]+)`/g, "$1") // `inline code`
+    .replace(/^[ \t]*[*+][ \t]+/gm, "- ") // normalise -/*/+ bullets to a plain dash
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // Distilled playbook from top LinkedIn creators — injected into every draft so
 // posts follow what actually performs on the platform, in the creator's voice.
 export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, adapted to the creator's voice):
@@ -37,7 +56,7 @@ export async function draftPost(
     system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
     prompt: opts?.topic ? `Topic / angle: ${opts.topic}` : "Write a strong post on one of the creator's core pillars.",
   });
-  return text.trim();
+  return stripMarkdown(text);
 }
 
 export async function refinePost(
@@ -52,7 +71,7 @@ export async function refinePost(
     system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
     prompt: `Current draft:\n"""${currentText}"""\n\nInstruction: ${instruction}`,
   });
-  return text.trim();
+  return stripMarkdown(text);
 }
 
 export function getImageModel(): ImageModel {
