@@ -1,6 +1,3 @@
--- DropIndex
-DROP INDEX "resource_chunk_embedding_hnsw";
-
 -- CreateTable
 CREATE TABLE "FeedSource" (
     "id" TEXT NOT NULL,
@@ -47,3 +44,8 @@ ALTER TABLE "FeedSource" ADD CONSTRAINT "FeedSource_userId_fkey" FOREIGN KEY ("u
 
 -- AddForeignKey
 ALTER TABLE "FeedItem" ADD CONSTRAINT "FeedItem_sourceId_fkey" FOREIGN KEY ("sourceId") REFERENCES "FeedSource"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Re-create the pgvector HNSW index that Prisma's schema diff cannot see (it lives
+-- on an Unsupported("halfvec(3072)") column) and therefore tried to DROP above.
+-- Idempotent: a fresh clone already has it from 20260719113613_add_resource_chunk.
+CREATE INDEX IF NOT EXISTS "resource_chunk_embedding_hnsw" ON "ResourceChunk" USING hnsw (embedding halfvec_cosine_ops);

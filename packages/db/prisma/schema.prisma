@@ -180,6 +180,7 @@ model Resource {
   @@index([accountId, kind])
 }
 
+// WARNING: the HNSW index on `embedding` (Unsupported halfvec) is invisible to Prisma's schema diff, so `prisma migrate dev` will try to DROP it in EVERY future migration. Always generate migrations with `--create-only` and strip any `DROP INDEX resource_chunk_embedding_hnsw` (and re-add the CREATE) before applying. See migration 20260719113613_add_resource_chunk.
 model ResourceChunk {
   id         String   @id @default(cuid())
   resourceId String
