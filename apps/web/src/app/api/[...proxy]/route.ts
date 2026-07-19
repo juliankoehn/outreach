@@ -7,7 +7,7 @@ async function forward(req: Request, path: string[]): Promise<Response> {
   const res = await fetch(url, {
     method: req.method,
     headers: req.headers,
-    body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.text(),
+    body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer(),
     redirect: "manual",
   });
   // Pass through status, body, and Set-Cookie/Location headers.

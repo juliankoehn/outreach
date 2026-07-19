@@ -72,6 +72,7 @@
     "tab_overview": "Overview",
     "tab_posts": "Posts",
     "tab_profile": "Profile",
+    "tab_resources": "Resources",
     "tab_settings": "Settings",
     "recentPosts": "Recent posts",
     "viewAllPosts": "View all",
@@ -223,6 +224,23 @@
     "pcExamples": "How I'd post as you",
     "pcExamplesEmpty": "Example posts will appear here as we go.",
     "pcEmpty": "Not set yet"
+  },
+  "resources": {
+    "title": "Resources",
+    "images": "Images",
+    "knowledge": "Knowledge",
+    "imagesSubtitle": "Photos of you or your brand. Mark the ones the AI should steer generated post images with.",
+    "knowledgeSubtitle": "Reference documents that will ground post generation in a later step.",
+    "uploadImage": "Upload image",
+    "uploadDoc": "Upload document",
+    "useAsReference": "Use as reference",
+    "referenceOn": "Reference",
+    "analyzing": "Analyzing…",
+    "uploading": "Uploading…",
+    "imagesEmpty": "Upload photos of yourself or brand imagery — the AI uses them to steer generated post images.",
+    "knowledgeEmpty": "Upload PDFs (norms, laws, guidelines). They're stored now; grounded post generation activates in a later step.",
+    "docPendingBadge": "Stored · analysis coming",
+    "delete": "Delete"
   },
   "studio": {
     "kicker": "console / studio",

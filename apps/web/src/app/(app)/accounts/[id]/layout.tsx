@@ -50,6 +50,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     { key: "overview", href: `/accounts/${id}` },
     { key: "posts", href: `/accounts/${id}/posts` },
     { key: "profile", href: `/accounts/${id}/profile` },
+    { key: "resources", href: `/accounts/${id}/resources` },
     { key: "settings", href: `/accounts/${id}/settings` },
   ];
   const isActive = (href: string) =>

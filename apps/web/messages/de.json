@@ -72,6 +72,7 @@
     "tab_overview": "Übersicht",
     "tab_posts": "Posts",
     "tab_profile": "Profil",
+    "tab_resources": "Ressourcen",
     "tab_settings": "Einstellungen",
     "recentPosts": "Neueste Posts",
     "viewAllPosts": "Alle anzeigen",
@@ -223,6 +224,23 @@
     "pcExamples": "So würde ich als du posten",
     "pcExamplesEmpty": "Beispielposts erscheinen hier, sobald wir weiterkommen.",
     "pcEmpty": "Noch nicht festgelegt"
+  },
+  "resources": {
+    "title": "Ressourcen",
+    "images": "Bilder",
+    "knowledge": "Wissen",
+    "imagesSubtitle": "Fotos von dir oder deiner Marke. Markiere die, mit denen die KI generierte Post-Bilder steuern soll.",
+    "knowledgeSubtitle": "Referenzdokumente, die die Post-Generierung in einem späteren Schritt fundieren.",
+    "uploadImage": "Bild hochladen",
+    "uploadDoc": "Dokument hochladen",
+    "useAsReference": "Als Referenz nutzen",
+    "referenceOn": "Referenz",
+    "analyzing": "Analysiere…",
+    "uploading": "Lade hoch…",
+    "imagesEmpty": "Lade Fotos von dir oder Markenbilder hoch — die KI nutzt sie, um generierte Post-Bilder zu steuern.",
+    "knowledgeEmpty": "Lade PDFs hoch (Normen, Gesetze, Richtlinien). Sie werden jetzt abgelegt; fundierte Post-Generierung folgt in einem späteren Schritt.",
+    "docPendingBadge": "Abgelegt · Analyse folgt",
+    "delete": "Löschen"
   },
   "studio": {
     "kicker": "konsole / studio",
