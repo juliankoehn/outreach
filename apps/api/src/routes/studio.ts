@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, reviewPost, rewriteForReview, generateImage, composeImageBrief, streamStudioAgent, stripMarkdown, enforceNoGos } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -184,43 +184,13 @@ export function studioRoutes() {
       currentText,
       sourceArticle,
       handlers: {
-        updatePost: async (text) => {
-          // Writer↔reviewer loop BEFORE the post reaches the canvas: a strict
-          // editor judges the draft; if it flags defects (corporate bloat, wrong
-          // register, no-go/value/on-topic problems) the writer rewrites against
-          // that list, then the editor re-checks — up to MAX_REWRITES rounds or
-          // until it passes. LinkedIn is plain text, so we strip Markdown + apply
-          // mechanical no-gos on every candidate.
-          const MAX_REWRITES = 2;
-          const articleCtx = sourceArticle
-            ? `${sourceArticle.title}\n\n${sourceArticle.content.slice(0, 600)}`
-            : undefined;
-          let candidate = enforceNoGos(stripMarkdown(text), profile?.noGos);
-          const allIssues: string[] = [];
-          let rounds = 0;
-          for (let i = 0; i <= MAX_REWRITES; i++) {
-            const review = await reviewPost({
-              text: candidate,
-              brandBrief: profile?.brandBrief ?? undefined,
-              noGos: profile?.noGos,
-              toneWords: profile?.toneWords,
-              article: articleCtx,
-            });
-            if (review.verdict === "pass" || i === MAX_REWRITES) break;
-            allIssues.push(...review.issues);
-            rounds++;
-            candidate = await rewriteForReview({
-              text: candidate,
-              issues: review.issues,
-              brandBrief: profile?.brandBrief ?? undefined,
-              noGos: profile?.noGos,
-              toneWords: profile?.toneWords,
-              article: articleCtx,
-            });
-          }
-          currentText = candidate;
-          await updateDraft(draftId, accountId, { text: currentText });
-          return { revised: rounds > 0, rounds, issues: [...new Set(allIssues)] };
+        updatePost: async (finalText) => {
+          // The writer↔reviewer loop now runs inside the updatePost tool (so it
+          // can stream its rounds to the canvas). By the time we get here the
+          // text is final, reviewed, and already stripped/no-go-enforced — we
+          // just persist it and keep currentText in sync for the image step.
+          currentText = finalText;
+          await updateDraft(draftId, accountId, { text: finalText });
         },
         createImage: async (prompt) => {
           // Multi-step: first turn the post + source article + the creator's

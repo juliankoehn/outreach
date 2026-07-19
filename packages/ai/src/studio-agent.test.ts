@@ -3,14 +3,14 @@ import { describe, it, expect } from "vitest";
 import type { UIMessage } from "ai";
 import { MockLanguageModelV3, convertArrayToReadableStream } from "ai/test";
 import { streamStudioAgent, type StudioAgentHandlers } from "./studio-agent.js";
-import { MOCK_USAGE } from "./testing.js";
+import { MOCK_USAGE, textResult } from "./testing.js";
 
 const NO_CITATIONS_RULE =
   "You can call searchKnowledge to pull passages from the creator's uploaded documents (norms, guidelines). When you use them, ground your writing on the retrieved passages — but NEVER put citations, source names, section numbers, or quotes-with-attribution in the post text itself. The post must read clean; the sources are shown to the user separately in the UI.";
 
 function noopHandlers(overrides: Partial<StudioAgentHandlers> = {}): StudioAgentHandlers {
   return {
-    updatePost: async () => ({ revised: false, rounds: 0, issues: [] }),
+    updatePost: async () => {},
     createImage: async () => ({ imageUrl: "/x.png" }),
     findSimilar: async () => [],
     searchKnowledge: async () => [],
@@ -83,6 +83,31 @@ describe("streamStudioAgent", () => {
     await response.text();
 
     expect(seenQuery).toBe("encryption at rest");
+  });
+
+  it("runs the review loop inside updatePost and persists the final reviewed text", async () => {
+    let persisted: string | null = null;
+    const handlers = noopHandlers({
+      updatePost: async (t) => {
+        persisted = t;
+      },
+    });
+    // Agent calls updatePost, then wraps up with a chat sentence. The tool's
+    // internal reviewPost (generateObject) is served by doGenerate → verdict
+    // "pass", so the loop ships the first draft with no rewrite.
+    const model = new MockLanguageModelV3({
+      doStream: [toolCallStreamResult("updatePost", { text: "My draft post." }), textStreamResult("Done.")],
+      doGenerate: async () => textResult(JSON.stringify({ verdict: "pass", issues: [] })),
+    });
+    const response = await streamStudioAgent({
+      messages: [{ id: "u1", role: "user", parts: [{ type: "text", text: "write a post" }] }],
+      currentText: "",
+      handlers,
+      model,
+    });
+    await response.text();
+
+    expect(persisted).toBe("My draft post.");
   });
 
   it("gives the persisted assistant turn a non-empty id (survives reload + merge-by-id)", async () => {

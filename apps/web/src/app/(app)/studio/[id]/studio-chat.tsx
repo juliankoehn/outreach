@@ -3,8 +3,18 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type ToolUIPart, type UIMessage } from "ai";
+
+// The progress frames the updatePost tool streams (mirrors @outreach/ai's
+// ReviewLoopFrame — kept local so the web app doesn't depend on the server pkg).
+interface ReviewLoopFrame {
+  phase: "reviewing" | "revising" | "done";
+  round: number;
+  issues: string[];
+  text: string;
+  done: boolean;
+}
 import { useTranslations } from "next-intl";
-import { Sparkles } from "lucide-react";
+import { CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -90,7 +100,13 @@ export function StudioChat({
       for (const part of m.parts) {
         if (!isToolUIPart(part)) continue;
         if (part.type === "tool-updatePost") {
-          const text = (part.input as { text?: string } | undefined)?.text;
+          // Prefer the streamed output text — the review loop yields the current
+          // candidate each round, so the canvas types through the rounds live.
+          // Fall back to the input (the writer's first draft) until the first
+          // frame arrives.
+          const out = (part.output as { text?: string } | undefined)?.text;
+          const inp = (part.input as { text?: string } | undefined)?.text;
+          const text = typeof out === "string" ? out : inp;
           if (typeof text === "string") latestText = text;
         }
         if (part.type === "tool-generateImage") {
@@ -162,6 +178,18 @@ export function StudioChat({
                     }
                     return null;
                   }
+                  // updatePost streams the writer↔reviewer loop; show its rounds
+                  // as a compact card (never the raw output — it carries the full
+                  // post text, which must stay off the chat).
+                  if (part.type === "tool-updatePost") {
+                    return (
+                      <ReviewLoopCard
+                        key={i}
+                        frame={part.output as ReviewLoopFrame | undefined}
+                        errorText={part.errorText}
+                      />
+                    );
+                  }
                   return (
                     <Tool key={i} className="w-full">
                       <ToolHeader type={part.type} state={part.state} title={toolTitle(part.type, t)} />
@@ -204,5 +232,50 @@ export function StudioChat({
         </PromptInput>
       </div>
     </aside>
+  );
+}
+
+// Live view of the writer↔reviewer loop behind updatePost: shows what round the
+// editor is on and what it flagged, while the canvas types through the rewrites.
+function ReviewLoopCard({ frame, errorText }: { frame?: ReviewLoopFrame; errorText?: string }) {
+  const t = useTranslations();
+  const round = frame?.round ?? 0;
+  const done = !!frame?.done;
+  const issues = frame?.issues ?? [];
+
+  const status = errorText
+    ? errorText
+    : !done
+      ? frame?.phase === "revising"
+        ? t("studio.reviewLoopRevising", { round })
+        : t("studio.reviewLoopReviewing")
+      : round === 0
+        ? t("studio.reviewLoopClean")
+        : t("studio.reviewLoopDone", { round });
+
+  const settled = done || !!errorText;
+
+  return (
+    <div className="bg-muted/40 flex w-full flex-col gap-1.5 rounded-lg border px-3 py-2 text-xs">
+      <div className="flex items-center gap-2">
+        {settled ? (
+          <CheckCircle2 className="text-success size-3.5 shrink-0" />
+        ) : (
+          <Loader2 className="text-muted-foreground size-3.5 shrink-0 animate-spin" />
+        )}
+        <span className="font-medium">{t("studio.reviewLoopTitle")}</span>
+        <span className="text-muted-foreground min-w-0 truncate">· {status}</span>
+      </div>
+      {issues.length > 0 && (
+        <div className="ml-5">
+          <span className="text-muted-foreground">{t("studio.reviewLoopFixed")}</span>
+          <ul className="text-muted-foreground mt-0.5 list-disc space-y-0.5 pl-4">
+            {issues.slice(0, 4).map((iss, k) => (
+              <li key={k}>{iss}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

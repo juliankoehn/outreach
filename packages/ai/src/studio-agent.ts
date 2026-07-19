@@ -4,12 +4,28 @@ import {
   tool,
   stepCountIs,
   generateId,
+  toUIMessageStream,
+  createUIMessageStreamResponse,
   type LanguageModel,
   type UIMessage,
 } from "ai";
 import { z } from "zod";
 import { getTextModel } from "./provider.js";
-import { LINKEDIN_PLAYBOOK } from "./compose.js";
+import { LINKEDIN_PLAYBOOK, reviewPost, rewriteForReview, stripMarkdown, enforceNoGos } from "./compose.js";
+
+// How many writer↔reviewer rounds the review loop runs before shipping.
+const MAX_REWRITES = 2;
+
+// A progress frame the updatePost tool streams as it runs the writer↔reviewer
+// loop. Each frame carries the current candidate text (the canvas types through
+// them live) plus what the reviewer is doing this round.
+export interface ReviewLoopFrame {
+  phase: "reviewing" | "revising" | "done";
+  round: number; // completed rewrite rounds so far
+  issues: string[]; // cumulative defects the reviewer flagged
+  text: string; // current candidate post text (canvas mirrors this)
+  done: boolean;
+}
 
 // The side-effecting handlers the route wires in. The agent decides WHEN to
 // call these; the route decides WHAT they do (persist to the draft, save the
@@ -28,10 +44,10 @@ export interface KnowledgePassage {
 }
 
 export interface StudioAgentHandlers {
-  // Persists the post to the canvas AFTER a writer↔reviewer loop. Returns how
-  // many revision rounds the reviewer forced and what it fixed, so the agent can
-  // tell the creator.
-  updatePost(text: string): Promise<{ revised: boolean; rounds: number; issues: string[] }>;
+  // Persists the final, reviewed post to the canvas/draft. The writer↔reviewer
+  // loop now runs inside the updatePost tool (so it can stream progress); this
+  // handler only persists the text the loop settled on.
+  updatePost(finalText: string): Promise<void>;
   createImage(prompt: string): Promise<{ imageUrl: string }>;
   findSimilar(query: string): Promise<SimilarPostMatch[]>;
   searchKnowledge(query: string): Promise<KnowledgePassage[]>;
@@ -110,7 +126,7 @@ So, without exception:
 - NEVER announce "I'll update the canvas" / "let me put this on the canvas" and then stop — that is a failure. Saying it is not doing it. Call the tool.
 - Only AFTER updatePost has executed do you send a chat message, and it is ONE short plain sentence about what you changed (no post text, no Markdown).
 If you are about to type post text into the chat: STOP and call updatePost instead.
-- Every updatePost call passes through an editorial review before it lands on the canvas. The tool result tells you whether the reviewer revised your text ("revised": true) and what it fixed ("issues"). The canvas now holds the REVIEWED version — treat that as final. If it was revised, mention it briefly and naturally in your chat sentence (e.g. "hab den Post noch entschlackt — Corporate-Floskeln raus"); never re-submit to undo the reviewer's fixes.
+- Every updatePost call runs an automatic writer↔reviewer loop before the post lands on the canvas. The tool streams its progress and the final result tells you how many rounds it took ("round": >0 means the reviewer forced rewrites) and what it fixed ("issues"). The canvas now holds the final REVIEWED version — treat that as final. If "round" > 0, mention it briefly and naturally in your chat sentence (e.g. "hab den Post noch entschlackt — Corporate-Floskeln raus"); never re-submit to undo the reviewer's fixes.
 
 CREATOR BRAND BRIEF
 ${brief}${tone}${pillars}${noGos}
@@ -147,13 +163,46 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
     tools: {
       updatePost: tool({
         description:
-          "Replace the LinkedIn post on the canvas with new text. Call this every time you write or revise the post. Pass the complete post, not a diff.",
+          "Replace the LinkedIn post on the canvas with new text. Call this every time you write or revise the post. Pass the complete post, not a diff. Your text then goes through an automatic editorial review loop before it lands.",
         inputSchema: z.object({
           text: z.string().describe("The complete post text to show on the canvas."),
         }),
-        execute: async ({ text }) => {
-          const review = await opts.handlers.updatePost(text);
-          return { ok: true, ...review };
+        // Async generator: each yield streams a progress frame to the client
+        // (the canvas types through the candidate text, the chat shows the
+        // review rounds). The LAST yield is the final tool output.
+        async *execute({ text }) {
+          const articleCtx = opts.sourceArticle
+            ? `${opts.sourceArticle.title}\n\n${opts.sourceArticle.content.slice(0, 600)}`
+            : undefined;
+          const reviewCtx = {
+            brandBrief: opts.brandBrief,
+            noGos: opts.noGos,
+            toneWords: opts.toneWords,
+            article: articleCtx,
+            model: opts.model,
+          };
+
+          let candidate = enforceNoGos(stripMarkdown(text), opts.noGos);
+          const issues: string[] = [];
+          let round = 0;
+          // Put the writer's first draft on the canvas right away, then review.
+          yield { phase: "reviewing", round, issues: [], text: candidate, done: false } satisfies ReviewLoopFrame;
+
+          for (let i = 0; i <= MAX_REWRITES; i++) {
+            const review = await reviewPost({ text: candidate, ...reviewCtx });
+            if (review.verdict === "pass" || i === MAX_REWRITES) break;
+            issues.push(...review.issues);
+            round++;
+            // Reviewer flagged problems → show them, then rewrite against them.
+            yield { phase: "revising", round, issues: [...new Set(issues)], text: candidate, done: false } satisfies ReviewLoopFrame;
+            candidate = await rewriteForReview({ text: candidate, issues: review.issues, ...reviewCtx });
+            yield { phase: "reviewing", round, issues: [...new Set(issues)], text: candidate, done: false } satisfies ReviewLoopFrame;
+          }
+
+          await opts.handlers.updatePost(candidate);
+          // Final frame — the LAST yield is what the SDK persists as the tool
+          // output (a generator's return value is NOT captured by for-await).
+          yield { phase: "done", round, issues: [...new Set(issues)], text: candidate, done: true } satisfies ReviewLoopFrame;
         },
       }),
       generateImage: tool({
@@ -197,15 +246,17 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
     },
   });
 
-  return result.toUIMessageStreamResponse({
-    originalMessages: opts.messages,
-    // Give the response message a real id. Without this the SDK reconstructs the
-    // assistant message with id "" server-side (the client meanwhile mints its
-    // own id), which broke both the merge-by-id persistence and reload (the
-    // empty id is filtered out on hydration) — chat turns vanished on refresh.
-    // With a shared generated id, client and server agree and every turn
-    // persists + rehydrates.
-    generateMessageId: generateId,
-    onFinish: ({ messages }) => opts.onFinish?.(messages),
+  // Standalone helpers (the result.toUIMessageStream* methods are deprecated).
+  // generateMessageId gives the response message a real id — without it the SDK
+  // reconstructs the assistant message with id "" server-side (the client mints
+  // its own), which broke merge-by-id persistence and reload (empty id filtered
+  // on hydration) so chat turns vanished on refresh.
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({
+      stream: result.stream,
+      originalMessages: opts.messages,
+      generateMessageId: generateId,
+      onEnd: ({ messages }) => opts.onFinish?.(messages),
+    }),
   });
 }

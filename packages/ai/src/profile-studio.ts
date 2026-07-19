@@ -4,6 +4,9 @@ import {
   convertToModelMessages,
   tool,
   stepCountIs,
+  generateId,
+  toUIMessageStream,
+  createUIMessageStreamResponse,
   type LanguageModel,
   type UIMessage,
 } from "ai";
@@ -201,8 +204,12 @@ export async function streamProfileStudio(opts: StreamProfileStudioOptions): Pro
     },
   });
 
-  return result.toUIMessageStreamResponse({
-    originalMessages: opts.messages,
-    onFinish: ({ messages }) => opts.onFinish?.(messages),
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({
+      stream: result.stream,
+      originalMessages: opts.messages,
+      generateMessageId: generateId,
+      onEnd: ({ messages }) => opts.onFinish?.(messages),
+    }),
   });
 }

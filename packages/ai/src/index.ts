@@ -11,7 +11,7 @@ export { draftPost, refinePost, reviewPost, rewriteForReview, generateImage, com
 export type { PostReview } from "./compose.js";
 export { describeImageReferences } from "./references.js";
 export { streamStudioAgent } from "./studio-agent.js";
-export type { StudioAgentHandlers, StudioAgentOptions, SimilarPostMatch } from "./studio-agent.js";
+export type { StudioAgentHandlers, StudioAgentOptions, SimilarPostMatch, ReviewLoopFrame } from "./studio-agent.js";
 export { streamProfileStudio } from "./profile-studio.js";
 export type { ProfilePatch, ProfileStudioHandlers, StreamProfileStudioOptions } from "./profile-studio.js";
 export type { UIMessage } from "ai";
