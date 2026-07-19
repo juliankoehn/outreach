@@ -8,8 +8,11 @@ import {
   CsvShareIngestor,
   LinkedInReadUnavailableError,
   MemberAnalyticsClient,
+  extractEmbedUrl,
+  parseEmbedHtml,
 } from "@outreach/linkedin";
 import type { AppEnv } from "../app.js";
+import type { RawPost, MediaType } from "@outreach/core";
 import { env } from "../env.js";
 import { signState, verifyState } from "../oauth-state.js";
 import {
@@ -21,6 +24,7 @@ import {
   setAnalyticsCache,
 } from "../repos/linkedin-account.js";
 import { upsertPosts, listPosts, postsToEnrich, setPostMetrics } from "../repos/post.js";
+import { getOrCreateAccountProfile } from "../repos/profile.js";
 
 /** Run `fn` over `items` with at most `limit` concurrent executions. */
 async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
@@ -168,6 +172,14 @@ export function linkedinRoutes() {
     return c.json({ account: acct });
   });
 
+  // The account's creator profile (created + linked on first access).
+  r.get("/accounts/:id/profile", async (c) => {
+    const user = c.get("user")!;
+    const profile = await getOrCreateAccountProfile(c.req.param("id"), user.id);
+    if (!profile) return c.json({ error: "not_found" }, 404);
+    return c.json({ profile });
+  });
+
   r.get("/accounts", async (c) => {
     const user = c.get("user")!;
     return c.json({ accounts: await listAccounts(user.id) });
@@ -204,5 +216,160 @@ export function linkedinRoutes() {
     return c.json({ ...result, malformed: ingestor.skipped });
   });
 
+  // Parse a pasted "Embed this post" snippet: fetch the public embed HTML and
+  // pull out the text, social counts, image and media type — a preview the
+  // creator reviews before saving. Nothing is stored here.
+  r.post("/accounts/:id/posts/parse", async (c) => {
+    const user = c.get("user")!;
+    const acct = await getAccountSummary(c.req.param("id"), user.id);
+    if (!acct) return c.json({ error: "not_found" }, 404);
+
+    const { embed } = await c.req.json<{ embed?: string }>().catch(() => ({}) as { embed?: string });
+    const embedUrl = extractEmbedUrl(embed ?? "");
+    if (!embedUrl) return c.json({ error: "no_embed" }, 400);
+    // Defence in depth: only ever fetch LinkedIn embed URLs (extractEmbedUrl
+    // already guarantees this, but re-check the host before making the request).
+    let host = "";
+    try {
+      host = new URL(embedUrl).hostname;
+    } catch {
+      return c.json({ error: "no_embed" }, 400);
+    }
+    if (!/(^|\.)linkedin\.com$/.test(host)) return c.json({ error: "no_embed" }, 400);
+
+    let html: string;
+    try {
+      const res = await fetch(embedUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; OutreachBot/1.0)" },
+        signal: AbortSignal.timeout(12_000),
+      });
+      if (!res.ok) return c.json({ error: "fetch_failed", status: res.status }, 502);
+      html = await res.text();
+    } catch {
+      return c.json({ error: "fetch_failed" }, 502);
+    }
+
+    const parsed = parseEmbedHtml(html);
+    if (!parsed.text) return c.json({ error: "no_content" }, 422);
+    return c.json({ urn: parsePostUrn(embedUrl), embedUrl, ...parsed });
+  });
+
+  // Save pasted posts. Each entry carries its own source ("manual" typed in, or
+  // "embed" auto-filled from the parser) so the UI can tell them apart later.
+  r.post("/accounts/:id/posts/manual", async (c) => {
+    const user = c.get("user")!;
+    // Ownership only — this never calls LinkedIn, so don't decrypt the token.
+    const acct = await getAccountSummary(c.req.param("id"), user.id);
+    if (!acct) return c.json({ error: "not_found" }, 404);
+
+    type ManualEntry = {
+      text?: string;
+      url?: string;
+      publishedAt?: string;
+      source?: string;
+      mediaType?: string;
+      imageUrl?: string;
+      metrics?: { impressions?: unknown; reactions?: unknown; comments?: unknown };
+    };
+    const body = await c.req
+      .json<{ posts?: ManualEntry[] }>()
+      .catch(() => ({}) as { posts?: ManualEntry[] });
+
+    const entries = (body.posts ?? [])
+      .map((p) => ({
+        text: (p.text ?? "").trim(),
+        url: p.url?.trim() || undefined,
+        publishedAt: p.publishedAt,
+        source: p.source === "embed" ? ("embed" as const) : ("manual" as const),
+        mediaType: MEDIA_TYPES.has(p.mediaType ?? "") ? (p.mediaType as MediaType) : ("none" as MediaType),
+        imageUrl: p.imageUrl?.trim() || undefined,
+        metrics: cleanMetrics(p.metrics),
+      }))
+      .filter((p) => p.text.length > 0);
+    if (entries.length === 0) return c.json({ error: "invalid_body" }, 400);
+
+    // upsertPosts stamps one source per call, so batch entries by their source.
+    const bySource = new Map<"manual" | "embed", RawPost[]>();
+    for (const p of entries) {
+      const raw: RawPost = {
+        externalId: parsePostUrn(p.url),
+        text: p.text,
+        mediaType: p.mediaType,
+        publishedAt: safeDate(p.publishedAt),
+        // Stored in the analyze/enrich shape ({impressions,reactions,comments}),
+        // which differs from RawPost's PostMetrics — hence the cast.
+        metrics: p.metrics as unknown as RawPost["metrics"],
+        raw: { source: p.source, url: p.url ?? null, imageUrl: p.imageUrl ?? null },
+      };
+      (bySource.get(p.source) ?? bySource.set(p.source, []).get(p.source)!).push(raw);
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+    for (const [source, raws] of bySource) {
+      const r = await upsertPosts(acct.id, source, raws);
+      inserted += r.inserted;
+      skipped += r.skipped;
+    }
+    return c.json({ inserted, skipped });
+  });
+
   return r;
+}
+
+const MEDIA_TYPES = new Set<string>(["none", "image", "video", "article", "carousel"]);
+
+/**
+ * Pull a LinkedIn post URN out of a pasted share/post URL, preserving its type.
+ * The analytics API keys on `share`/`ugcPost` URNs; a feed link usually carries
+ * an `activity` URN (which wraps a share) — we keep whatever type is present so
+ * enrichment can use it where LinkedIn allows.
+ */
+export function parsePostUrn(url?: string): string | null {
+  if (!url) return null;
+  const explicit = url.match(/urn:li:(activity|ugcPost|share):(\d+)/);
+  if (explicit) return `urn:li:${explicit[1]}:${explicit[2]}`;
+  const slug = url.match(/activity[:-](\d{6,})/);
+  return slug ? `urn:li:activity:${slug[1]}` : null;
+}
+
+/** Parse an ISO date string, falling back to now for empty/invalid input. */
+function safeDate(iso?: string): Date {
+  if (!iso) return new Date();
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+/**
+ * Coerce user-entered engagement numbers into the analyze/enrich metric shape.
+ * Returns undefined if nothing usable was provided, so posts without stats
+ * stay metric-less rather than storing zeros.
+ */
+export function cleanMetrics(m?: {
+  impressions?: unknown;
+  reactions?: unknown;
+  comments?: unknown;
+}): { impressions?: number; reactions?: number; comments?: number } | undefined {
+  if (!m) return undefined;
+  const num = (v: unknown): number | undefined => {
+    let n: number;
+    if (typeof v === "string") {
+      const s = v.replace(/[,\s]/g, "");
+      if (s === "") return undefined; // empty input, not zero
+      n = Number(s);
+    } else if (typeof v === "number") {
+      n = v;
+    } else {
+      return undefined;
+    }
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
+  };
+  const out: { impressions?: number; reactions?: number; comments?: number } = {};
+  const impressions = num(m.impressions);
+  const reactions = num(m.reactions);
+  const comments = num(m.comments);
+  if (impressions !== undefined) out.impressions = impressions;
+  if (reactions !== undefined) out.reactions = reactions;
+  if (comments !== undefined) out.comments = comments;
+  return Object.keys(out).length > 0 ? out : undefined;
 }

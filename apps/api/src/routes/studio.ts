@@ -1,9 +1,11 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, streamStudioAgent } from "@outreach/ai";
+import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
 import { getAccountProfile } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
+import { findSimilarPosts } from "../repos/post.js";
 import { saveImage } from "../images.js";
 
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
@@ -42,7 +44,9 @@ export function studioRoutes() {
       .json<{ prompt?: string; postText?: string }>()
       .catch(() => ({ prompt: undefined, postText: undefined }));
     if (!prompt) return c.json({ error: "invalid_body" }, 400);
-    const { base64, mediaType } = await generateImage(prompt, { postText });
+    const profile = await getAccountProfile(accountId);
+    const visualStyle = (profile?.derived as unknown as DerivedInsights | null | undefined)?.visualStyle;
+    const { base64, mediaType } = await generateImage(prompt, { postText, visualStyle });
     const { url } = await saveImage(base64, mediaType);
     return c.json({ imageUrl: url });
   });
@@ -99,6 +103,57 @@ export function studioRoutes() {
       { role: "assistant", content: text },
     ];
     return c.json({ draft: await updateDraft(c.req.param("id"), accountId, { text, chat }) });
+  });
+
+  // Streaming agent chat: the model talks in the chat pane and edits the canvas
+  // via the updatePost / generateImage tools. Returns an AI-SDK UI message stream.
+  r.post("/:accountId/drafts/:id/agent", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("accountId");
+    if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const draftId = c.req.param("id");
+    const draft = await getDraft(draftId, accountId);
+    if (!draft) return c.json({ error: "not_found" }, 404);
+
+    const { messages } = await c.req
+      .json<{ messages: UIMessage[] }>()
+      .catch(() => ({ messages: [] as UIMessage[] }));
+
+    const profile = await getAccountProfile(accountId);
+    const derived = profile?.derived as unknown as DerivedInsights | null | undefined;
+    const insights = derived
+      ? `Voice: ${derived.voiceSummary} Recurring themes: ${derived.themes.join(", ")}. Style traits: ${derived.styleTraits.join(", ")}. What drives engagement: ${derived.topPatterns.join("; ")}.`
+      : undefined;
+
+    // Track the live post text so a generateImage call after an updatePost call
+    // in the same turn sees the fresh copy, not the stale draft snapshot.
+    let currentText = draft.text;
+
+    return streamStudioAgent({
+      messages,
+      brandBrief: profile?.brandBrief ?? undefined,
+      insights,
+      currentText,
+      handlers: {
+        updatePost: async (text) => {
+          currentText = text;
+          await updateDraft(draftId, accountId, { text });
+        },
+        createImage: async (prompt) => {
+          const { base64, mediaType } = await generateImage(prompt, {
+            postText: currentText,
+            visualStyle: derived?.visualStyle,
+          });
+          const { url } = await saveImage(base64, mediaType);
+          await updateDraft(draftId, accountId, { imageUrl: url, imagePrompt: prompt });
+          return { imageUrl: url };
+        },
+        findSimilar: (query) => findSimilarPosts(accountId, query, { excludeDraftId: draftId }),
+      },
+      onFinish: (finalMessages) => {
+        void updateDraft(draftId, accountId, { chat: finalMessages });
+      },
+    });
   });
 
   // Regenerate the draft text from scratch (needs a ready profile).

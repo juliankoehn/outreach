@@ -86,6 +86,31 @@ export async function getAccountProfile(accountId: string) {
   return prisma.creatorProfile.findUnique({ where: { id: acct.creatorProfileId } });
 }
 
+// Profiles are per-account: every account owns exactly one creator profile.
+// Resolve it, creating and linking one on first access. Returns null if the
+// account isn't owned by the user.
+export async function getOrCreateAccountProfile(accountId: string, userId: string) {
+  const acct = await prisma.linkedInAccount.findFirst({
+    where: { id: accountId, userId },
+    select: { id: true, creatorProfileId: true, displayName: true },
+  });
+  if (!acct) return null;
+  if (acct.creatorProfileId) {
+    const existing = await prisma.creatorProfile.findFirst({
+      where: { id: acct.creatorProfileId, userId },
+    });
+    if (existing) return existing;
+  }
+  const profile = await prisma.creatorProfile.create({
+    data: { userId, name: acct.displayName ?? "" },
+  });
+  await prisma.linkedInAccount.update({
+    where: { id: accountId },
+    data: { creatorProfileId: profile.id },
+  });
+  return profile;
+}
+
 export async function getOrCreateInterview(profileId: string) {
   const existing = await prisma.interviewSession.findFirst({
     where: { creatorProfileId: profileId, status: "in_progress" },
@@ -103,4 +128,9 @@ export async function appendInterviewMessage(id: string, msg: ChatMessage): Prom
 
 export async function completeInterview(id: string): Promise<void> {
   await prisma.interviewSession.update({ where: { id }, data: { status: "complete" } });
+}
+
+// Persist the full conversation (AI-SDK UI messages for the streaming interview).
+export async function setInterviewMessages(id: string, messages: unknown[]): Promise<void> {
+  await prisma.interviewSession.update({ where: { id }, data: { messages: messages as object } });
 }

@@ -56,14 +56,17 @@ describe("profile routes", () => {
     const { profiles } = (await list.json()) as { profiles: Array<{ id: string }> };
     expect(profiles.some((p) => p.id === profile.id)).toBe(true);
 
-    const reply = await app.request(`/profiles/${profile.id}/interview/reply`, {
+    // The interview is streaming now; /start seeds the opener as a UI message.
+    const start = await app.request(`/profiles/${profile.id}/interview/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Cookie: cookie },
-      body: JSON.stringify({ message: "I'm a GRC founder." }),
+      body: JSON.stringify({ locale: "en" }),
     });
-    expect(reply.status).toBe(200);
-    const replyBody = (await reply.json()) as { reply: string };
-    expect(replyBody.reply).toMatch(/point of view/i);
+    expect(start.status).toBe(200);
+    const startBody = (await start.json()) as {
+      messages: Array<{ role: string; parts: Array<{ text?: string }> }>;
+    };
+    expect(startBody.messages[0]?.parts?.[0]?.text).toMatch(/point of view/i);
 
     const fin = await app.request(`/profiles/${profile.id}/interview/finalize`, {
       method: "POST", headers: { Cookie: cookie },

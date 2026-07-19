@@ -54,9 +54,30 @@ export async function listAccounts(userId: string) {
   const rows = await prisma.linkedInAccount.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, memberUrn: true, displayName: true, avatarUrl: true, status: true },
+    select: {
+      id: true,
+      memberUrn: true,
+      displayName: true,
+      avatarUrl: true,
+      status: true,
+      createdAt: true,
+      analyticsAt: true,
+      creatorProfile: { select: { id: true, name: true } },
+      _count: { select: { posts: true, drafts: true } },
+    },
   });
-  return rows;
+  return rows.map((r) => ({
+    id: r.id,
+    memberUrn: r.memberUrn,
+    displayName: r.displayName,
+    avatarUrl: r.avatarUrl,
+    status: r.status,
+    createdAt: r.createdAt.toISOString(),
+    analyticsAt: r.analyticsAt ? r.analyticsAt.toISOString() : null,
+    profile: r.creatorProfile ? { id: r.creatorProfile.id, name: r.creatorProfile.name } : null,
+    postCount: r._count.posts,
+    draftCount: r._count.drafts,
+  }));
 }
 
 export async function getAccountSummary(id: string, userId: string) {
