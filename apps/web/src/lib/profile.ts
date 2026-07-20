@@ -37,6 +37,13 @@ export interface CreatorProfile {
   languages: string[];
   positioning: string;
   brandBrief: string;
+  visualPreset?: string | null;
+  visualDirection?: string;
   derived?: DerivedInsights | null;
   accounts?: ProfileAccountRef[];
 }
+
+// Image "look" presets the creator can pick in the Visuals card. The ids must
+// match VISUAL_PRESETS in @outreach/ai (the server resolves them to prompts);
+// labels are localized via profile.visualPreset_<id> message keys.
+export const VISUAL_PRESET_IDS = ["natural", "editorial", "minimal", "monochrome", "analog"] as const;

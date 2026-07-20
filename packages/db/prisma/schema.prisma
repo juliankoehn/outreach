@@ -119,6 +119,8 @@ model CreatorProfile {
   toneWords   String[]
   languages   String[]
   positioning String   @default("")
+  visualPreset    String?  // user-chosen image look preset id (natural | editorial | minimal | monochrome | analog); null = none
+  visualDirection String   @default("") // user free-text refinement for image generation
   derived     Json?
   derivedAt   DateTime?
   brandBrief  String   @default("")

@@ -1,5 +1,6 @@
 import { prisma } from "@outreach/db";
 import type { ChatMessage, SynthesizedProfile, DerivedInsights } from "@outreach/ai";
+import { VISUAL_PRESETS } from "@outreach/ai";
 import { getAccountSummary } from "./linkedin-account.js";
 
 export async function listProfiles(userId: string) {
@@ -26,13 +27,21 @@ export async function updateProfileById(
     status?: string;
     derived?: DerivedInsights;
     derivedAt?: Date;
+    visualPreset?: string | null;
+    visualDirection?: string;
   },
 ) {
   // Whitelist mutable fields only -- never trust the caller for
   // id/userId/createdAt. This is the authoritative boundary that protects
   // the PATCH /profiles/:id route (which forwards an arbitrary body).
-  const payload: Partial<SynthesizedProfile> & { name?: string; status?: string; derived?: object; derivedAt?: Date } =
-    {};
+  const payload: Partial<SynthesizedProfile> & {
+    name?: string;
+    status?: string;
+    derived?: object;
+    derivedAt?: Date;
+    visualPreset?: string | null;
+    visualDirection?: string;
+  } = {};
   if (data.name !== undefined) payload.name = data.name;
   if (data.goals !== undefined) payload.goals = data.goals;
   if (data.audience !== undefined) payload.audience = data.audience;
@@ -45,6 +54,11 @@ export async function updateProfileById(
   if (data.status !== undefined) payload.status = data.status;
   if (data.derived !== undefined) payload.derived = data.derived as object;
   if (data.derivedAt !== undefined) payload.derivedAt = data.derivedAt;
+  // Only accept a known preset id; anything else (incl. "") clears the preset.
+  if (data.visualPreset !== undefined) {
+    payload.visualPreset = VISUAL_PRESETS.some((p) => p.id === data.visualPreset) ? data.visualPreset : null;
+  }
+  if (data.visualDirection !== undefined) payload.visualDirection = data.visualDirection;
 
   await prisma.creatorProfile.updateMany({ where: { id, userId }, data: payload });
   return prisma.creatorProfile.findFirstOrThrow({ where: { id, userId } });

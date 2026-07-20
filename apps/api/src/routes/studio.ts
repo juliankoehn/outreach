@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, enabledImageProviders, isImageProviderEnabled } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, enabledImageProviders, isImageProviderEnabled, composeVisualLanguage } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -78,7 +78,11 @@ export function studioRoutes() {
         ? acct.imageProvider
         : undefined;
     const profile = await getAccountProfile(accountId);
-    const visualStyle = (profile?.derived as unknown as DerivedInsights | null | undefined)?.visualStyle;
+    const visualStyle = composeVisualLanguage({
+      preset: profile?.visualPreset,
+      direction: profile?.visualDirection,
+      derived: (profile?.derived as unknown as DerivedInsights | null | undefined)?.visualStyle,
+    });
     const referenceHint = await imageReferenceHint(accountId);
     const { base64, mediaType } = await generateImage(prompt, {
       postText,
@@ -223,7 +227,11 @@ export function studioRoutes() {
             article: sourceArticle
               ? `${sourceArticle.title}\n\n${sourceArticle.content.slice(0, 600)}`
               : undefined,
-            visualStyle: derived?.visualStyle,
+            visualStyle: composeVisualLanguage({
+              preset: profile?.visualPreset,
+              direction: profile?.visualDirection,
+              derived: derived?.visualStyle,
+            }),
             referenceHint,
             noGos: profile?.noGos,
             size: "square",

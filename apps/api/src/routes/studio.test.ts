@@ -3,6 +3,9 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 vi.mock("@outreach/ai", () => ({
   draftPost: vi.fn(async () => "A strong hook.\n\nBody of the post."),
   generateImage: vi.fn(async () => ({ base64: Buffer.from("img").toString("base64"), mediaType: "image/png" })),
+  composeVisualLanguage: vi.fn(() => ""),
+  isImageProviderEnabled: vi.fn(() => false),
+  enabledImageProviders: vi.fn(() => []),
 }));
 
 import { prisma } from "@outreach/db";

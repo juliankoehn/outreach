@@ -248,6 +248,62 @@ const SIZE_MAP = { portrait: "1024x1536", square: "1024x1024", landscape: "1536x
 const IMAGE_AESTHETIC =
   "AESTHETIC (this is the TOP priority, above cleverly illustrating the topic) — this runs on a real LinkedIn feed and must look like a real photo or a tasteful editorial illustration, NOT AI-generated concept art. It must read as a believable REAL-WORLD scene: real people, real workplaces, real objects, natural light. HARD BAN, no exceptions even for security/tech topics: glowing or holographic padlocks, locks, keyholes, shields, fortresses, or any floating security icon; neon circuit boards; futuristic sci-fi cityscapes; holograms or HUD overlays; glossy 3D-render blobs; hexagon grids or honeycomb patterns; robot hands; binary-code rain; over-saturated 'digital tech' collages; and any abstract 'technology/innovation' visual metaphor. Do NOT illustrate an abstract concept as a glowing symbol — show a concrete real scene instead (e.g. for security: a person at a workstation, a real data-center aisle, an office at night — never a glowing lock). Restrained natural palette, real lighting, understated over flashy. Render NO readable text, words, labels, or logos anywhere (image models garble them); any screens or signage stay unlabeled/illegible.";
 
+// User-selectable image "look" presets. Each id maps to a strong, concrete
+// prompt fragment that pushes generation toward a natural, believable photo and
+// away from the glossy AI-render look. The web owns localized labels keyed by id;
+// this is the server-side source of truth for the actual prompt wording.
+export const VISUAL_PRESETS: ReadonlyArray<{ id: string; prompt: string }> = [
+  {
+    id: "natural",
+    prompt:
+      "candid documentary photography shot on a real 35mm lens, natural available light, muted realistic colours, subtle film grain, unstaged real-world moments — never glossy or over-produced",
+  },
+  {
+    id: "editorial",
+    prompt:
+      "clean editorial magazine photography, deliberate composition, natural light, restrained and polished but unmistakably real, no synthetic gloss or 3D-render sheen",
+  },
+  {
+    id: "minimal",
+    prompt:
+      "minimalist composition with generous negative space, a single real subject, soft natural daylight, calm muted palette",
+  },
+  {
+    id: "monochrome",
+    prompt: "black-and-white documentary photography, natural film grain, real light and shadow, no colour",
+  },
+  {
+    id: "analog",
+    prompt: "shot on 35mm analog film, visible grain, slightly faded natural colours, imperfect real-world framing",
+  },
+];
+
+// Resolve a preset id to its prompt fragment; unknown/empty id → "".
+export function visualPresetPrompt(id: string | null | undefined): string {
+  return VISUAL_PRESETS.find((p) => p.id === id)?.prompt ?? "";
+}
+
+// Build the combined visual directive fed to image generation. The creator's
+// manual setting (preset + free-text refinement) leads and is the priority; the
+// auto-derived style from past posts is appended as secondary context that must
+// not override the explicit choice. Returns "" when nothing is set.
+export function composeVisualLanguage(opts: {
+  preset?: string | null;
+  direction?: string | null;
+  derived?: string | null;
+}): string {
+  const manualParts: string[] = [];
+  const presetPrompt = visualPresetPrompt(opts.preset);
+  if (presetPrompt) manualParts.push(presetPrompt);
+  if (opts.direction?.trim()) manualParts.push(opts.direction.trim());
+  const manual = manualParts.join("; ");
+  const derived = opts.derived?.trim() ?? "";
+  if (manual && derived) {
+    return `${manual} (this look takes priority). Established style cues from past posts, secondary and only where they don't conflict: ${derived}`;
+  }
+  return manual || derived;
+}
+
 export async function generateImage(
   prompt: string,
   opts?: {

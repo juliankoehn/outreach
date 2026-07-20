@@ -107,3 +107,44 @@ describe("compose", () => {
     expect(seenPrompt).toContain("short dark hair");
   });
 });
+
+import { VISUAL_PRESETS, visualPresetPrompt, composeVisualLanguage } from "./compose.js";
+
+describe("composeVisualLanguage", () => {
+  it("returns empty string when nothing is set", () => {
+    expect(composeVisualLanguage({})).toBe("");
+    expect(composeVisualLanguage({ preset: null, direction: "", derived: "" })).toBe("");
+  });
+
+  it("resolves a known preset id to its prompt fragment", () => {
+    expect(visualPresetPrompt("natural")).toMatch(/documentary/i);
+    expect(VISUAL_PRESETS.every((p) => p.prompt.trim().length > 0)).toBe(true);
+  });
+
+  it("ignores an unknown preset id", () => {
+    expect(visualPresetPrompt("midjourney")).toBe("");
+    expect(composeVisualLanguage({ preset: "midjourney" })).toBe("");
+  });
+
+  it("uses only the free-text direction when no preset", () => {
+    expect(composeVisualLanguage({ direction: "warm daylight" })).toBe("warm daylight");
+  });
+
+  it("combines preset and direction", () => {
+    const out = composeVisualLanguage({ preset: "monochrome", direction: "high contrast" });
+    expect(out).toMatch(/black-and-white/i);
+    expect(out).toContain("high contrast");
+  });
+
+  it("puts the manual direction before the derived style and marks it priority", () => {
+    const out = composeVisualLanguage({ preset: "natural", derived: "warm glossy studio shots" });
+    const priorityIdx = out.indexOf("takes priority");
+    const derivedIdx = out.indexOf("warm glossy studio shots");
+    expect(priorityIdx).toBeGreaterThan(-1);
+    expect(derivedIdx).toBeGreaterThan(priorityIdx);
+  });
+
+  it("falls back to derived alone when no manual setting", () => {
+    expect(composeVisualLanguage({ derived: "muted editorial" })).toBe("muted editorial");
+  });
+});

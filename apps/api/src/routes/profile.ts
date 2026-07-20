@@ -9,6 +9,7 @@ import {
   suggestFacets,
   streamProfileStudio,
   generateImage,
+  composeVisualLanguage,
 } from "@outreach/ai";
 import type {
   ChatMessage,
@@ -254,7 +255,16 @@ export function profileRoutes() {
           const referenceHint = acctId ? await imageReferenceHint(acctId) : "";
           const { base64, mediaType } = await generateImage(
             direction ?? "A clean, on-brand visual that fits this post.",
-            { postText, visualStyle: derived?.visualStyle, size: "portrait", referenceHint },
+            {
+              postText,
+              visualStyle: composeVisualLanguage({
+                preset: profile.visualPreset,
+                direction: profile.visualDirection,
+                derived: derived?.visualStyle,
+              }),
+              size: "portrait",
+              referenceHint,
+            },
           );
           const { url } = await saveImage(base64, mediaType);
           return { imageUrl: url };
