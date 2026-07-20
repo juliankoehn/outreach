@@ -339,6 +339,8 @@
     "publishConfirmBody": "Das veröffentlicht den Post jetzt öffentlich auf LinkedIn. Nicht rückgängig zu machen.",
     "publishing": "Veröffentliche…",
     "published": "Veröffentlicht",
+    "publishedLock": "Dieser Post ist live auf LinkedIn — hier nur noch lesbar.",
+    "chatLocked": "Veröffentlicht — Bearbeitung gesperrt.",
     "viewOnLinkedin": "Auf LinkedIn ansehen",
     "publishFailed": "Veröffentlichen fehlgeschlagen"
   },

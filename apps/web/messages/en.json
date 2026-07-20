@@ -339,6 +339,8 @@
     "publishConfirmBody": "This posts publicly to LinkedIn right now. This can't be undone.",
     "publishing": "Publishing…",
     "published": "Published",
+    "publishedLock": "This post is live on LinkedIn — it's read-only here.",
+    "chatLocked": "Published — editing is locked.",
     "viewOnLinkedin": "View on LinkedIn",
     "publishFailed": "Publishing failed"
   },

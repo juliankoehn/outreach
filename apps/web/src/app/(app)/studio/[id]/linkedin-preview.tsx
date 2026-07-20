@@ -12,6 +12,7 @@ interface LinkedInPreviewProps {
   onBlur?: () => void;
   imageUrl?: string | null;
   placeholder?: string;
+  readOnly?: boolean;
 }
 
 function initials(name: string): string {
@@ -32,6 +33,7 @@ export function LinkedInPreview({
   onBlur,
   imageUrl,
   placeholder,
+  readOnly,
 }: LinkedInPreviewProps) {
   const t = useTranslations();
   const name = authorName.trim() || "Your name";
@@ -78,8 +80,9 @@ export function LinkedInPreview({
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
+        readOnly={readOnly}
         rows={1}
-        className="mt-2 field-sizing-content min-h-[7rem] w-full resize-none bg-transparent px-4 pb-1 text-[15px] leading-[1.45] outline-none placeholder:text-muted-foreground"
+        className="mt-2 field-sizing-content min-h-[7rem] w-full resize-none bg-transparent px-4 pb-1 text-[15px] leading-[1.45] outline-none placeholder:text-muted-foreground read-only:cursor-default"
       />
 
       {/* Image, edge-to-edge like LinkedIn — show the whole image (no crop);

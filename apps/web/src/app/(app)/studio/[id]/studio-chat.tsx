@@ -41,6 +41,7 @@ interface StudioChatProps {
   onPostText: (text: string) => void;
   onImageUrl: (url: string) => void;
   onTurnFinished: () => void;
+  disabled?: boolean;
 }
 
 // Friendlier labels than the raw tool name for the collapsible tool cards.
@@ -59,6 +60,7 @@ export function StudioChat({
   onPostText,
   onImageUrl,
   onTurnFinished,
+  disabled,
 }: StudioChatProps) {
   const t = useTranslations();
 
@@ -216,20 +218,24 @@ export function StudioChat({
       </Conversation>
 
       <div className="border-t p-3">
-        <PromptInput
-          onSubmit={(message) => {
-            const text = message.text.trim();
-            if (text) void sendMessage({ text });
-          }}
-        >
-          <PromptInputBody>
-            <PromptInputTextarea placeholder={t("studio.chatPlaceholder")} />
-          </PromptInputBody>
-          <PromptInputFooter>
-            <span />
-            <PromptInputSubmit status={status} />
-          </PromptInputFooter>
-        </PromptInput>
+        {disabled ? (
+          <p className="text-muted-foreground px-1 py-2 text-center text-xs">{t("studio.chatLocked")}</p>
+        ) : (
+          <PromptInput
+            onSubmit={(message) => {
+              const text = message.text.trim();
+              if (text) void sendMessage({ text });
+            }}
+          >
+            <PromptInputBody>
+              <PromptInputTextarea placeholder={t("studio.chatPlaceholder")} />
+            </PromptInputBody>
+            <PromptInputFooter>
+              <span />
+              <PromptInputSubmit status={status} />
+            </PromptInputFooter>
+          </PromptInput>
+        )}
       </div>
     </aside>
   );

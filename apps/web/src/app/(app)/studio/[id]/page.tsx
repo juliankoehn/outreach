@@ -157,6 +157,10 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   }
   const initialMessages = initialChatRef.current ?? NO_MESSAGES;
 
+  // A published post is live on LinkedIn — it must be read-only here (no editing,
+  // regenerating, rescheduling, or agent changes).
+  const isPublished = draft?.status === "published";
+
   function flashSaved() {
     setSaved(true);
     if (savedTimeout.current) clearTimeout(savedTimeout.current);
@@ -320,6 +324,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
           onPostText={handlePostText}
           onImageUrl={handleImageUrl}
           onTurnFinished={handleTurnFinished}
+          disabled={isPublished}
         />
       )}
 
@@ -377,28 +382,32 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
           )}
           <div className="ml-auto flex items-center gap-2">
             {saved && <span className="text-success text-xs">{t("studio.saved")}</span>}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void savePatch({ text: postText })}
-              disabled={saving || postText === draft?.text}
-            >
-              {saving ? t("studio.saving") : t("studio.save")}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setScheduleOpen(true)} disabled={scheduling}>
-              <CalendarClock className="size-4" />
-              {t("schedule.plan")}
-            </Button>
-            <ScheduleDialog
-              open={scheduleOpen}
-              onOpenChange={(o) => {
-                setScheduleOpen(o);
-                if (!o) setScheduleError(null);
-              }}
-              initial={draft?.scheduledAt ?? undefined}
-              onConfirm={(when) => void scheduleDraft(when)}
-            />
-            {scheduleError && <span className="text-destructive text-xs">{scheduleError}</span>}
+            {!isPublished && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void savePatch({ text: postText })}
+                  disabled={saving || postText === draft?.text}
+                >
+                  {saving ? t("studio.saving") : t("studio.save")}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setScheduleOpen(true)} disabled={scheduling}>
+                  <CalendarClock className="size-4" />
+                  {t("schedule.plan")}
+                </Button>
+                <ScheduleDialog
+                  open={scheduleOpen}
+                  onOpenChange={(o) => {
+                    setScheduleOpen(o);
+                    if (!o) setScheduleError(null);
+                  }}
+                  initial={draft?.scheduledAt ?? undefined}
+                  onConfirm={(when) => void scheduleDraft(when)}
+                />
+                {scheduleError && <span className="text-destructive text-xs">{scheduleError}</span>}
+              </>
+            )}
             {draft?.status === "published" && draft.externalId ? (
               <a
                 href={`https://www.linkedin.com/feed/update/${draft.externalId}`}
@@ -510,6 +519,13 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
                 </div>
               )}
 
+              {isPublished && (
+                <div className="border-success/30 bg-success/10 text-success mb-4 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                  <Send className="size-4 shrink-0" />
+                  {t("studio.publishedLock")}
+                </div>
+              )}
+
               <LinkedInPreview
                 authorName={author.name}
                 avatarUrl={author.avatarUrl}
@@ -520,11 +536,14 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
                 }}
                 imageUrl={imageUrl}
                 placeholder={t("studio.postPlaceholder")}
+                readOnly={isPublished}
               />
             </div>
 
-            {/* Tools sidebar */}
+            {/* Tools sidebar — hidden for a published (read-only) post */}
             <aside className="flex flex-col gap-4">
+              {!isPublished && (
+              <>
               <section className="bg-card rounded-xl border p-4">
                 <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t("studio.sectionPost")}
@@ -572,6 +591,8 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
                   </Button>
                 </div>
               </section>
+              </>
+              )}
 
               {sourceFeedItem && (
                 <a

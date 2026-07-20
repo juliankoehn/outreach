@@ -124,6 +124,7 @@ export function studioRoutes() {
     if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
     const draft = await getDraft(c.req.param("id"), accountId);
     if (!draft) return c.json({ error: "not_found" }, 404);
+    if (draft.status === "published") return c.json({ error: "published" }, 409);
 
     const { instruction } = await c.req
       .json<{ instruction?: string }>()
@@ -149,6 +150,7 @@ export function studioRoutes() {
     const draftId = c.req.param("id");
     const draft = await getDraft(draftId, accountId);
     if (!draft) return c.json({ error: "not_found" }, 404);
+    if (draft.status === "published") return c.json({ error: "published" }, 409);
 
     const { messages } = await c.req
       .json<{ messages: UIMessage[] }>()
@@ -263,6 +265,7 @@ export function studioRoutes() {
     if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
     const draft = await getDraft(c.req.param("id"), accountId);
     if (!draft) return c.json({ error: "not_found" }, 404);
+    if (draft.status === "published") return c.json({ error: "published" }, 409);
 
     const profile = await getAccountProfile(accountId);
     if (!profile || profile.status !== "ready" || !profile.brandBrief) {
@@ -279,6 +282,7 @@ export function studioRoutes() {
     if (!(await requireAccount(accountId, user.id))) return c.json({ error: "not_found" }, 404);
     const draft = await getDraft(c.req.param("id"), accountId);
     if (!draft) return c.json({ error: "not_found" }, 404);
+    if (draft.status === "published") return c.json({ error: "published" }, 409);
 
     const { scheduledAt } = await c.req.json<{ scheduledAt?: string }>().catch(() => ({ scheduledAt: undefined }));
     const when = scheduledAt ? new Date(scheduledAt) : null;
@@ -312,6 +316,9 @@ export function studioRoutes() {
     const accountId = c.req.param("accountId");
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
+    const existing = await getDraft(c.req.param("id"), accountId);
+    if (!existing) return c.json({ error: "not_found" }, 404);
+    if (existing.status === "published") return c.json({ error: "published" }, 409);
 
     const body = await c.req.json().catch(() => ({}));
     return c.json({ draft: await updateDraft(c.req.param("id"), accountId, body) });
