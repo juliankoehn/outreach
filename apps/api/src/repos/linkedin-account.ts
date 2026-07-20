@@ -135,6 +135,17 @@ export async function getAccountIdForProfile(profileId: string, userId: string):
   return acct?.id ?? null;
 }
 
+// The image-provider setting of every account bound to a profile — so a caller
+// can pick the one the creator actually configured, even when a stray seeded
+// account (no provider) also points at the profile.
+export async function getProfileImageProviders(profileId: string, userId: string): Promise<Array<string | null>> {
+  const accts = await prisma.linkedInAccount.findMany({
+    where: { creatorProfileId: profileId, userId },
+    select: { imageProvider: true },
+  });
+  return accts.map((a) => a.imageProvider);
+}
+
 export async function getAnalyticsCache(id: string) {
   return prisma.linkedInAccount.findUnique({
     where: { id },

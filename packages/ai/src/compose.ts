@@ -15,7 +15,7 @@ export const IMAGE_PROVIDERS: ReadonlyArray<{
   envKey: string;
 }> = [
   { id: "openai", model: "gpt-image-2", label: "OpenAI · gpt-image-2", envKey: "OPENAI_API_KEY" },
-  { id: "google", model: "gemini-2.5-flash-image", label: "Google · Nano Banana", envKey: "GOOGLE_GENERATIVE_AI_API_KEY" },
+  { id: "google", model: "gemini-3.1-flash-image", label: "Google · Nano Banana", envKey: "GOOGLE_GENERATIVE_AI_API_KEY" },
 ];
 
 // The image providers the operator has enabled — those whose API key is present
@@ -39,7 +39,7 @@ async function generateImageGoogle(
   model?: string,
 ): Promise<{ base64: string; mediaType: string }> {
   const { files } = await generateText({
-    model: google(model ?? process.env.AI_IMAGE_MODEL_GOOGLE ?? "gemini-2.5-flash-image"),
+    model: google(model ?? process.env.AI_IMAGE_MODEL_GOOGLE ?? "gemini-3.1-flash-image"),
     providerOptions: {
       google: {
         responseModalities: ["IMAGE"],
