@@ -29,6 +29,8 @@ interface ProfileCanvasProps {
   author: { name: string; avatarUrl?: string | null };
   lastChangedKey?: keyof CanvasProfile | null;
   onEditField?: (field: "audience" | "positioning", value: string) => void;
+  // Rendered at the top of the canvas — the editable Visuals settings.
+  visualsSlot?: React.ReactNode;
 }
 
 // The live "canvas" — three stacked, independently scrollable zones that
@@ -41,11 +43,14 @@ export function ProfileCanvas({
   author,
   lastChangedKey,
   onEditField,
+  visualsSlot,
 }: ProfileCanvasProps) {
   const t = useTranslations();
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
+      {visualsSlot}
+
       {/* Zone 1 — identity chips */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <ChipDimension
@@ -75,12 +80,6 @@ export function ProfileCanvas({
           highlighted={lastChangedKey === "positioning"}
           editable={!!onEditField}
           onSave={onEditField ? (value) => onEditField("positioning", value) : undefined}
-        />
-        <TextDimension
-          label={t("profile.pcVisual")}
-          empty={t("profile.pcEmpty")}
-          value={profile.visualStyle}
-          highlighted={lastChangedKey === "visualStyle"}
         />
         <ChipDimension
           label={t("profile.pcNoGos")}

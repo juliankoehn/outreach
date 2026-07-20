@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/accounts";
 import type { CreatorProfile } from "@/lib/profile";
 import { ProfileCanvas, type CanvasProfile, type ExamplePost } from "./profile-canvas";
+import { VisualsCard } from "./visuals-card";
 
 interface ProfileStudioProps {
   profileId: string;
@@ -222,6 +223,9 @@ function ProfileStudioInner({
   const t = useTranslations();
 
   const [canvasProfile, setCanvasProfile] = useState<CanvasProfile>(() => mapProfileToCanvas(initialProfile));
+  // Full profile row (kept alongside the mapped canvas view) so the Visuals card
+  // has visualPreset/visualDirection/derived and stays in sync after analyze.
+  const [fullProfile, setFullProfile] = useState<CreatorProfile | null>(initialProfile);
   const [examplePosts, setExamplePosts] = useState<ExamplePost[]>([]);
   const [lastChangedKey, setLastChangedKey] = useState<keyof CanvasProfile | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -234,6 +238,7 @@ function ProfileStudioInner({
     if (res.ok) {
       const { profile } = (await res.json()) as { profile: CreatorProfile };
       setCanvasProfile(mapProfileToCanvas(profile));
+      setFullProfile(profile);
     }
   }, [profileId]);
 
@@ -589,6 +594,11 @@ function ProfileStudioInner({
           author={author}
           lastChangedKey={lastChangedKey}
           onEditField={(field, value) => void editField(field, value)}
+          visualsSlot={
+            fullProfile && (
+              <VisualsCard profileId={profileId} profile={fullProfile} onUpdated={setFullProfile} />
+            )
+          }
         />
       </div>
     </div>

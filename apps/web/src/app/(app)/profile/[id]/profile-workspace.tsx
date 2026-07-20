@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/accounts";
 import type { CreatorProfile } from "@/lib/profile";
 import { ProfileStudio } from "./profile-studio";
-import { VisualsCard } from "./visuals-card";
 
 type PageState = "loading" | "not-found" | "ready";
 
@@ -166,11 +165,6 @@ export function ProfileWorkspace({ profileId, embedded = false }: { profileId: s
           </div>
 
           <ProfileStudio profileId={id} embedded={embedded} />
-
-          {/* Visual settings — steer image generation toward a natural look. */}
-          <div className={cn(embedded && "shrink-0")}>
-            <VisualsCard profileId={id} profile={profile} onUpdated={setProfile} />
-          </div>
 
           {/* Account assignment — only in the standalone library, not per-account tabs. */}
           {!embedded && (
