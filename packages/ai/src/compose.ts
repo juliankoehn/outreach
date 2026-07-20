@@ -1,7 +1,46 @@
 import { generateText, generateObject, generateImage as genImage, type LanguageModel, type ImageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { getTextModel } from "./provider.js";
+
+export type ImageProviderId = "openai" | "google";
+
+// The image models a user can pick from (when the provider's API key is set).
+// `envKey` is the env var whose presence marks the provider "enabled".
+export const IMAGE_PROVIDERS: ReadonlyArray<{
+  id: ImageProviderId;
+  model: string;
+  label: string;
+  envKey: string;
+}> = [
+  { id: "openai", model: "gpt-image-2", label: "OpenAI · gpt-image-2", envKey: "OPENAI_API_KEY" },
+  { id: "google", model: "gemini-2.5-flash-image", label: "Google · Nano Banana", envKey: "GOOGLE_GENERATIVE_AI_API_KEY" },
+];
+
+const GOOGLE_ASPECT = { portrait: "4:5", square: "1:1", landscape: "16:9" } as const;
+
+// Google Gemini image models (Nano Banana) return images via generateText's
+// `files`, not the image() interface — a different code path from OpenAI.
+async function generateImageGoogle(
+  prompt: string,
+  size: "portrait" | "square" | "landscape",
+  model?: string,
+): Promise<{ base64: string; mediaType: string }> {
+  const { files } = await generateText({
+    model: google(model ?? process.env.AI_IMAGE_MODEL_GOOGLE ?? "gemini-2.5-flash-image"),
+    providerOptions: {
+      google: {
+        responseModalities: ["IMAGE"],
+        imageConfig: { aspectRatio: GOOGLE_ASPECT[size], imageOutputOptions: { mimeType: "image/png" } },
+      },
+    },
+    prompt,
+  });
+  const img = files.find((f) => f.mediaType?.startsWith("image/"));
+  if (!img) throw new Error("Gemini returned no image");
+  return { base64: img.base64, mediaType: img.mediaType };
+}
 
 // LinkedIn renders plain text — Markdown would show its raw symbols. The prompt
 // asks for plain text, but models slip (especially when fed Markdown context),
@@ -202,6 +241,10 @@ export async function generateImage(
   prompt: string,
   opts?: {
     model?: ImageModel;
+    // Which image provider/model to use. Defaults to AI_IMAGE_PROVIDER env, or
+    // "openai". A test that passes an explicit `model` implies the openai path.
+    provider?: ImageProviderId;
+    googleModel?: string;
     postText?: string;
     // The source article the post is based on — so the visual depicts the
     // article's actual subject, not a generic stock image.
@@ -211,7 +254,6 @@ export async function generateImage(
     referenceHint?: string;
   },
 ): Promise<{ base64: string; mediaType: string }> {
-  const model = opts?.model ?? getImageModel();
   // Give the image model the post it accompanies (so the visual is on-topic) and
   // the creator's learned visual language (so it looks like their brand).
   const parts: string[] = [];
@@ -236,7 +278,16 @@ export async function generateImage(
   parts.push(IMAGE_AESTHETIC);
   parts.push(`Image direction: ${prompt}`);
   const fullPrompt = parts.length > 1 ? parts.join("\n\n") : prompt;
-  const { image } = await genImage({ model, prompt: fullPrompt, size: SIZE_MAP[opts?.size ?? "portrait"] });
+  const size = opts?.size ?? "portrait";
+
+  const provider: ImageProviderId =
+    opts?.provider ?? (opts?.model ? "openai" : ((process.env.AI_IMAGE_PROVIDER as ImageProviderId) || "openai"));
+  if (provider === "google") {
+    return generateImageGoogle(fullPrompt, size, opts?.googleModel);
+  }
+
+  const model = opts?.model ?? getImageModel();
+  const { image } = await genImage({ model, prompt: fullPrompt, size: SIZE_MAP[size] });
   return { base64: image.base64, mediaType: image.mediaType ?? "image/png" };
 }
 

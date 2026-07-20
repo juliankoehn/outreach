@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, IMAGE_PROVIDERS } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -31,6 +31,12 @@ function isRenderableMessage(m: UIMessage): boolean {
   });
 }
 
+// Image providers the operator has enabled (the provider's API key is present).
+// The UI only offers these; the draft-image handler only honours these.
+function enabledImageProviders(): Array<{ id: string; label: string }> {
+  return IMAGE_PROVIDERS.filter((p) => !!process.env[p.envKey]).map((p) => ({ id: p.id, label: p.label }));
+}
+
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
 // (rather than a shared middleware) keeps each handler simply typed against
 // Hono's generics. `getAccountSummary` is a single indexed lookup, so the
@@ -41,6 +47,9 @@ export function studioRoutes() {
   async function requireAccount(accountId: string, userId: string) {
     return getAccountSummary(accountId, userId);
   }
+
+  // Which image models the user can pick from (only providers with an API key).
+  r.get("/image-providers", (c) => c.json({ providers: enabledImageProviders() }));
 
   r.post("/:accountId/draft-text", async (c) => {
     const user = c.get("user")!;
@@ -63,15 +72,18 @@ export function studioRoutes() {
     const acct = await requireAccount(accountId, user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
 
-    const { prompt, postText } = await c.req
-      .json<{ prompt?: string; postText?: string }>()
-      .catch(() => ({ prompt: undefined, postText: undefined }));
+    const { prompt, postText, provider } = await c.req
+      .json<{ prompt?: string; postText?: string; provider?: "openai" | "google" }>()
+      .catch(() => ({ prompt: undefined, postText: undefined, provider: undefined }));
     if (!prompt) return c.json({ error: "invalid_body" }, 400);
+    // Only honour a provider the operator has enabled (its API key is set).
+    const chosen = provider && enabledImageProviders().some((p) => p.id === provider) ? provider : undefined;
     const profile = await getAccountProfile(accountId);
     const visualStyle = (profile?.derived as unknown as DerivedInsights | null | undefined)?.visualStyle;
     const referenceHint = await imageReferenceHint(accountId);
     const { base64, mediaType } = await generateImage(prompt, {
       postText,
+      provider: chosen,
       visualStyle,
       size: "square",
       referenceHint,
