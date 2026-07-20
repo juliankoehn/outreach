@@ -13,6 +13,7 @@ export async function recordPublishedPost(input: {
   externalId: string;
   mediaType: string;
   publishedAt: Date;
+  imageUrl?: string | null;
 }): Promise<void> {
   try {
     await prisma.post.create({
@@ -24,6 +25,8 @@ export async function recordPublishedPost(input: {
         text: input.text,
         mediaType: input.mediaType,
         publishedAt: input.publishedAt,
+        // The posts list reads the image from raw.imageUrl (like embed imports).
+        raw: input.imageUrl ? { imageUrl: input.imageUrl } : undefined,
       },
     });
   } catch (e: unknown) {

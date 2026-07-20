@@ -111,6 +111,7 @@ export async function publishDraft(
         text: draft.text,
         externalId: postUrn,
         mediaType: draft.imageUrl ? "image" : "none",
+        imageUrl: draft.imageUrl,
         publishedAt,
       });
     } catch {
