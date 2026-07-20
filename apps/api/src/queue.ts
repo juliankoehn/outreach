@@ -8,6 +8,7 @@ export const FEED_QUEUE = "fetch-feed";
 export const POLL_FEEDS_QUEUE = "poll-feeds";
 export const PUBLISH_DUE_QUEUE = "publish-due";
 export const REFRESH_TOKENS_QUEUE = "refresh-tokens";
+export const ENRICH_METRICS_QUEUE = "enrich-metrics";
 
 export async function getBoss(): Promise<PgBoss> {
   if (boss) return boss;
@@ -25,6 +26,7 @@ export async function getBoss(): Promise<PgBoss> {
     // double-posting) an already-handled failure.
     await b.createQueue(PUBLISH_DUE_QUEUE, { retryLimit: 0 });
     await b.createQueue(REFRESH_TOKENS_QUEUE);
+    await b.createQueue(ENRICH_METRICS_QUEUE);
     boss = b;
     return b;
   })().catch((e: unknown) => {

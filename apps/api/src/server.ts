@@ -10,6 +10,7 @@ import {
   POLL_FEEDS_QUEUE,
   PUBLISH_DUE_QUEUE,
   REFRESH_TOKENS_QUEUE,
+  ENRICH_METRICS_QUEUE,
   enqueueFeedFetch,
 } from "./queue.js";
 import { ingestDocument } from "./jobs/ingest-document.js";
@@ -17,6 +18,8 @@ import { fetchFeedSource } from "./jobs/fetch-feed.js";
 import { publishDraft } from "./publish/publish-draft.js";
 import { claimDuePublishDrafts, listAccountsNeedingRefresh } from "./publish/due.js";
 import { refreshAccountToken } from "./publish/refresh-tokens.js";
+import { enrichAccountMetrics } from "./analytics/enrich.js";
+import { accountsWithRecentPublished } from "./repos/post.js";
 
 serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
   console.log(`api listening on http://localhost:${info.port}`);
@@ -96,6 +99,21 @@ serve({ fetch: createApp().fetch, port: env.API_PORT }, (info) => {
       }
     });
     await boss.schedule(REFRESH_TOKENS_QUEUE, "0 */6 * * *");
+
+    // Daily: re-pull LinkedIn engagement for posts published in the last 30 days
+    // (counts keep growing for days), closing the learn-from-what-works loop.
+    await boss.work(ENRICH_METRICS_QUEUE, async () => {
+      const since = new Date(Date.now() - 30 * 86400 * 1000);
+      const accts = await accountsWithRecentPublished(since);
+      for (const a of accts) {
+        try {
+          await enrichAccountMetrics(a.id, a.userId, { since });
+        } catch (e) {
+          console.error("enrich-metrics failed", a.id, e);
+        }
+      }
+    });
+    await boss.schedule(ENRICH_METRICS_QUEUE, "0 3 * * *");
   } catch (e) {
     console.error("server: pg-boss ingestion worker failed to start", e);
   }

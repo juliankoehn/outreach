@@ -10,6 +10,7 @@ export interface ScheduledEvent {
   scheduledAt: Date;
   status: string;
   externalId: string | null;
+  metrics: object | null; // real LinkedIn engagement, for published events
   account: { id: string; displayName: string; avatarUrl: string | null };
 }
 
@@ -59,7 +60,7 @@ export async function listScheduledDrafts(
       account: { select: { id: true, displayName: true, avatarUrl: true } },
     },
   });
-  return rows
+  const events = rows
     .map((r) => ({
       id: r.id,
       text: r.text,
@@ -67,7 +68,20 @@ export async function listScheduledDrafts(
       scheduledAt: (r.status === "published" ? r.publishedAt : r.scheduledAt)!,
       status: r.status,
       externalId: r.externalId,
+      metrics: null as object | null,
       account: r.account,
     }))
     .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+
+  // Attach real engagement to published events (one query, no N+1).
+  const urns = events.filter((e) => e.status === "published" && e.externalId).map((e) => e.externalId!);
+  if (urns.length) {
+    const posts = await prisma.post.findMany({
+      where: { externalId: { in: urns } },
+      select: { externalId: true, metrics: true },
+    });
+    const byUrn = new Map(posts.map((p) => [p.externalId, (p.metrics as object | null) ?? null]));
+    for (const e of events) if (e.externalId && byUrn.has(e.externalId)) e.metrics = byUrn.get(e.externalId)!;
+  }
+  return events;
 }

@@ -79,6 +79,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [metrics, setMetrics] = useState<{ impressions?: number; reactions?: number; comments?: number } | null>(null);
 
   const [accountId, setAccountId] = useState<string | null>(null);
   const [author, setAuthor] = useState<{ name: string; avatarUrl: string | null }>({ name: "", avatarUrl: null });
@@ -128,9 +129,14 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       if (!alive) return;
       if (res.status === 401) return router.push("/login");
       if (!res.ok) return setState("not-found");
-      const data = (await res.json()) as { draft: Draft; sourceFeedItem?: SourceFeedItem | null };
+      const data = (await res.json()) as {
+        draft: Draft;
+        sourceFeedItem?: SourceFeedItem | null;
+        metrics?: { impressions?: number; reactions?: number; comments?: number } | null;
+      };
       applyDraft(data.draft);
       setSourceFeedItem(data.sourceFeedItem ?? null);
+      setMetrics(data.metrics ?? null);
       setState("ready");
     })();
     return () => {
@@ -520,9 +526,18 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
               )}
 
               {isPublished && (
-                <div className="border-success/30 bg-success/10 text-success mb-4 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
-                  <Send className="size-4 shrink-0" />
-                  {t("studio.publishedLock")}
+                <div className="border-success/30 bg-success/10 text-success mb-4 rounded-lg border px-3 py-2.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Send className="size-4 shrink-0" />
+                    {t("studio.publishedLock")}
+                  </div>
+                  {metrics && (
+                    <div className="mt-2 flex gap-4 border-t border-success/20 pt-2 text-xs">
+                      <span><b>{(metrics.impressions ?? 0).toLocaleString()}</b> {t("schedule.impressions")}</span>
+                      <span><b>{(metrics.reactions ?? 0).toLocaleString()}</b> {t("schedule.reactions")}</span>
+                      <span><b>{(metrics.comments ?? 0).toLocaleString()}</b> {t("schedule.comments")}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

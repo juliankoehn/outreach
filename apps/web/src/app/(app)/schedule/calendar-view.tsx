@@ -75,6 +75,7 @@ export interface CalendarEvent {
   imageUrl?: string | null;
   status?: string; // scheduled | published | failed
   externalId?: string | null; // LinkedIn post URN, when published
+  metrics?: { impressions?: number; reactions?: number; comments?: number } | null;
   account: { id: string; displayName: string; avatarUrl?: string | null };
 }
 
@@ -209,6 +210,13 @@ function EventButton({
             <span className={cn("ml-auto", marker.cls)}>{marker.label}</span>
           )}
         </div>
+        {status === "published" && ev.metrics && (
+          <div className="text-muted-foreground mt-1.5 flex gap-3 text-xs">
+            <span>{(ev.metrics.impressions ?? 0).toLocaleString(locale)} {t("schedule.impressions")}</span>
+            <span>{(ev.metrics.reactions ?? 0).toLocaleString(locale)} {t("schedule.reactions")}</span>
+            <span>{(ev.metrics.comments ?? 0).toLocaleString(locale)} {t("schedule.comments")}</span>
+          </div>
+        )}
       </HoverCardContent>
     </HoverCard>
   );

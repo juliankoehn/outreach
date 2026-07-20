@@ -24,25 +24,13 @@ import {
   getAnalyticsCache,
   setAnalyticsCache,
 } from "../repos/linkedin-account.js";
-import { upsertPosts, listPosts, postsToEnrich, setPostMetrics } from "../repos/post.js";
+import { upsertPosts, listPosts } from "../repos/post.js";
+import { enrichAccountMetrics } from "../analytics/enrich.js";
 import { getOrCreateAccountProfile } from "../repos/profile.js";
 import { isPrivateOrLoopbackIp } from "../net.js";
 
 export { isPrivateOrLoopbackIp };
 
-/** Run `fn` over `items` with at most `limit` concurrent executions. */
-async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
-  let i = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) {
-      const idx = i++;
-      await fn(items[idx]!);
-    }
-  });
-  await Promise.all(workers);
-}
-
-const ENRICH_LIMIT = 25;
 // Aggregate metrics are lifetime totals that barely move; refresh at most every
 // 6 hours to stay well under LinkedIn's per-day analytics throttle.
 const ANALYTICS_TTL_MS = 6 * 60 * 60 * 1000;
@@ -192,28 +180,8 @@ export function linkedinRoutes() {
 
   r.post("/accounts/:id/enrich", async (c) => {
     const user = c.get("user")!;
-    const acct = await getDecryptedAccount(c.req.param("id"), user.id);
-    if (!acct || acct.userId !== user.id) return c.json({ error: "not_found" }, 404);
-
-    const targets = await postsToEnrich(acct.id, ENRICH_LIMIT);
-    if (targets.length === 0) return c.json({ enriched: 0, failed: 0, total: 0 });
-
-    const client = new MemberAnalyticsClient({
-      accessToken: acct.accessToken,
-      apiVersion: env.LINKEDIN_API_VERSION,
-    });
-    let enriched = 0;
-    let failed = 0;
-    await mapLimit(targets, 3, async (p) => {
-      try {
-        const metrics = await client.forPost(p.externalId!);
-        await setPostMetrics(p.id, metrics);
-        enriched++;
-      } catch {
-        failed++;
-      }
-    });
-    return c.json({ enriched, failed, total: targets.length });
+    if (!(await getAccountSummary(c.req.param("id"), user.id))) return c.json({ error: "not_found" }, 404);
+    return c.json(await enrichAccountMetrics(c.req.param("id"), user.id));
   });
 
   r.get("/accounts/:id", async (c) => {

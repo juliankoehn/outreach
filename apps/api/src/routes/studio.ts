@@ -6,7 +6,7 @@ import { getAccountSummary } from "../repos/linkedin-account.js";
 import { getAccountProfile, updateProfileById } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
 import { scheduleDraft, unscheduleDraft } from "../repos/schedule.js";
-import { findSimilarPosts } from "../repos/post.js";
+import { findSimilarPosts, metricsForExternalId } from "../repos/post.js";
 import { imageReferenceHint } from "../repos/resource.js";
 import { retrieveKnowledge } from "../repos/knowledge.js";
 import { getItem as getFeedItem } from "../repos/feed.js";
@@ -102,7 +102,11 @@ export function studioRoutes() {
       const it = await getFeedItem(draft.sourceFeedItemId, user.id);
       if (it) sourceFeedItem = { id: it.id, title: it.title, url: it.url };
     }
-    return c.json({ draft, sourceFeedItem });
+    // Real engagement, once published — its post's stored metrics.
+    const metrics = draft.status === "published" && draft.externalId
+      ? await metricsForExternalId(accountId, draft.externalId)
+      : null;
+    return c.json({ draft, sourceFeedItem, metrics });
   });
 
   r.post("/:accountId/drafts", async (c) => {

@@ -23,6 +23,7 @@ interface ScheduledEvent {
   scheduledAt: string;
   status: string;
   externalId: string | null;
+  metrics: { impressions?: number; reactions?: number; comments?: number } | null;
   account: ScheduledEventAccount;
 }
 
@@ -94,6 +95,7 @@ export default function SchedulePage() {
         imageUrl: ev.imageUrl,
         status: ev.status,
         externalId: ev.externalId,
+        metrics: ev.metrics,
         account: ev.account,
       })),
     [events, t],

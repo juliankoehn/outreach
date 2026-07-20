@@ -110,6 +110,37 @@ export async function setPostMetrics(postId: string, metrics: object): Promise<v
   await prisma.post.update({ where: { id: postId }, data: { metrics } });
 }
 
+// Posts (with a LinkedIn URN) published on/after `since` — the auto-enrich
+// worker's window, so it re-pulls only recent posts whose metrics still move.
+export async function postsToEnrichRecent(accountId: string, since: Date) {
+  return prisma.post.findMany({
+    where: { linkedinAccountId: accountId, externalId: { not: null }, publishedAt: { gte: since } },
+    select: { id: true, externalId: true },
+  });
+}
+
+// Active accounts that have at least one URN-bearing post published since `since`
+// — the accounts the auto-enrich worker should visit this run.
+export async function accountsWithRecentPublished(since: Date): Promise<Array<{ id: string; userId: string }>> {
+  return prisma.linkedInAccount.findMany({
+    where: {
+      status: "active",
+      posts: { some: { externalId: { not: null }, publishedAt: { gte: since } } },
+    },
+    select: { id: true, userId: true },
+  });
+}
+
+// The stored metrics for the account's post with this URN (used to surface a
+// published draft's real performance on the canvas/calendar).
+export async function metricsForExternalId(accountId: string, externalId: string): Promise<object | null> {
+  const p = await prisma.post.findFirst({
+    where: { linkedinAccountId: accountId, externalId },
+    select: { metrics: true },
+  });
+  return (p?.metrics as object | null) ?? null;
+}
+
 export interface SimilarPost {
   source: "published" | "draft";
   similarity: number; // 0..1 token overlap
