@@ -59,6 +59,27 @@ describe("schedule repo", () => {
     expect(other.find((e) => e.id === draftId)).toBeUndefined();
   });
 
+  it("listScheduledDrafts includes published posts at their publishedAt", async () => {
+    const pubAt = new Date(Date.now() + 2 * 3600e3);
+    const p = await prisma.draft.create({
+      data: {
+        linkedinAccountId: accountId,
+        text: "Published post",
+        status: "published",
+        publishedAt: pubAt,
+        externalId: "urn:li:share:9",
+      },
+    });
+    const events = await listScheduledDrafts(userId, new Date(Date.now() - 3600e3), new Date(Date.now() + 7 * 86400e3));
+    const ev = events.find((e) => e.id === p.id);
+    expect(ev?.status).toBe("published");
+    expect(ev?.externalId).toBe("urn:li:share:9");
+    expect(ev?.scheduledAt.getTime()).toBe(pubAt.getTime()); // sits at its publish time
+
+    const outOfRange = await listScheduledDrafts(userId, new Date(Date.now() + 30 * 86400e3), new Date(Date.now() + 40 * 86400e3));
+    expect(outOfRange.find((e) => e.id === p.id)).toBeUndefined();
+  });
+
   it("unscheduleDraft resets to draft", async () => {
     const d = await unscheduleDraft(draftId, accountId);
     expect(d.status).toBe("draft");

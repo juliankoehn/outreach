@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronDown, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import {
   draggable,
   dropTargetForElements,
@@ -71,8 +71,10 @@ type DropData = DayDropData | SlotDropData;
 export interface CalendarEvent {
   id: string;
   title: string;
-  scheduledAt: string; // ISO UTC
+  scheduledAt: string; // ISO UTC — the event's time (publish time for published)
   imageUrl?: string | null;
+  status?: string; // scheduled | published | failed
+  externalId?: string | null; // LinkedIn post URN, when published
   account: { id: string; displayName: string; avatarUrl?: string | null };
 }
 
@@ -148,6 +150,14 @@ function EventButton({
   const colors = accountColors(ev.account.id);
   const when = new Date(ev.scheduledAt);
   const time = when.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const status = ev.status ?? "scheduled";
+  const marker =
+    status === "published"
+      ? { Icon: CheckCircle2, cls: "text-success", label: t("schedule.publishedMarker") }
+      : status === "failed"
+        ? { Icon: AlertTriangle, cls: "text-destructive", label: t("schedule.failedMarker") }
+        : { Icon: Clock, cls: "text-muted-foreground", label: t("schedule.notPublished") };
+  const MarkerIcon = marker.Icon;
 
   return (
     <HoverCard openDelay={120} closeDelay={60}>
@@ -162,12 +172,9 @@ function EventButton({
             isDragging && "opacity-50",
           )}
         >
-          <Clock
-            className="size-3 shrink-0 text-muted-foreground"
-            aria-label={t("schedule.notPublished")}
-          >
-            <title>{t("schedule.notPublished")}</title>
-          </Clock>
+          <MarkerIcon className={cn("size-3 shrink-0", marker.cls)} aria-label={marker.label}>
+            <title>{marker.label}</title>
+          </MarkerIcon>
           {showAccountAvatar && <EventAvatar account={ev.account} />}
           <span className="min-w-0 truncate text-foreground">{ev.title}</span>
           <span className="ml-auto shrink-0 text-muted-foreground">{time}</span>
@@ -184,11 +191,23 @@ function EventButton({
           <img src={ev.imageUrl} alt="" className="mt-2 max-h-32 w-full rounded-md object-cover" />
         )}
         <div className="mt-2 flex items-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
-          <Clock className="size-3.5" />
+          <MarkerIcon className={cn("size-3.5", marker.cls)} />
           <span>
             {when.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" })} · {time}
           </span>
-          <span className="ml-auto">{t("schedule.notPublished")}</span>
+          {status === "published" && ev.externalId ? (
+            <a
+              href={`https://www.linkedin.com/feed/update/${ev.externalId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary ml-auto hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {t("schedule.viewOnLinkedin")}
+            </a>
+          ) : (
+            <span className={cn("ml-auto", marker.cls)}>{marker.label}</span>
+          )}
         </div>
       </HoverCardContent>
     </HoverCard>

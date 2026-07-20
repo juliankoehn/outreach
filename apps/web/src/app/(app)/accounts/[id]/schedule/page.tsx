@@ -27,6 +27,7 @@ interface ScheduledEvent {
   imageUrl?: string | null;
   scheduledAt: string;
   status: string;
+  externalId: string | null;
   account: ScheduledEventAccount;
 }
 
@@ -97,6 +98,8 @@ export default function AccountSchedulePage() {
         title: firstNonEmptyLine(ev.text) || t("schedule.untitled"),
         scheduledAt: ev.scheduledAt,
         imageUrl: ev.imageUrl,
+        status: ev.status,
+        externalId: ev.externalId,
         account: ev.account,
       })),
     [events, t],

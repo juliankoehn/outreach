@@ -1,7 +1,36 @@
 // apps/api/src/repos/post.ts
 import { prisma } from "@outreach/db";
-import { dedupeKey } from "@outreach/linkedin";
+import { dedupeKey, hashPost } from "@outreach/linkedin";
 import type { RawPost } from "@outreach/core";
+
+// Record a post we just published from the studio into the account's post
+// history, so it shows in the posts list (and can be analytics-enriched later
+// via its externalId). Idempotent: a retry/republish with the same content is
+// ignored on the (account, dedupeHash) unique constraint.
+export async function recordPublishedPost(input: {
+  accountId: string;
+  text: string;
+  externalId: string;
+  mediaType: string;
+  publishedAt: Date;
+}): Promise<void> {
+  try {
+    await prisma.post.create({
+      data: {
+        linkedinAccountId: input.accountId,
+        source: "published",
+        externalId: input.externalId,
+        dedupeHash: hashPost(input.text, input.publishedAt),
+        text: input.text,
+        mediaType: input.mediaType,
+        publishedAt: input.publishedAt,
+      },
+    });
+  } catch (e: unknown) {
+    if (typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002") return;
+    throw e;
+  }
+}
 
 export async function upsertPosts(
   accountId: string,

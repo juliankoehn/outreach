@@ -2,6 +2,7 @@
 import type { Draft } from "@outreach/db";
 import { LinkedInPublishClient, LinkedInPublishError, LinkedInOAuthClient, type TokenResponse } from "@outreach/linkedin";
 import { getDraft, setPublishResult, claimDraftForPublish } from "../repos/draft.js";
+import { recordPublishedPost } from "../repos/post.js";
 import { getDecryptedAccount, updateAccountTokens, setAccountStatus } from "../repos/linkedin-account.js";
 import { getObject } from "../storage.js";
 import { getItem } from "../repos/feed.js";
@@ -95,12 +96,26 @@ export async function publishDraft(
       }
     }
 
+    const publishedAt = new Date();
     await setPublishResult(draftId, accountId, {
       status: "published",
-      publishedAt: new Date(),
+      publishedAt,
       externalId: postUrn,
       publishError: null,
     });
+    // Mirror the published post into the account's post history (best-effort: a
+    // failure here must NOT flip the already-live post to "failed").
+    try {
+      await recordPublishedPost({
+        accountId,
+        text: draft.text,
+        externalId: postUrn,
+        mediaType: draft.imageUrl ? "image" : "none",
+        publishedAt,
+      });
+    } catch {
+      // swallow: the post is live and the draft is marked published.
+    }
   } catch (e) {
     if (e instanceof LinkedInPublishError && e.status === 401) {
       await setAccountStatus(accountId, "expired");
