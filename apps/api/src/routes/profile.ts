@@ -177,7 +177,8 @@ export function profileRoutes() {
       positioning: profile.positioning || undefined,
       noGos: profile.noGos,
       brandBrief: profile.brandBrief || undefined,
-      visualStyle: derived?.visualStyle,
+      visualPreset: profile.visualPreset || undefined,
+      visualDirection: profile.visualDirection || undefined,
     };
 
     // In-memory accumulator (like the studio's currentText): each updateProfile
@@ -190,6 +191,8 @@ export function profileRoutes() {
       brandBrief: profile.brandBrief,
       audience: profile.audience,
       positioning: profile.positioning,
+      visualPreset: profile.visualPreset as string | null,
+      visualDirection: profile.visualDirection,
     };
     const mergeInto = (arr: string[], values?: string[]) => {
       for (const v of values ?? []) {
@@ -204,13 +207,12 @@ export function profileRoutes() {
       insights,
       language: langName(locale),
       handlers: {
-        // The CreatorProfile row has no `voice`/`visualStyle` column. Mapping
-        // decisions (documented per the plan's Global Constraints):
-        // - patch.voice folds into toneWords as an extra descriptive entry
-        //   (merged case-insensitively) — there's no dedicated column, and a
-        //   voice description is itself a tone signal.
-        // - patch.visualStyle is appended to brandBrief as a "Visual: …"
-        //   note, mirroring the existing convention in POST /:id/facets.
+        // The CreatorProfile row has no `voice` column. Mapping decisions:
+        // - patch.voice folds into brandBrief as a "Voice: …" note — there's no
+        //   dedicated column, and a voice description is itself a tone signal.
+        // - patch.visualPreset/visualDirection persist to the account's Visuals
+        //   settings (the same fields the creator edits in the Visuals card),
+        //   so a chat preference actually steers image generation.
         // - toneWords/pillars/noGos MERGE with the current values (dedupe,
         //   case-insensitive) instead of replacing — the AI sends
         //   incremental patches turn by turn, not full snapshots.
@@ -230,17 +232,20 @@ export function profileRoutes() {
             if (!acc.brandBrief.includes(note)) acc.brandBrief = acc.brandBrief ? `${acc.brandBrief}\n\n${note}` : note;
           };
           addNote("Voice", patch.voice);
-          addNote("Visual", patch.visualStyle);
           if (patch.audience !== undefined) acc.audience = patch.audience;
           if (patch.positioning !== undefined) acc.positioning = patch.positioning;
+          if (patch.visualPreset !== undefined) acc.visualPreset = patch.visualPreset;
+          if (patch.visualDirection !== undefined) acc.visualDirection = patch.visualDirection;
 
-          const update: Partial<SynthesizedProfile> = {
+          const update: Partial<SynthesizedProfile> & { visualPreset?: string | null; visualDirection?: string } = {
             toneWords: [...acc.toneWords],
             pillars: [...acc.pillars],
             noGos: [...acc.noGos],
             brandBrief: acc.brandBrief,
             audience: acc.audience,
             positioning: acc.positioning,
+            visualPreset: acc.visualPreset,
+            visualDirection: acc.visualDirection,
           };
           await updateProfileById(id, user.id, update);
         },

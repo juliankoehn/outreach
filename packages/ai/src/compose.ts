@@ -248,11 +248,15 @@ const SIZE_MAP = { portrait: "1024x1536", square: "1024x1024", landscape: "1536x
 const IMAGE_AESTHETIC =
   "AESTHETIC (this is the TOP priority, above cleverly illustrating the topic) — this runs on a real LinkedIn feed and must look like a real photo or a tasteful editorial illustration, NOT AI-generated concept art. It must read as a believable REAL-WORLD scene: real people, real workplaces, real objects, natural light. HARD BAN, no exceptions even for security/tech topics: glowing or holographic padlocks, locks, keyholes, shields, fortresses, or any floating security icon; neon circuit boards; futuristic sci-fi cityscapes; holograms or HUD overlays; glossy 3D-render blobs; hexagon grids or honeycomb patterns; robot hands; binary-code rain; over-saturated 'digital tech' collages; and any abstract 'technology/innovation' visual metaphor. Do NOT illustrate an abstract concept as a glowing symbol — show a concrete real scene instead (e.g. for security: a person at a workstation, a real data-center aisle, an office at night — never a glowing lock). Restrained natural palette, real lighting, understated over flashy. Render NO readable text, words, labels, or logos anywhere (image models garble them); any screens or signage stay unlabeled/illegible.";
 
+// The canonical preset ids (tuple form for z.enum / exhaustive typing).
+export const VISUAL_PRESET_IDS = ["natural", "editorial", "minimal", "monochrome", "analog"] as const;
+export type VisualPresetId = (typeof VISUAL_PRESET_IDS)[number];
+
 // User-selectable image "look" presets. Each id maps to a strong, concrete
 // prompt fragment that pushes generation toward a natural, believable photo and
 // away from the glossy AI-render look. The web owns localized labels keyed by id;
 // this is the server-side source of truth for the actual prompt wording.
-export const VISUAL_PRESETS: ReadonlyArray<{ id: string; prompt: string }> = [
+export const VISUAL_PRESETS: ReadonlyArray<{ id: VisualPresetId; prompt: string }> = [
   {
     id: "natural",
     prompt:

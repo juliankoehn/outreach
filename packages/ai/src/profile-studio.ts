@@ -12,17 +12,20 @@ import {
 } from "ai";
 import { z } from "zod";
 import { getTextModel } from "./provider.js";
+import { VISUAL_PRESET_IDS } from "./compose.js";
 
-// The fields the AI can propose/commit. There is no `voice`/`visualStyle`
-// column on CreatorProfile — the route maps those onto toneWords/brandBrief
-// (see apps/api/src/routes/profile.ts, POST /:id/studio for the exact merge).
+// The fields the AI can propose/commit. There is no `voice` column on
+// CreatorProfile — the route folds `voice` into toneWords/brandBrief. The image
+// look is set through `visualPreset` + `visualDirection`, which map to the same
+// user-facing Visuals card (see apps/api/src/routes/profile.ts POST /:id/studio).
 export interface ProfilePatch {
   voice?: string;
   toneWords?: string[];
   pillars?: string[];
   audience?: string;
   positioning?: string;
-  visualStyle?: string;
+  visualPreset?: string;
+  visualDirection?: string;
   noGos?: string[];
   brandBrief?: string;
 }
@@ -33,7 +36,16 @@ const PATCH_SCHEMA = z.object({
   pillars: z.array(z.string()).optional().describe("Content pillars/topics they post about."),
   audience: z.string().optional().describe("Who they write for and the transformation they sell."),
   positioning: z.string().optional().describe("Their unique point of view / positioning."),
-  visualStyle: z.string().optional().describe("Preferred visual style for images, if discussed."),
+  visualPreset: z
+    .enum(VISUAL_PRESET_IDS)
+    .optional()
+    .describe(
+      "The image look for generated post images, when the creator expresses a preference. natural = candid documentary photo (default for a natural, non-glossy look); editorial = clean magazine editorial; minimal = lots of negative space; monochrome = black & white; analog = 35mm film grain.",
+    ),
+  visualDirection: z
+    .string()
+    .optional()
+    .describe("Free-text refinement for image generation, e.g. 'muted colours, real daylight, no glossy 3D'."),
   noGos: z.array(z.string()).optional().describe("Topics, words, or tones to avoid."),
   brandBrief: z.string().optional().describe("The full brand brief prose paragraph."),
 });
@@ -77,7 +89,8 @@ function describeCurrent(current: ProfilePatch): string {
   if (current.pillars?.length) lines.push(`Pillars: ${current.pillars.join(", ")}`);
   if (current.toneWords?.length) lines.push(`Tone/voice words: ${current.toneWords.join(", ")}`);
   if (current.noGos?.length) lines.push(`No-gos: ${current.noGos.join(", ")}`);
-  if (current.visualStyle) lines.push(`Visual style: ${current.visualStyle}`);
+  if (current.visualPreset) lines.push(`Image look preset: ${current.visualPreset}`);
+  if (current.visualDirection) lines.push(`Image direction: ${current.visualDirection}`);
   if (current.brandBrief) lines.push(`Brand brief:\n"""${current.brandBrief}"""`);
   return lines.length > 0 ? lines.join("\n") : "Nothing is on the canvas yet — this is a fresh profile.";
 }
@@ -109,7 +122,8 @@ MODE B — YOU ARE LEADING THE DISCOVERY (filling a gap, suggesting the next fie
 
 ALWAYS: updateProfile is the ONLY writer — every persisted change flows through it. NEVER repeat a claim or question you've already made. NEVER re-propose something already on the canvas.
 
-WHAT TO COVER (naturally, one step at a time): audience & the transformation they sell → positioning/POV → content pillars → tone/voice words → no-gos → (optional) visual style.
+WHAT TO COVER (naturally, one step at a time): audience & the transformation they sell → positioning/POV → content pillars → tone/voice words → no-gos → (optional) image look.
+- IMAGE LOOK: whenever the creator expresses ANY preference for how their post images should look ("make my images natural", "less glossy", "I like black & white", "more editorial"), set it via updateProfile using visualPreset (one of: natural, editorial, minimal, monochrome, analog) and/or visualDirection (free-text refinement). This is the ONE lever that steers generated images — a description in the brand brief does NOT affect images. Under a direct instruction (Mode A) just apply it; when leading (Mode B) propose it with proposeConfirm first. This controls the same Visuals card the creator sees, so mirror their wording.
 - Once you know voice, audience, pillars and positioning, write/refresh a short usable "brandBrief" via updateProfile — keep sharpening it as you learn more.
 - At milestones (right after the brand brief first exists, or when asked) call "writeExamplePost" with a short concrete LinkedIn post in their voice — it renders on the canvas; never paste a post into the chat.
 - A post feels complete with a matching visual: right after you write or meaningfully revise an example post (and whenever the user asks for an image), call "generateExampleImage" with that post's text so a matching picture appears in the preview. It uses the creator's visual style. Don't regenerate the image on trivial text tweaks.
