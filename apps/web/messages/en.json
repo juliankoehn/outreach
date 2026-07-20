@@ -185,6 +185,8 @@
     "visualsRefineLabel": "Refinement (optional)",
     "visualsRefinePlaceholder": "e.g. muted colours, real daylight, film grain, no glossy 3D…",
     "visualsDerivedLabel": "Detected from your posts",
+    "regenerateImage": "Regenerate",
+    "generateImage": "Generate image",
     "visualPreset_natural": "Natural reportage",
     "visualPreset_editorial": "Editorial",
     "visualPreset_minimal": "Minimal",

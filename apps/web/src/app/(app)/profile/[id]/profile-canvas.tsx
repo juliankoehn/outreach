@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Globe, Loader2, MessageSquare, MoreHorizontal, Repeat2, Send, ThumbsUp } from "lucide-react";
+import { Globe, ImageIcon, Loader2, MessageSquare, MoreHorizontal, RefreshCw, Repeat2, Send, ThumbsUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,9 @@ interface ProfileCanvasProps {
   onEditField?: (field: "audience" | "positioning", value: string) => void;
   // Rendered at the top of the canvas — the editable Visuals settings.
   visualsSlot?: React.ReactNode;
+  // Regenerate the image for the example post at `index`.
+  onRegenerateImage?: (index: number) => void;
+  regeneratingIndex?: number | null;
 }
 
 // The live "canvas" — three stacked, independently scrollable zones that
@@ -44,6 +47,8 @@ export function ProfileCanvas({
   lastChangedKey,
   onEditField,
   visualsSlot,
+  onRegenerateImage,
+  regeneratingIndex,
 }: ProfileCanvasProps) {
   const t = useTranslations();
 
@@ -117,6 +122,8 @@ export function ProfileCanvas({
               text={post.text}
               imageUrl={post.imageUrl}
               imageLoading={imageLoading && !post.imageUrl}
+              onRegenerate={onRegenerateImage ? () => onRegenerateImage(i) : undefined}
+              regenerating={regeneratingIndex === i}
             />
           ))
         )}
@@ -259,21 +266,46 @@ function initials(name: string): string {
 
 // Read-only variant of the LinkedIn feed-post look (see linkedin-preview.tsx)
 // for rendering AI-written example posts on the canvas.
+// Fades + un-blurs the image once it decodes — a "developing" reveal each time a
+// new src arrives (the closest we get to a streamed-image feel without partials).
+function RevealImage({ src, dimmed }: { src: string; dimmed?: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => setLoaded(false), [src]);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      onLoad={() => setLoaded(true)}
+      className={cn(
+        "max-h-80 w-full object-cover transition-all duration-700 ease-out",
+        loaded ? "scale-100 blur-0 opacity-100" : "scale-105 opacity-0 blur-xl",
+        dimmed && "opacity-60",
+      )}
+    />
+  );
+}
+
 function ExamplePostPreview({
   authorName,
   avatarUrl,
   text,
   imageUrl,
   imageLoading,
+  onRegenerate,
+  regenerating,
 }: {
   authorName: string;
   avatarUrl?: string | null;
   text: string;
   imageUrl?: string;
   imageLoading?: boolean;
+  onRegenerate?: () => void;
+  regenerating?: boolean;
 }) {
   const t = useTranslations();
   const name = authorName.trim() || "Your name";
+  const busy = !!imageLoading || !!regenerating;
 
   return (
     <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
@@ -303,13 +335,40 @@ function ExamplePostPreview({
 
       <p className="mt-2 px-4 pb-1 text-[15px] leading-[1.45] whitespace-pre-line">{text}</p>
 
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={imageUrl} alt="" className="mt-2 max-h-80 w-full border-y object-cover" />
-      ) : imageLoading ? (
-        <div className="bg-muted mt-2 flex h-64 w-full items-center justify-center border-y">
-          <Loader2 className="text-muted-foreground size-5 animate-spin" />
+      {imageUrl || busy ? (
+        <div className="group/img relative mt-2 border-y">
+          {imageUrl && <RevealImage src={imageUrl} dimmed={regenerating} />}
+          {busy && !imageUrl && (
+            <div className="bg-muted flex h-64 w-full items-center justify-center">
+              <Loader2 className="text-muted-foreground size-5 animate-spin" />
+            </div>
+          )}
+          {regenerating && imageUrl && (
+            <div className="bg-background/30 absolute inset-0 grid place-items-center backdrop-blur-[2px]">
+              <Loader2 className="text-foreground size-5 animate-spin" />
+            </div>
+          )}
+          {onRegenerate && !busy && (
+            <button
+              type="button"
+              onClick={onRegenerate}
+              aria-label={t("profile.regenerateImage")}
+              className="bg-background/80 text-foreground hover:bg-background absolute top-2 right-2 flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium opacity-0 shadow-sm backdrop-blur transition-opacity group-hover/img:opacity-100"
+            >
+              <RefreshCw className="size-3.5" />
+              {t("profile.regenerateImage")}
+            </button>
+          )}
         </div>
+      ) : onRegenerate ? (
+        <button
+          type="button"
+          onClick={onRegenerate}
+          className="text-muted-foreground hover:border-foreground/20 hover:text-foreground mt-2 flex w-full items-center justify-center gap-2 border-y border-dashed py-6 text-sm transition-colors"
+        >
+          <ImageIcon className="size-4" />
+          {t("profile.generateImage")}
+        </button>
       ) : null}
 
       <div className="text-muted-foreground flex items-center gap-1.5 px-4 pt-2.5 text-xs">

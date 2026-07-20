@@ -40,6 +40,35 @@ import {
   setInterviewMessages,
 } from "../repos/profile.js";
 
+// Render a matching visual for a profile's example post, in the profile's saved
+// image look (preset + refinement + analyzed style) and, if the profile has an
+// account, resembling its reference photos. Shared by the studio agent's
+// generateExampleImage tool and the standalone regenerate endpoint.
+async function buildExampleImage(
+  profile: { id: string; visualPreset: string | null; visualDirection: string; derived: unknown },
+  userId: string,
+  opts: { postText?: string; direction?: string },
+): Promise<{ imageUrl: string }> {
+  const derived = profile.derived as unknown as DerivedInsights | null | undefined;
+  const acctId = await getAccountIdForProfile(profile.id, userId);
+  const referenceHint = acctId ? await imageReferenceHint(acctId) : "";
+  const { base64, mediaType } = await generateImage(
+    opts.direction?.trim() || "A clean, on-brand visual that fits this post.",
+    {
+      postText: opts.postText?.trim() || undefined,
+      visualStyle: composeVisualLanguage({
+        preset: profile.visualPreset,
+        direction: profile.visualDirection,
+        derived: derived?.visualStyle,
+      }),
+      size: "portrait",
+      referenceHint,
+    },
+  );
+  const { url } = await saveImage(base64, mediaType);
+  return { imageUrl: url };
+}
+
 // NOTE on ownership: mirrors the prior /profile routes -- Hono's generics
 // make a standalone middleware function awkward to type against a
 // parameterized route, so we inline the owner-check at the top of every
@@ -249,31 +278,10 @@ export function profileRoutes() {
           };
           await updateProfileById(id, user.id, update);
         },
-        // Reuse the draft studio's image pipeline: generate a visual for the
-        // example post in the creator's visual style, persist it, hand back a
-        // servable URL for the canvas preview.
-        createExampleImage: async ({ postText, direction }) => {
-          // Profile studio is keyed by profileId; resolve its (single, Phase 1)
-          // account to pull that account's reference photos. No account / no
-          // references → skip the hint but keep the portrait sizing.
-          const acctId = await getAccountIdForProfile(id, user.id);
-          const referenceHint = acctId ? await imageReferenceHint(acctId) : "";
-          const { base64, mediaType } = await generateImage(
-            direction ?? "A clean, on-brand visual that fits this post.",
-            {
-              postText,
-              visualStyle: composeVisualLanguage({
-                preset: profile.visualPreset,
-                direction: profile.visualDirection,
-                derived: derived?.visualStyle,
-              }),
-              size: "portrait",
-              referenceHint,
-            },
-          );
-          const { url } = await saveImage(base64, mediaType);
-          return { imageUrl: url };
-        },
+        // Generate a visual for the example post in the profile's image look
+        // (shared with the standalone regenerate endpoint below).
+        createExampleImage: async ({ postText, direction }) =>
+          buildExampleImage(profile, user.id, { postText, direction }),
         searchKnowledge: async (query) => {
           const acctId = await getAccountIdForProfile(id, user.id);
           if (!acctId) return [];
@@ -285,6 +293,18 @@ export function profileRoutes() {
         void setInterviewMessages(iv.id, finalMessages);
       },
     });
+  });
+
+  // Regenerate the example post's image on demand (the canvas's regenerate
+  // button) — same pipeline the studio agent uses, in the profile's image look.
+  r.post("/:id/example-image", async (c) => {
+    const user = c.get("user")!;
+    const profile = await requireProfile(c.req.param("id"), user.id);
+    if (!profile) return c.json({ error: "not_found" }, 404);
+    const { postText, direction } = await c.req
+      .json<{ postText?: string; direction?: string }>()
+      .catch(() => ({}) as { postText?: string; direction?: string });
+    return c.json(await buildExampleImage(profile, user.id, { postText, direction }));
   });
 
   // Manual fallback: build the profile from the conversation on demand.

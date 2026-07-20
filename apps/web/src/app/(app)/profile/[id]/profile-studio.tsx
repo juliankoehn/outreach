@@ -227,6 +227,7 @@ function ProfileStudioInner({
   // has visualPreset/visualDirection/derived and stays in sync after analyze.
   const [fullProfile, setFullProfile] = useState<CreatorProfile | null>(initialProfile);
   const [examplePosts, setExamplePosts] = useState<ExamplePost[]>([]);
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
   const [lastChangedKey, setLastChangedKey] = useState<keyof CanvasProfile | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeNote, setAnalyzeNote] = useState<{ text: string; muted?: boolean; addPostsAccountId?: string } | null>(
@@ -347,6 +348,28 @@ function ProfileStudioInner({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ [field]: value }),
     });
+  }
+
+  // Regenerate the example post's image on demand, in the profile's current
+  // image look — no chat round-trip needed.
+  async function regenerateExampleImage(index: number) {
+    const post = examplePosts[index];
+    if (!post || regeneratingIndex !== null) return;
+    setRegeneratingIndex(index);
+    try {
+      const res = await fetch(`/api/profiles/${profileId}/example-image`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postText: post.text }),
+      });
+      if (res.ok) {
+        const { imageUrl } = (await res.json()) as { imageUrl: string };
+        setExamplePosts((prev) => prev.map((p, i) => (i === index ? { ...p, imageUrl } : p)));
+      }
+    } finally {
+      setRegeneratingIndex(null);
+    }
   }
 
   async function analyze() {
@@ -594,6 +617,8 @@ function ProfileStudioInner({
           author={author}
           lastChangedKey={lastChangedKey}
           onEditField={(field, value) => void editField(field, value)}
+          onRegenerateImage={(i) => void regenerateExampleImage(i)}
+          regeneratingIndex={regeneratingIndex}
           visualsSlot={
             fullProfile && (
               <VisualsCard profileId={profileId} profile={fullProfile} onUpdated={setFullProfile} />

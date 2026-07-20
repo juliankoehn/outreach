@@ -185,6 +185,8 @@
     "visualsRefineLabel": "Feinschliff (optional)",
     "visualsRefinePlaceholder": "z.B. gedämpfte Farben, echtes Tageslicht, Film-Korn, kein glänzendes 3D…",
     "visualsDerivedLabel": "Aus deinen Posts erkannt",
+    "regenerateImage": "Neu generieren",
+    "generateImage": "Bild generieren",
     "visualPreset_natural": "Natürliche Reportage",
     "visualPreset_editorial": "Editorial",
     "visualPreset_minimal": "Minimal",
