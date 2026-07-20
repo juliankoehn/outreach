@@ -4,6 +4,8 @@ export interface Account {
   memberUrn: string;
   status: string;
   avatarUrl?: string | null;
+  // Default image-generation provider (openai | google); null = env default.
+  imageProvider?: string | null;
   // Present on the list endpoint (GET /accounts), not on the single-account summary.
   createdAt?: string;
   analyticsAt?: string | null;

@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, Loader2, Sparkles, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAccount } from "../account-context";
 
 export default function AccountSettingsPage() {
@@ -14,6 +16,7 @@ export default function AccountSettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <ImageProviderCard accountId={id} current={account.imageProvider ?? null} />
       {/* Connection */}
       <Card>
         <CardHeader>
@@ -77,6 +80,86 @@ export default function AccountSettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// The default image-generation model for this account. Only providers the
+// operator has enabled (an API key is set) are offered; the choice persists via
+// PATCH and governs every image generated from the studio.
+function ImageProviderCard({ accountId, current }: { accountId: string; current: string | null }) {
+  const t = useTranslations();
+  const [providers, setProviders] = useState<Array<{ id: string; label: string }>>([]);
+  const [value, setValue] = useState<string>(current ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void fetch("/api/studio/image-providers", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { providers: [] }))
+      .then((d: { providers?: Array<{ id: string; label: string }> }) => {
+        if (!alive) return;
+        const list = d.providers ?? [];
+        setProviders(list);
+        // Default the shown value to the first enabled provider when unset, so the
+        // select always reflects what generation will actually use.
+        setValue((v) => v || current || list[0]?.id || "");
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [current]);
+
+  async function save(next: string) {
+    setValue(next);
+    setSaving(true);
+    setSaved(false);
+    const res = await fetch(`/api/linkedin/accounts/${accountId}/settings`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageProvider: next || null }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+  }
+
+  // No providers enabled at all (no API keys) — nothing to configure.
+  if (providers.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">{t("accounts.settingsImageTitle")}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <p className="text-muted-foreground text-xs">{t("accounts.settingsImageHint")}</p>
+        <div className="flex items-center gap-3">
+          <Select value={value} onValueChange={(v) => void save(v)} disabled={saving}>
+            <SelectTrigger size="sm" className="w-72">
+              <SelectValue placeholder={t("studio.imageModel")} />
+            </SelectTrigger>
+            <SelectContent>
+              {providers.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {saving && <Loader2 className="text-muted-foreground size-4 animate-spin" />}
+          {saved && !saving && (
+            <span className="text-muted-foreground flex items-center gap-1 text-xs">
+              <Check className="size-3.5" /> {t("studio.saved")}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

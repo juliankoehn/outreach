@@ -100,6 +100,8 @@
     "settingsProfileAssigned": "Assigned to this account",
     "settingsNoProfile": "No creator profile is assigned to this account yet.",
     "settingsChooseProfile": "Choose a profile",
+    "settingsImageTitle": "Image generation",
+    "settingsImageHint": "The default AI model used to generate post images. Only providers with an API key configured are shown.",
     "settingsConnectionTitle": "Connection",
     "settingsDisplayName": "Display name",
     "settingsStatus": "Status",

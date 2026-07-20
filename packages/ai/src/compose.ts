@@ -18,6 +18,17 @@ export const IMAGE_PROVIDERS: ReadonlyArray<{
   { id: "google", model: "gemini-2.5-flash-image", label: "Google · Nano Banana", envKey: "GOOGLE_GENERATIVE_AI_API_KEY" },
 ];
 
+// The image providers the operator has enabled — those whose API key is present
+// in the environment. The UI only offers these; server code only honours these.
+export function enabledImageProviders(): Array<{ id: ImageProviderId; label: string }> {
+  return IMAGE_PROVIDERS.filter((p) => !!process.env[p.envKey]).map((p) => ({ id: p.id, label: p.label }));
+}
+
+// True when `id` is a provider the operator has enabled (a real, keyed provider).
+export function isImageProviderEnabled(id: string | null | undefined): id is ImageProviderId {
+  return !!id && enabledImageProviders().some((p) => p.id === id);
+}
+
 const GOOGLE_ASPECT = { portrait: "4:5", square: "1:1", landscape: "16:9" } as const;
 
 // Google Gemini image models (Nano Banana) return images via generateText's

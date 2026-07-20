@@ -21,6 +21,7 @@ import {
   getDecryptedAccount,
   listAccounts,
   getAccountSummary,
+  setAccountImageProvider,
   getAnalyticsCache,
   setAnalyticsCache,
 } from "../repos/linkedin-account.js";
@@ -28,6 +29,7 @@ import { upsertPosts, listPosts } from "../repos/post.js";
 import { enrichAccountMetrics } from "../analytics/enrich.js";
 import { getOrCreateAccountProfile } from "../repos/profile.js";
 import { isPrivateOrLoopbackIp } from "../net.js";
+import { isImageProviderEnabled } from "@outreach/ai";
 
 export { isPrivateOrLoopbackIp };
 
@@ -189,6 +191,24 @@ export function linkedinRoutes() {
     const acct = await getAccountSummary(c.req.param("id"), user.id);
     if (!acct) return c.json({ error: "not_found" }, 404);
     return c.json({ account: acct });
+  });
+
+  // Update account settings. Currently just the default image provider: accepts
+  // an enabled provider id, or null to fall back to the environment default.
+  r.patch("/accounts/:id/settings", async (c) => {
+    const user = c.get("user")!;
+    const body = await c.req
+      .json<{ imageProvider?: string | null }>()
+      .catch(() => ({}) as { imageProvider?: string | null });
+    if (!("imageProvider" in body)) return c.json({ error: "invalid_body" }, 400);
+    const raw = body.imageProvider;
+    // null clears the override; otherwise the provider must be enabled here.
+    if (raw !== null && !isImageProviderEnabled(raw)) {
+      return c.json({ error: "provider_not_enabled" }, 400);
+    }
+    const updated = await setAccountImageProvider(c.req.param("id"), user.id, raw ?? null);
+    if (!updated) return c.json({ error: "not_found" }, 404);
+    return c.json({ imageProvider: updated.imageProvider });
   });
 
   // The account's creator profile (created + linked on first access).

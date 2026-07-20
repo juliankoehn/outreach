@@ -8,7 +8,6 @@ import { ArrowLeft, CalendarClock, ImagePlus, Newspaper, RefreshCw, Send, Trash2
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -91,8 +90,6 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
   const [postText, setPostText] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [imageProviders, setImageProviders] = useState<Array<{ id: string; label: string }>>([]);
-  const [imageProvider, setImageProvider] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
 
   const [saving, setSaving] = useState(false);
@@ -127,17 +124,6 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       if (!first) return setState("not-found");
       setAccountId(first.id);
       setAuthor({ name: first.displayName, avatarUrl: first.avatarUrl ?? null });
-
-      // Which image models the operator has enabled (an API key is present for each).
-      void fetch("/api/studio/image-providers", { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : { providers: [] }))
-        .then((d: { providers?: Array<{ id: string; label: string }> }) => {
-          if (!alive) return;
-          const list = d.providers ?? [];
-          setImageProviders(list);
-          setImageProvider((cur) => cur ?? list[0]?.id ?? null);
-        })
-        .catch(() => {});
 
       const res = await fetch(`/api/studio/${first.id}/drafts/${id}`, { credentials: "include" });
       if (!alive) return;
@@ -226,11 +212,7 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: imagePrompt.trim(),
-        postText: postText.trim() || undefined,
-        provider: imageProvider ?? undefined,
-      }),
+      body: JSON.stringify({ prompt: imagePrompt.trim(), postText: postText.trim() || undefined }),
     });
     setGeneratingImage(false);
     if (res.status === 401) return router.push("/login");
@@ -605,20 +587,6 @@ export default function StudioDraftPage({ params }: { params: Promise<{ id: stri
                   {t("studio.sectionImage")}
                 </h3>
                 <div className="mt-3 flex flex-col gap-2">
-                  {imageProviders.length > 1 && (
-                    <Select value={imageProvider ?? undefined} onValueChange={setImageProvider}>
-                      <SelectTrigger size="sm" className="w-full">
-                        <SelectValue placeholder={t("studio.imageModel")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {imageProviders.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
                   <Textarea
                     value={imagePrompt}
                     onChange={(e) => setImagePrompt(e.target.value)}

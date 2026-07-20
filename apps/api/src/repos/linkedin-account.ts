@@ -105,8 +105,23 @@ export async function listAccounts(userId: string) {
 export async function getAccountSummary(id: string, userId: string) {
   return prisma.linkedInAccount.findFirst({
     where: { id, userId },
-    select: { id: true, memberUrn: true, displayName: true, avatarUrl: true, status: true },
+    select: { id: true, memberUrn: true, displayName: true, avatarUrl: true, status: true, imageProvider: true },
   });
+}
+
+// Set (or clear, with null) the account's default image-generation provider.
+// Scoped by userId so a user can only change their own account. Returns the
+// stored value, or null if the account isn't found / not owned.
+export async function setAccountImageProvider(
+  id: string,
+  userId: string,
+  imageProvider: string | null,
+): Promise<{ imageProvider: string | null } | null> {
+  const { count } = await prisma.linkedInAccount.updateMany({
+    where: { id, userId },
+    data: { imageProvider },
+  });
+  return count > 0 ? { imageProvider } : null;
 }
 
 // Resolve the (single, Phase 1) LinkedIn account bound to a creator profile.

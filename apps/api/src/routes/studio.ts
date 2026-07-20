@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, IMAGE_PROVIDERS } from "@outreach/ai";
+import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, enabledImageProviders, isImageProviderEnabled } from "@outreach/ai";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -29,12 +29,6 @@ function isRenderableMessage(m: UIMessage): boolean {
     }
     return false;
   });
-}
-
-// Image providers the operator has enabled (the provider's API key is present).
-// The UI only offers these; the draft-image handler only honours these.
-function enabledImageProviders(): Array<{ id: string; label: string }> {
-  return IMAGE_PROVIDERS.filter((p) => !!process.env[p.envKey]).map((p) => ({ id: p.id, label: p.label }));
 }
 
 // NOTE on ownership: mirrors routes/profile.ts — the per-handler inline check
@@ -73,11 +67,16 @@ export function studioRoutes() {
     if (!acct) return c.json({ error: "not_found" }, 404);
 
     const { prompt, postText, provider } = await c.req
-      .json<{ prompt?: string; postText?: string; provider?: "openai" | "google" }>()
+      .json<{ prompt?: string; postText?: string; provider?: string }>()
       .catch(() => ({ prompt: undefined, postText: undefined, provider: undefined }));
     if (!prompt) return c.json({ error: "invalid_body" }, 400);
-    // Only honour a provider the operator has enabled (its API key is set).
-    const chosen = provider && enabledImageProviders().some((p) => p.id === provider) ? provider : undefined;
+    // Resolve the image provider: an explicit (enabled) request override wins,
+    // else the account's saved default (if still enabled), else the env default.
+    const chosen = isImageProviderEnabled(provider)
+      ? provider
+      : isImageProviderEnabled(acct.imageProvider)
+        ? acct.imageProvider
+        : undefined;
     const profile = await getAccountProfile(accountId);
     const visualStyle = (profile?.derived as unknown as DerivedInsights | null | undefined)?.visualStyle;
     const referenceHint = await imageReferenceHint(accountId);

@@ -100,6 +100,8 @@
     "settingsProfileAssigned": "Diesem Account zugewiesen",
     "settingsNoProfile": "Diesem Account ist noch kein Creator-Profil zugewiesen.",
     "settingsChooseProfile": "Profil wählen",
+    "settingsImageTitle": "Bildgenerierung",
+    "settingsImageHint": "Das Standard-KI-Modell für die Bilderzeugung deiner Posts. Es werden nur Provider angezeigt, für die ein API-Key hinterlegt ist.",
     "settingsConnectionTitle": "Verbindung",
     "settingsDisplayName": "Anzeigename",
     "settingsStatus": "Status",

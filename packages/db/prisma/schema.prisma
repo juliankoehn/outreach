@@ -73,6 +73,7 @@ model LinkedInAccount {
   tokenExpiresAt DateTime?
   scopes         String[]
   status         String   @default("active") // active | expired | revoked
+  imageProvider  String?   // default image model for generation: openai | google (null = env default)
   analytics      Json?     // cached aggregate post metrics
   analyticsAt    DateTime? // when the cached analytics were fetched
   createdAt      DateTime @default(now())
