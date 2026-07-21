@@ -109,6 +109,15 @@ export const LINKEDIN_PLAYBOOK = `How top LinkedIn creators write (apply these, 
 
 const POST_INSTRUCTIONS = `Write a single LinkedIn post in the creator's authentic voice, following the brand brief exactly. Output only the post text as PLAIN TEXT (no Markdown formatting) — no preamble, no surrounding quotes.`;
 
+// The creator's proven engagement patterns (from post analysis — the accepted
+// learnings). Threaded into every writer / reviewer / image call so a post is
+// grounded in what actually works and a revision can't drift away from it.
+function insightsBlock(insights?: string): string {
+  return insights?.trim()
+    ? `\n\nWHAT WORKS FOR THIS CREATOR (learned from their best-performing posts — lean on these, don't contradict them):\n${insights.trim()}`
+    : "";
+}
+
 // The creator's explicit no-gos, rendered as hard rules. Kept identical to the
 // studio agent's phrasing so both paths honour "no emojis / no em-dashes" etc.
 function noGoBlock(noGos?: string[], toneWords?: string[]): string {
@@ -121,12 +130,12 @@ function noGoBlock(noGos?: string[], toneWords?: string[]): string {
 
 export async function draftPost(
   brandBrief: string,
-  opts?: { topic?: string; model?: LanguageModel; noGos?: string[]; toneWords?: string[] },
+  opts?: { topic?: string; model?: LanguageModel; noGos?: string[]; toneWords?: string[]; insights?: string },
 ): Promise<string> {
   const model = opts?.model ?? getTextModel();
   const { text } = await generateText({
     model,
-    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
+    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}${insightsBlock(opts?.insights)}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
     prompt: opts?.topic ? `Topic / angle: ${opts.topic}` : "Write a strong post on one of the creator's core pillars.",
   });
   return enforceNoGos(stripMarkdown(text), opts?.noGos);
@@ -136,12 +145,12 @@ export async function refinePost(
   brandBrief: string,
   currentText: string,
   instruction: string,
-  opts?: { model?: LanguageModel; noGos?: string[]; toneWords?: string[] },
+  opts?: { model?: LanguageModel; noGos?: string[]; toneWords?: string[]; insights?: string },
 ): Promise<string> {
   const model = opts?.model ?? getTextModel();
   const { text } = await generateText({
     model,
-    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
+    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}${insightsBlock(opts?.insights)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
     prompt: `Current draft:\n"""${currentText}"""\n\nInstruction: ${instruction}`,
   });
   return enforceNoGos(stripMarkdown(text), opts?.noGos);
@@ -172,6 +181,9 @@ export async function reviewPost(opts: {
   // Title + excerpt of the source article, when the post was drafted from one —
   // lets the reviewer catch off-topic drift.
   article?: string;
+  // The creator's proven engagement patterns — the reviewer flags a post that
+  // clearly ignores or contradicts them.
+  insights?: string;
   model?: LanguageModel;
 }): Promise<PostReview> {
   const text = opts.text.trim();
@@ -194,10 +206,11 @@ export async function reviewPost(opts: {
 4. NO-GO VIOLATIONS — anything on the hard no-go list.
 5. OFF-TOPIC — drifts away from the source article's subject (only when an article is given).
 6. MARKDOWN — any Markdown syntax (LinkedIn renders plain text only).
+7. IGNORES WHAT WORKS — only when a "WHAT WORKS FOR THIS CREATOR" block is given below: flag it ONLY if the post clearly contradicts or wastes a proven engagement pattern (e.g. a known-strong hook style dropped, no CTA when CTAs reliably drive replies). Do NOT nitpick minor deviations; this is a soft check, never invent an issue just to apply it.
 
 Be strict but fair: if the post genuinely clears the bar, set verdict "pass" with empty "issues" — do NOT invent nitpicks to justify another round. Otherwise set verdict "revise" and list each concrete defect as a short, actionable instruction the writer can act on (quote the offending phrase where it helps).
 LANGUAGE OF ISSUES: the ENTIRE text of every issue — the description, not just a quoted snippet — MUST be written in the SAME language as the draft post; these are shown to the creator in the UI. Do NOT use the English defect category names above ("Corporate Bloat", "No real value", etc.); describe the problem in the post's own language. For a German post, write fully German issues, e.g. "Corporate-Floskel: '…' sagt nichts Konkretes" or "Kein greifbarer Mehrwert — nenne eine konkrete Maßnahme".
-${brief}${noGoLine}${toneLine}${articleLine}`,
+${brief}${noGoLine}${toneLine}${articleLine}${insightsBlock(opts.insights)}`,
     prompt: `Review this draft post:\n"""${text}"""`,
   });
   return object;
@@ -214,6 +227,9 @@ export async function rewriteForReview(opts: {
   noGos?: string[];
   toneWords?: string[];
   article?: string;
+  // Same "what works" context the original writer had — so a fix preserves and
+  // leans on the creator's proven patterns instead of blandifying them away.
+  insights?: string;
   model?: LanguageModel;
 }): Promise<string> {
   const model = opts.model ?? getTextModel();
@@ -224,7 +240,7 @@ export async function rewriteForReview(opts: {
   const issueList = opts.issues.length ? opts.issues.map((i) => `- ${i}`).join("\n") : "- Tighten and sharpen the post.";
   const { text } = await generateText({
     model,
-    system: `${brief}${noGoBlock(opts.noGos, opts.toneWords)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are the writer revising your own LinkedIn post after a strict editor flagged problems. Fix EVERY flagged problem while keeping the post's substance, angle, and authentic voice — do not blandify, do not drop real content, do not add new claims. Output only the revised post as PLAIN TEXT — no preamble, no surrounding quotes.${articleLine}`,
+    system: `${brief}${noGoBlock(opts.noGos, opts.toneWords)}${insightsBlock(opts.insights)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are the writer revising your own LinkedIn post after a strict editor flagged problems. Fix EVERY flagged problem while keeping the post's substance, angle, and authentic voice — do not blandify, do not drop real content, do not add new claims. Output only the revised post as PLAIN TEXT — no preamble, no surrounding quotes.${articleLine}`,
     prompt: `Current draft:\n"""${opts.text.trim()}"""\n\nThe editor flagged these problems — fix all of them:\n${issueList}`,
   });
   return enforceNoGos(stripMarkdown(text), opts.noGos);
@@ -321,6 +337,8 @@ export async function generateImage(
     // article's actual subject, not a generic stock image.
     articleContext?: string;
     visualStyle?: string;
+    // The creator's proven engagement patterns — apply any VISUAL lessons.
+    insights?: string;
     size?: "portrait" | "square" | "landscape";
     referenceHint?: string;
   },
@@ -340,6 +358,9 @@ export async function generateImage(
   }
   if (opts?.visualStyle?.trim()) {
     parts.push(`Match this creator's established visual language: ${opts.visualStyle.trim()}`);
+  }
+  if (opts?.insights?.trim()) {
+    parts.push(`What works for this creator (apply any VISUAL lessons, ignore purely textual ones): ${opts.insights.trim()}`);
   }
   if (opts?.referenceHint?.trim()) {
     parts.push(
@@ -404,6 +425,9 @@ export async function composeImageBrief(opts: {
   visualStyle?: string;
   referenceHint?: string;
   noGos?: string[];
+  // The creator's proven engagement patterns — so the art director leans on any
+  // visual learnings (e.g. "image posts with strong narratives perform better").
+  insights?: string;
   size?: "portrait" | "square" | "landscape";
   model?: LanguageModel;
 }): Promise<string> {
@@ -412,6 +436,7 @@ export async function composeImageBrief(opts: {
   if (opts.article?.trim()) ctx.push(`SOURCE ARTICLE (the image MUST depict THIS subject concretely):\n"""${opts.article.trim()}"""`);
   if (opts.postText?.trim()) ctx.push(`THE POST THE IMAGE ACCOMPANIES:\n"""${opts.postText.trim()}"""`);
   if (opts.visualStyle?.trim()) ctx.push(`THE CREATOR'S VISUAL LANGUAGE (match it): ${opts.visualStyle.trim()}`);
+  if (opts.insights?.trim()) ctx.push(`WHAT WORKS FOR THIS CREATOR (apply any VISUAL lessons; ignore purely textual ones): ${opts.insights.trim()}`);
   if (opts.referenceHint?.trim()) ctx.push(`IF A PERSON APPEARS, resemble this reference (guidance, not exact likeness): ${opts.referenceHint.trim()}`);
   if (opts.seed?.trim()) ctx.push(`ROUGH IDEA FROM THE CREATOR (refine, don't just repeat): ${opts.seed.trim()}`);
   const noGoLine = opts.noGos?.length

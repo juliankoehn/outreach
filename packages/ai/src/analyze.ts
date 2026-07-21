@@ -18,6 +18,20 @@ export const DERIVED_SCHEMA = z.object({
     .describe("What correlates with higher engagement, grounded in the metrics — including whether media (image/carousel/video) helps."),
 });
 
+// Format a profile's derived insights (incl. the accepted post-analysis
+// learnings in `topPatterns`) into one grounding string, shared by every writer /
+// reviewer / image call so they all lean on the same "what works" context.
+export function formatInsights(d: DerivedInsights | null | undefined): string | undefined {
+  if (!d) return undefined;
+  const parts: string[] = [];
+  if (d.voiceSummary?.trim()) parts.push(`Voice: ${d.voiceSummary.trim()}`);
+  if (d.themes?.length) parts.push(`Recurring themes: ${d.themes.join(", ")}.`);
+  if (d.styleTraits?.length) parts.push(`Style traits: ${d.styleTraits.join(", ")}.`);
+  if (d.topPatterns?.length) parts.push(`What drives engagement: ${d.topPatterns.join("; ")}.`);
+  const s = parts.join(" ").trim();
+  return s || undefined;
+}
+
 // Cap how many images we send to vision — enough to read the visual language
 // without ballooning cost/latency on large post histories.
 const MAX_VISION_IMAGES = 6;

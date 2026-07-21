@@ -148,3 +148,40 @@ describe("composeVisualLanguage", () => {
     expect(composeVisualLanguage({ derived: "muted editorial" })).toBe("muted editorial");
   });
 });
+
+import { draftPost as _draftPost, rewriteForReview as _rewriteForReview, composeImageBrief as _composeImageBrief } from "./compose.js";
+import { recordingModel as _recordingModel } from "./testing.js";
+
+describe("insights threading (learnings reach every writer/fixer/image)", () => {
+  const INSIGHTS = "What drives engagement: contrarian hooks win; clear CTA drives replies.";
+
+  it("draftPost injects the learnings into the writer's system prompt", async () => {
+    const { model, calls } = _recordingModel("post");
+    await _draftPost("Brand brief.", { insights: INSIGHTS, model });
+    const s = JSON.stringify(calls[0]!.prompt);
+    expect(s).toContain("WHAT WORKS FOR THIS CREATOR");
+    expect(s).toContain("contrarian hooks win");
+  });
+
+  it("rewriteForReview (the fixer) gets the SAME learnings context, not a poorer one", async () => {
+    const { model, calls } = _recordingModel("fixed");
+    await _rewriteForReview({ text: "draft", issues: ["fix the hook"], insights: INSIGHTS, model });
+    const s = JSON.stringify(calls[0]!.prompt);
+    expect(s).toContain("WHAT WORKS FOR THIS CREATOR");
+    expect(s).toContain("clear CTA drives replies");
+  });
+
+  it("composeImageBrief applies the learnings (visual lessons) to the image", async () => {
+    // The model returns a pass-verdict JSON so the brief-review guard breaks
+    // immediately; we only assert the first (brief-gen) call carried the insights.
+    const { model, calls } = _recordingModel('{"verdict":"pass","issues":[]}');
+    await _composeImageBrief({ postText: "p", insights: "What drives engagement: image posts with metaphors win.", model });
+    expect(JSON.stringify(calls[0]!.prompt)).toContain("image posts with metaphors win");
+  });
+
+  it("omits the learnings block when there are none (no empty scaffolding)", async () => {
+    const { model, calls } = _recordingModel("post");
+    await _draftPost("Brand brief.", { model });
+    expect(JSON.stringify(calls[0]!.prompt)).not.toContain("WHAT WORKS FOR THIS CREATOR");
+  });
+});

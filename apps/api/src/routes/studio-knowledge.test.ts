@@ -4,6 +4,7 @@ import type { StudioAgentHandlers } from "@outreach/ai";
 let capturedHandlers: StudioAgentHandlers | undefined;
 
 vi.mock("@outreach/ai", () => ({
+  formatInsights: vi.fn(() => undefined),
   draftPost: vi.fn(async () => "text"),
   refinePost: vi.fn(async () => "text"),
   generateImage: vi.fn(async () => ({ base64: "aGVsbG8=", mediaType: "image/png" })),

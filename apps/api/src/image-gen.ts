@@ -7,6 +7,7 @@ import {
   generateImage,
   composeVisualLanguage,
   isImageProviderEnabled,
+  formatInsights,
   type ImageProviderId,
   type DerivedInsights,
 } from "@outreach/ai";
@@ -49,6 +50,7 @@ export async function renderAndSaveImage(
     visualStyle?: string;
     provider?: ImageProviderId;
     referenceHint?: string;
+    insights?: string;
   },
 ): Promise<{ imageUrl: string; base64: string; mediaType: string }> {
   const { base64, mediaType } = await generateImage(prompt, {
@@ -57,6 +59,7 @@ export async function renderAndSaveImage(
     visualStyle: opts.visualStyle,
     size: opts.size ?? "square",
     referenceHint: opts.referenceHint,
+    insights: opts.insights,
   });
   const { url } = await saveImage(base64, mediaType);
   return { imageUrl: url, base64, mediaType };
@@ -76,7 +79,13 @@ export async function accountImageInputs(accountId: string, userId: string, prov
     : isImageProviderEnabled(acct?.imageProvider)
       ? acct.imageProvider
       : undefined;
-  return { profile, provider, visualStyle: profileVisualStyle(profile), referenceHint };
+  return {
+    profile,
+    provider,
+    visualStyle: profileVisualStyle(profile),
+    referenceHint,
+    insights: formatInsights(profile?.derived as unknown as DerivedInsights | null | undefined),
+  };
 }
 
 // Profile-grounded inputs for a PROFILE context (the profile studio). A profile
@@ -89,5 +98,10 @@ export async function profileImageInputs(profile: VisualProfile, userId: string)
   ]);
   const provider = providers.find(isImageProviderEnabled);
   const referenceHint = acctId ? await imageReferenceHint(acctId) : "";
-  return { provider, visualStyle: profileVisualStyle(profile), referenceHint };
+  return {
+    provider,
+    visualStyle: profileVisualStyle(profile),
+    referenceHint,
+    insights: formatInsights(profile.derived as unknown as DerivedInsights | null | undefined),
+  };
 }

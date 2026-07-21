@@ -179,6 +179,7 @@ export async function streamStudioAgent(opts: StudioAgentOptions): Promise<Respo
             noGos: opts.noGos,
             toneWords: opts.toneWords,
             article: articleCtx,
+            insights: opts.insights,
             model: opts.model,
           };
 

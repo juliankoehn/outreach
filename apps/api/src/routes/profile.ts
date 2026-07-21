@@ -46,7 +46,7 @@ async function buildExampleImage(
   userId: string,
   opts: { postText?: string; direction?: string },
 ): Promise<{ imageUrl: string }> {
-  const { provider, visualStyle, referenceHint } = await profileImageInputs(profile, userId);
+  const { provider, visualStyle, referenceHint, insights } = await profileImageInputs(profile, userId);
   const { imageUrl } = await renderAndSaveImage(
     opts.direction?.trim() || "A clean, on-brand visual that fits this post.",
     {
@@ -55,6 +55,7 @@ async function buildExampleImage(
       visualStyle,
       provider,
       referenceHint,
+      insights,
     },
   );
   return { imageUrl };

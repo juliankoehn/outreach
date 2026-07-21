@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, composeImageBrief, streamStudioAgent, enabledImageProviders } from "@outreach/ai";
+import { draftPost, refinePost, composeImageBrief, streamStudioAgent, enabledImageProviders, formatInsights } from "@outreach/ai";
 import { accountImageInputs, renderAndSaveImage } from "../image-gen.js";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
@@ -55,7 +55,12 @@ export function studioRoutes() {
       return c.json({ error: "no_profile" }, 400);
     }
     const { topic } = await c.req.json<{ topic?: string }>().catch(() => ({ topic: undefined }));
-    const text = await draftPost(profile.brandBrief, { topic, noGos: profile.noGos, toneWords: profile.toneWords });
+    const text = await draftPost(profile.brandBrief, {
+      topic,
+      noGos: profile.noGos,
+      toneWords: profile.toneWords,
+      insights: formatInsights(profile.derived as unknown as DerivedInsights | null | undefined),
+    });
     return c.json({ text });
   });
 
@@ -72,7 +77,7 @@ export function studioRoutes() {
     // Profile-grounded inputs (visual language, reference photos, provider) — the
     // request `provider` overrides the account default. Shared with the agent +
     // profile paths via image-gen.ts.
-    const { provider: resolvedProvider, visualStyle, referenceHint } = await accountImageInputs(
+    const { provider: resolvedProvider, visualStyle, referenceHint, insights } = await accountImageInputs(
       accountId,
       user.id,
       provider,
@@ -83,6 +88,7 @@ export function studioRoutes() {
       visualStyle,
       provider: resolvedProvider,
       referenceHint,
+      insights,
     });
     return c.json({ imageUrl });
   });
@@ -143,7 +149,11 @@ export function studioRoutes() {
     if (!instruction) return c.json({ error: "invalid_body" }, 400);
 
     const profile = await getAccountProfile(accountId);
-    const text = await refinePost(profile?.brandBrief ?? "", draft.text, instruction, { noGos: profile?.noGos, toneWords: profile?.toneWords });
+    const text = await refinePost(profile?.brandBrief ?? "", draft.text, instruction, {
+      noGos: profile?.noGos,
+      toneWords: profile?.toneWords,
+      insights: formatInsights(profile?.derived as unknown as DerivedInsights | null | undefined),
+    });
     const chat = [
       ...(Array.isArray(draft.chat) ? draft.chat : []),
       { role: "user", content: instruction },
@@ -169,9 +179,7 @@ export function studioRoutes() {
 
     const { profile, provider: imageProvider, visualStyle, referenceHint } = await accountImageInputs(accountId, user.id);
     const derived = profile?.derived as unknown as DerivedInsights | null | undefined;
-    const insights = derived
-      ? `Voice: ${derived.voiceSummary} Recurring themes: ${derived.themes.join(", ")}. Style traits: ${derived.styleTraits.join(", ")}. What drives engagement: ${derived.topPatterns.join("; ")}.`
-      : undefined;
+    const insights = formatInsights(derived);
 
     // Track the live post text so a generateImage call after an updatePost call
     // in the same turn sees the fresh copy, not the stale draft snapshot.
@@ -221,6 +229,7 @@ export function studioRoutes() {
             visualStyle,
             referenceHint,
             noGos: profile?.noGos,
+            insights,
             size: "square",
           });
           // The brief already folds in the visual style + reference; still pass
@@ -283,7 +292,12 @@ export function studioRoutes() {
       return c.json({ error: "no_profile" }, 400);
     }
     const { topic } = await c.req.json<{ topic?: string }>().catch(() => ({ topic: undefined }));
-    const text = await draftPost(profile.brandBrief, { topic, noGos: profile.noGos, toneWords: profile.toneWords });
+    const text = await draftPost(profile.brandBrief, {
+      topic,
+      noGos: profile.noGos,
+      toneWords: profile.toneWords,
+      insights: formatInsights(profile.derived as unknown as DerivedInsights | null | undefined),
+    });
     return c.json({ draft: await updateDraft(c.req.param("id"), accountId, { text }) });
   });
 
