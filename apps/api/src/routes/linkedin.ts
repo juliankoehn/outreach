@@ -40,8 +40,10 @@ const ANALYTICS_TTL_MS = 6 * 60 * 60 * 1000;
 // Scopes granted by the Community Management API product:
 //  r_basicprofile        — identity (name, headline, photo) for /v2/me
 //  r_member_postAnalytics — read the member's own posts + reporting data
-//  w_member_social        — create/modify/delete posts (used by the scheduler later)
-const SCOPES = ["r_basicprofile", "r_member_postAnalytics", "w_member_social"];
+//  r_member_social        — read social actions (comments/reactions) on the
+//                           member's posts (socialActions GET) — post analysis
+//  w_member_social        — create/modify/delete posts + write comments
+const SCOPES = ["r_basicprofile", "r_member_postAnalytics", "r_member_social", "w_member_social"];
 
 const LINKEDIN_HOST_RE = /(^|\.)linkedin\.com$/;
 
