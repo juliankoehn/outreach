@@ -170,7 +170,7 @@ export default function PostDetailPage() {
   const analysis = post.analysis;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 pb-10">
+    <div className="@container mx-auto max-w-6xl space-y-6 pb-10">
       <div className="flex items-center justify-between gap-3">
         <a
           href={`/accounts/${id}/posts`}
@@ -192,22 +192,28 @@ export default function PostDetailPage() {
         )}
       </div>
 
-      <FeedPostShell authorName={account.displayName} avatarUrl={account.avatarUrl}>
-        <p className="mt-2 px-4 pb-1 text-[15px] leading-[1.45] whitespace-pre-line">{post.text}</p>
-        <FeedPostImage src={post.imageUrl} />
-      </FeedPostShell>
+      {/* Post (left) + evaluation (right) side by side once the container is wide
+          enough; stacked otherwise. */}
+      <div className="grid grid-cols-1 items-start gap-6 @4xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
+        <div className="@4xl:sticky @4xl:top-0">
+          <FeedPostShell authorName={account.displayName} avatarUrl={account.avatarUrl}>
+            <p className="mt-2 px-4 pb-1 text-[15px] leading-[1.45] whitespace-pre-line">{post.text}</p>
+            <FeedPostImage src={post.imageUrl} />
+          </FeedPostShell>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">{t("posts.metrics")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MetricsGrid post={post} />
-        </CardContent>
-      </Card>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">{t("posts.metrics")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MetricsGrid post={post} />
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="text-sm">{t("posts.analysisTitle")}</CardTitle>
           {analysis && (
             <Button variant="outline" size="sm" onClick={() => void analyze()} disabled={analyzing}>
@@ -290,6 +296,8 @@ export default function PostDetailPage() {
           )}
         </CardContent>
       </Card>
+        </div>
+      </div>
     </div>
   );
 }
