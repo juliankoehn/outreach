@@ -5,6 +5,16 @@ import { prisma } from "@outreach/db";
 import { env } from "./env.js";
 import { sendEmail } from "./mailer.js";
 
+// Escapes HTML-significant characters so user-controlled values (names, org
+// names, urls) can't inject markup/script when interpolated into email HTML.
+const escapeHtml = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 // Ensure the user has a personal org (owner membership). Idempotent + atomic:
 // returns the existing org's id if a membership already exists, else creates
 // Organization + owner Member in one transaction and returns the new id.
@@ -54,7 +64,7 @@ export const auth = betterAuth({
           to: data.email,
           subject: `${inviterName} invited you to ${data.organization.name}`,
           text: `${inviterName} invited you to join ${data.organization.name} as ${data.role}.\n\nAccept the invitation: ${acceptUrl}`,
-          html: `<p>${inviterName} invited you to join <b>${data.organization.name}</b> as <b>${data.role}</b>.</p><p><a href="${acceptUrl}">Accept the invitation</a></p>`,
+          html: `<p>${escapeHtml(inviterName)} invited you to join <b>${escapeHtml(data.organization.name)}</b> as <b>${escapeHtml(data.role)}</b>.</p><p><a href="${escapeHtml(acceptUrl)}">Accept the invitation</a></p>`,
         });
       },
     }),

@@ -69,6 +69,34 @@ describe("organization invitations", () => {
     expect(memberB.role).toBe("member");
   });
 
+  it("HTML-escapes attacker-controlled values (inviter name, org name) in the invitation email", async () => {
+    const payload = "<img src=x onerror=alert(1)>";
+    const owner = await signUp(payload);
+    const ownerMember = await prisma.member.findFirstOrThrow({ where: { userId: owner.user.id } });
+    const organizationId = ownerMember.organizationId;
+
+    // The owner's personal org name derives from their (attacker-controlled)
+    // display name, so it carries the same payload.
+    const org = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId } });
+    expect(org.name).toBe(payload);
+
+    const inviteeEmail = `xss${Date.now()}@ex.com`;
+    await auth.api.createInvitation({
+      body: { email: inviteeEmail, role: "member", organizationId },
+      headers: new Headers({ cookie: owner.cookie }),
+    });
+
+    const call = vi.mocked(sendEmail).mock.calls.at(-1)![0];
+    const html = call.html ?? "";
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain(payload);
+    expect(html).toContain("&lt;img");
+    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+
+    // Plain-text body is intentionally left unescaped.
+    expect(call.text ?? "").toContain(payload);
+  });
+
   it("rejects an invite from a non-member of the organization", async () => {
     const owner = await signUp("Another Owner");
     const ownerMember = await prisma.member.findFirstOrThrow({ where: { userId: owner.user.id } });
