@@ -20,6 +20,7 @@
     "@outreach/linkedin": "workspace:*",
     "better-auth": "1.4.22",
     "hono": "^4.6.0",
+    "nodemailer": "^6.9.14",
     "pg-boss": "^12.26.1",
     "rss-parser": "^3.13.0",
     "turndown": "^7.2.4",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@better-auth/cli": "1.4.22",
     "@types/node": "^26.1.1",
+    "@types/nodemailer": "^6.4.15",
     "@types/turndown": "^5.0.6",
     "tsx": "^4.19.0",
     "typescript": "^7.0.2",

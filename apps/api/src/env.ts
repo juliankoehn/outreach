@@ -16,6 +16,12 @@ const schema = z.object({
   AI_PROVIDER: z.string().default("openai"),
   AI_TEXT_MODEL: z.string().default("gpt-4o"),
   AI_IMAGE_MODEL: z.string().default("gpt-image-1"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default("Outreach <no-reply@localhost>"),
 });
 
 const parsed = schema.safeParse(process.env);
