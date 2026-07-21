@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Globe, ImageIcon, Loader2, MessageSquare, MoreHorizontal, RefreshCw, Repeat2, Send, ShieldCheck, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -101,10 +101,18 @@ function FeedAction({ icon, label }: { icon: React.ReactNode; label: string }) {
 // new src arrives (the closest we get to a streamed-image feel without partials).
 function RevealImage({ src, dimmed }: { src: string; dimmed?: boolean }) {
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => setLoaded(false), [src]);
+  const ref = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    // `onLoad` does NOT fire for an already-cached/complete image (e.g. arriving
+    // via client-side nav from the list, which already fetched the same URL) —
+    // so it would stay stuck at opacity-0 until a reload. Detect completeness.
+    const img = ref.current;
+    setLoaded(!!img?.complete && img.naturalWidth > 0);
+  }, [src]);
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={ref}
       src={src}
       alt=""
       onLoad={() => setLoaded(true)}
