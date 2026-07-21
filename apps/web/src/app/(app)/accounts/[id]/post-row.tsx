@@ -55,6 +55,12 @@ export function PostRow({ post, accountId }: { post: Post; accountId: string }) 
                 {post.source === "embed" && <Sparkles className="size-3" />}
                 {t(`accounts.source_${post.source}`)}
               </Badge>
+              {post.analyzedAt && (
+                <Badge variant="outline" className="border-primary/30 text-primary gap-1">
+                  <Sparkles className="size-3" />
+                  {t("posts.analyzedBadge")}
+                </Badge>
+              )}
               {post.mediaType && post.mediaType !== "none" && (
                 <Badge variant="muted" className="capitalize">
                   {post.mediaType}

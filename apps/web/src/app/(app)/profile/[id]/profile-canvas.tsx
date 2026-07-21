@@ -16,6 +16,9 @@ export interface CanvasProfile {
   visualStyle?: string;
   noGos?: string[];
   brandBrief?: string;
+  // Engagement learnings (derived.topPatterns) — grows as you accept post-analysis
+  // learnings; the studio writer is grounded in these.
+  topPatterns?: string[];
 }
 
 // One example post on the canvas — its text plus an optional matching image
@@ -107,6 +110,26 @@ export function ProfileCanvas({
           )}
         </CardContent>
       </Card>
+
+      {/* Zone 2b — engagement learnings (accepted from post analyses) */}
+      {profile.topPatterns && profile.topPatterns.length > 0 && (
+        <Card className="gap-3">
+          <CardHeader>
+            <CardTitle className="text-sm">{t("profile.pcLearnings")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1.5">
+              {profile.topPatterns.map((p, i) => (
+                <li key={i} className="text-muted-foreground flex gap-2 text-sm">
+                  <span className="text-primary mt-1.5 size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                  <span className="text-foreground">{p}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted-foreground mt-2.5 text-xs">{t("profile.pcLearningsHint")}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Zone 3 — example posts */}
       <div className="flex flex-col gap-3">

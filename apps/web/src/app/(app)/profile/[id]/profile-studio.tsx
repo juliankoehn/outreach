@@ -69,6 +69,7 @@ function mapProfileToCanvas(profile: CreatorProfile | null): CanvasProfile {
     visualStyle: profile.derived?.visualStyle,
     noGos: profile.noGos,
     brandBrief: profile.brandBrief,
+    topPatterns: profile.derived?.topPatterns,
   };
 }
 

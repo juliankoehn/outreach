@@ -84,6 +84,7 @@ export async function listPosts(accountId: string) {
       metrics: true,
       source: true,
       raw: true,
+      analyzedAt: true,
     },
   });
   // Surface the stored image (embed imports keep it in `raw.imageUrl`) as a flat

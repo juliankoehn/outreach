@@ -34,6 +34,8 @@ export interface Post {
   metrics: Partial<Metrics> | null;
   source: PostSource;
   imageUrl?: string | null;
+  // Set once the post has an AI analysis (surfaced as a badge in the list).
+  analyzedAt?: string | null;
 }
 
 export interface PostAnalysis {

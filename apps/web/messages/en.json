@@ -168,7 +168,8 @@
     "membersReached": "Members reached",
     "reshares": "Reshares",
     "metrics": "Metrics",
-    "notAnalyzed": "This post hasn't been analyzed yet."
+    "notAnalyzed": "This post hasn't been analyzed yet.",
+    "analyzedBadge": "Analyzed"
   },
   "profile": {
     "kicker": "console / profile",
@@ -273,6 +274,8 @@
     "pcVisual": "Visual style",
     "pcNoGos": "No-gos",
     "pcBrief": "Brand brief",
+    "pcLearnings": "What works (learnings)",
+    "pcLearningsHint": "Accepted from your post analyses — the writer is grounded in these.",
     "pcBriefEmpty": "Taking shape as we talk…",
     "pcExamples": "How I'd post as you",
     "pcExamplesEmpty": "Example posts will appear here as we go.",

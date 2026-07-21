@@ -168,7 +168,8 @@
     "membersReached": "Erreichte Mitglieder",
     "reshares": "Reposts",
     "metrics": "Kennzahlen",
-    "notAnalyzed": "Dieser Post wurde noch nicht analysiert."
+    "notAnalyzed": "Dieser Post wurde noch nicht analysiert.",
+    "analyzedBadge": "Analysiert"
   },
   "profile": {
     "kicker": "konsole / profil",
@@ -273,6 +274,8 @@
     "pcVisual": "Bildsprache",
     "pcNoGos": "No-Gos",
     "pcBrief": "Markenprofil",
+    "pcLearnings": "Was funktioniert (Erkenntnisse)",
+    "pcLearningsHint": "Aus deinen Post-Analysen übernommen — der Writer ist darauf geerdet.",
     "pcBriefEmpty": "Entsteht während des Gesprächs…",
     "pcExamples": "So würde ich als du posten",
     "pcExamplesEmpty": "Beispielposts erscheinen hier, sobald wir weiterkommen.",
