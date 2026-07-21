@@ -185,7 +185,7 @@ export function linkedinRoutes() {
   });
 
   // Force a fresh analysis for one post, grounded in metrics + profile + baseline.
-  async function analyzeOne(accountId: string, userId: string, postId: string) {
+  async function analyzeOne(accountId: string, postId: string) {
     const detail = await getPostDetail(accountId, postId);
     if (!detail) return null;
     const metrics = (detail.metrics ?? null) as PostMetrics | null;
@@ -221,7 +221,7 @@ export function linkedinRoutes() {
     const user = c.get("user")!;
     const accountId = c.req.param("id");
     if (!(await getAccountSummary(accountId, user.id))) return c.json({ error: "not_found" }, 404);
-    const post = await analyzeOne(accountId, user.id, c.req.param("postId"));
+    const post = await analyzeOne(accountId, c.req.param("postId"));
     if (!post) return c.json({ error: "not_found" }, 404);
     const metrics = (post.metrics ?? null) as PostMetrics | null;
     return c.json({ post: { ...post, engagementRate: engagementRate(metrics) } });

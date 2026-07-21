@@ -128,13 +128,19 @@ export default function PostDetailPage() {
   }
 
   async function acceptLearning(text: string) {
+    // Optimistically mark added, but revert if the save didn't stick — otherwise
+    // a 401/error would silently drop a confirmed learning.
     setLearnings((ls) => ls.map((l) => (l.text === text ? { ...l, status: "accepted" } : l)));
-    await fetch(`/api/linkedin/accounts/${id}/posts/${postId}/learnings`, {
+    const res = await fetch(`/api/linkedin/accounts/${id}/posts/${postId}/learnings`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accepted: [text] }),
     });
+    if (res.status === 401) return router.push("/login");
+    if (!res.ok) {
+      setLearnings((ls) => ls.map((l) => (l.text === text ? { ...l, status: "pending" } : l)));
+    }
   }
 
   function dismissLearning(text: string) {
