@@ -18,7 +18,7 @@
     "@outreach/core": "workspace:*",
     "@outreach/db": "workspace:*",
     "@outreach/linkedin": "workspace:*",
-    "better-auth": "^1.1.0",
+    "better-auth": "1.4.22",
     "hono": "^4.6.0",
     "pg-boss": "^12.26.1",
     "rss-parser": "^3.13.0",
@@ -26,6 +26,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@better-auth/cli": "1.4.22",
     "@types/node": "^26.1.1",
     "@types/turndown": "^5.0.6",
     "tsx": "^4.19.0",
