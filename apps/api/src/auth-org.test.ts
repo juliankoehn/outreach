@@ -7,15 +7,16 @@ const created: string[] = [];
 
 async function signUp() {
   const email = `o${Date.now()}${Math.floor(Math.random() * 1e6)}@ex.com`;
+  const password = "password-1234";
   const res = await app.request("/api/auth/sign-up/email", {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: process.env.WEB_ORIGIN! },
-    body: JSON.stringify({ email, password: "password-1234", name: "Owner Person" }),
+    body: JSON.stringify({ email, password, name: "Owner Person" }),
   });
   const cookie = res.headers.get("set-cookie")!.split(";")[0]!;
   const user = await prisma.user.findUniqueOrThrow({ where: { email } });
   created.push(user.id);
-  return { cookie, user };
+  return { cookie, user, email, password };
 }
 
 afterAll(async () => {
@@ -33,18 +34,27 @@ describe("personal org on sign-up", () => {
   });
 
   it("is idempotent: a second session for the same user does not create a second org/member", async () => {
-    const { cookie, user } = await signUp();
+    const { user, email, password } = await signUp();
 
-    // Trigger another session.create for the same user (self-heal path
-    // re-runs ensurePersonalOrg via session.create.before).
-    const res = await app.request("/api/auth/get-session", {
-      method: "GET",
-      headers: { Cookie: cookie, Origin: process.env.WEB_ORIGIN! },
+    const sessionsBefore = await prisma.session.count({ where: { userId: user.id } });
+
+    // Trigger a genuine second session.create for the same user by signing in
+    // again (sign-in creates a fresh Session row, which re-enters
+    // session.create.before -> ensurePersonalOrg as a self-heal check).
+    const res = await app.request("/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: process.env.WEB_ORIGIN! },
+      body: JSON.stringify({ email, password }),
     });
     expect(res.status).toBe(200);
+    expect(res.headers.get("set-cookie")).toBeTruthy();
+
+    const sessionsAfter = await prisma.session.count({ where: { userId: user.id } });
+    expect(sessionsAfter).toBe(sessionsBefore + 1);
 
     const members = await prisma.member.findMany({ where: { userId: user.id } });
     expect(members.length).toBe(1);
+    expect(members[0]!.role).toBe("owner");
     const orgs = await prisma.organization.findMany({ where: { slug: `u-${user.id}` } });
     expect(orgs.length).toBe(1);
   });
