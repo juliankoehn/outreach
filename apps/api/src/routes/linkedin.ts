@@ -186,7 +186,7 @@ export function linkedinRoutes() {
   r.post("/accounts/:id/enrich", async (c) => {
     const user = c.get("user")!;
     if (!(await getAccountSummary(c.req.param("id"), user.id))) return c.json({ error: "not_found" }, 404);
-    return c.json(await enrichAccountMetrics(c.req.param("id"), user.id));
+    return c.json(await enrichAccountMetrics(c.req.param("id"), user.id, { force: true }));
   });
 
   r.get("/accounts/:id", async (c) => {

@@ -52,13 +52,20 @@ describe("performance-loop enrichment", () => {
       if (urn === "urn:li:share:2") throw new Error("rate limited");
       return { impressions: 100, membersReached: 80, reactions: 9, comments: 2, reshares: 1 };
     });
+    const analyzePost = vi.fn(async () => ({
+      performance: { summary: "s", verdict: "on-par" as const },
+      teardown: { hook: "h", structure: "s", pillar: "p", format: "f", cta: "c", toneMatch: "t" },
+      goalFit: "g",
+      learnings: ["l1"],
+    }));
     const res = await enrichAccountMetrics(accountId, userId, {
       since,
-      deps: { makeClient: () => ({ forPost }) },
+      deps: { makeClient: () => ({ forPost }), analyzePost },
     });
     expect(res.total).toBe(2);
     expect(res.enriched).toBe(1);
     expect(res.failed).toBe(1);
+    expect(res.analyzed).toBe(1);
     expect(forPost).toHaveBeenCalledTimes(2);
 
     const stored = await metricsForExternalId(accountId, "urn:li:share:1");
