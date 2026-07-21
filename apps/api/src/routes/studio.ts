@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { draftPost, refinePost, generateImage, composeImageBrief, streamStudioAgent, enabledImageProviders, isImageProviderEnabled, composeVisualLanguage } from "@outreach/ai";
+import { draftPost, refinePost, composeImageBrief, streamStudioAgent, enabledImageProviders } from "@outreach/ai";
+import { accountImageInputs, renderAndSaveImage } from "../image-gen.js";
 import type { UIMessage, DerivedInsights } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
 import { getAccountSummary } from "../repos/linkedin-account.js";
@@ -7,10 +8,8 @@ import { getAccountProfile, updateProfileById } from "../repos/profile.js";
 import { createDraft, listDrafts, getDraft, updateDraft, deleteDraft } from "../repos/draft.js";
 import { scheduleDraft, unscheduleDraft } from "../repos/schedule.js";
 import { findSimilarPosts, metricsForExternalId } from "../repos/post.js";
-import { imageReferenceHint } from "../repos/resource.js";
 import { retrieveKnowledge } from "../repos/knowledge.js";
 import { getItem as getFeedItem } from "../repos/feed.js";
-import { saveImage } from "../images.js";
 import { publishDraft } from "../publish/publish-draft.js";
 
 // An assistant turn is only worth persisting if it produced something: a
@@ -70,29 +69,22 @@ export function studioRoutes() {
       .json<{ prompt?: string; postText?: string; provider?: string }>()
       .catch(() => ({ prompt: undefined, postText: undefined, provider: undefined }));
     if (!prompt) return c.json({ error: "invalid_body" }, 400);
-    // Resolve the image provider: an explicit (enabled) request override wins,
-    // else the account's saved default (if still enabled), else the env default.
-    const chosen = isImageProviderEnabled(provider)
-      ? provider
-      : isImageProviderEnabled(acct.imageProvider)
-        ? acct.imageProvider
-        : undefined;
-    const profile = await getAccountProfile(accountId);
-    const visualStyle = composeVisualLanguage({
-      preset: profile?.visualPreset,
-      direction: profile?.visualDirection,
-      derived: (profile?.derived as unknown as DerivedInsights | null | undefined)?.visualStyle,
-    });
-    const referenceHint = await imageReferenceHint(accountId);
-    const { base64, mediaType } = await generateImage(prompt, {
+    // Profile-grounded inputs (visual language, reference photos, provider) — the
+    // request `provider` overrides the account default. Shared with the agent +
+    // profile paths via image-gen.ts.
+    const { provider: resolvedProvider, visualStyle, referenceHint } = await accountImageInputs(
+      accountId,
+      user.id,
+      provider,
+    );
+    const { imageUrl } = await renderAndSaveImage(prompt, {
       postText,
-      provider: chosen,
-      visualStyle,
       size: "square",
+      visualStyle,
+      provider: resolvedProvider,
       referenceHint,
     });
-    const { url } = await saveImage(base64, mediaType);
-    return c.json({ imageUrl: url });
+    return c.json({ imageUrl });
   });
 
   r.get("/:accountId/drafts", async (c) => {
@@ -175,7 +167,7 @@ export function studioRoutes() {
       .json<{ messages: UIMessage[] }>()
       .catch(() => ({ messages: [] as UIMessage[] }));
 
-    const profile = await getAccountProfile(accountId);
+    const { profile, provider: imageProvider, visualStyle, referenceHint } = await accountImageInputs(accountId, user.id);
     const derived = profile?.derived as unknown as DerivedInsights | null | undefined;
     const insights = derived
       ? `Voice: ${derived.voiceSummary} Recurring themes: ${derived.themes.join(", ")}. Style traits: ${derived.styleTraits.join(", ")}. What drives engagement: ${derived.topPatterns.join("; ")}.`
@@ -184,7 +176,6 @@ export function studioRoutes() {
     // Track the live post text so a generateImage call after an updatePost call
     // in the same turn sees the fresh copy, not the stale draft snapshot.
     let currentText = draft.text;
-    const referenceHint = await imageReferenceHint(accountId);
 
     // Drafted from a Feed article → pull the full article into the agent's
     // context (instead of stuffing it into the chat/URL) so it writes an
@@ -227,19 +218,16 @@ export function studioRoutes() {
             article: sourceArticle
               ? `${sourceArticle.title}\n\n${sourceArticle.content.slice(0, 600)}`
               : undefined,
-            visualStyle: composeVisualLanguage({
-              preset: profile?.visualPreset,
-              direction: profile?.visualDirection,
-              derived: derived?.visualStyle,
-            }),
+            visualStyle,
             referenceHint,
             noGos: profile?.noGos,
             size: "square",
           });
-          const { base64, mediaType } = await generateImage(brief, { size: "square" });
-          const { url } = await saveImage(base64, mediaType);
-          await updateDraft(draftId, accountId, { imageUrl: url, imagePrompt: brief });
-          return { imageUrl: url };
+          // The brief already folds in the visual style + reference; still pass
+          // the account's provider so the agent renders with Nano Banana too.
+          const { imageUrl } = await renderAndSaveImage(brief, { size: "square", provider: imageProvider });
+          await updateDraft(draftId, accountId, { imageUrl, imagePrompt: brief });
+          return { imageUrl };
         },
         findSimilar: (query) => findSimilarPosts(accountId, query, { excludeDraftId: draftId }),
         searchKnowledge: (query) =>

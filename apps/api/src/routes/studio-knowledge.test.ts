@@ -7,6 +7,8 @@ vi.mock("@outreach/ai", () => ({
   draftPost: vi.fn(async () => "text"),
   refinePost: vi.fn(async () => "text"),
   generateImage: vi.fn(async () => ({ base64: "aGVsbG8=", mediaType: "image/png" })),
+  composeVisualLanguage: vi.fn(() => ""),
+  isImageProviderEnabled: vi.fn(() => false),
   streamStudioAgent: vi.fn(async (opts: { handlers: StudioAgentHandlers }) => {
     capturedHandlers = opts.handlers;
     return new Response(null, { status: 200 });

@@ -8,9 +8,6 @@ import {
   analyzePosts,
   suggestFacets,
   streamProfileStudio,
-  generateImage,
-  composeVisualLanguage,
-  isImageProviderEnabled,
 } from "@outreach/ai";
 import type {
   ChatMessage,
@@ -22,10 +19,9 @@ import type {
   SynthesizedProfile,
 } from "@outreach/ai";
 import type { AppEnv } from "../app.js";
-import { saveImage } from "../images.js";
-import { getAccountSummary, getAccountIdForProfile, getProfileImageProviders } from "../repos/linkedin-account.js";
+import { profileImageInputs, renderAndSaveImage } from "../image-gen.js";
+import { getAccountSummary, getAccountIdForProfile } from "../repos/linkedin-account.js";
 import { listPosts } from "../repos/post.js";
-import { imageReferenceHint } from "../repos/resource.js";
 import { retrieveKnowledge } from "../repos/knowledge.js";
 import {
   listProfiles,
@@ -50,30 +46,18 @@ async function buildExampleImage(
   userId: string,
   opts: { postText?: string; direction?: string },
 ): Promise<{ imageUrl: string }> {
-  const derived = profile.derived as unknown as DerivedInsights | null | undefined;
-  const acctId = await getAccountIdForProfile(profile.id, userId);
-  // Use the image provider the creator configured on this profile's account
-  // (e.g. Nano Banana), same as the studio — otherwise this path silently falls
-  // back to the env default. Pick from any bound account with an enabled
-  // provider, so a stray seeded account (no provider) doesn't win.
-  const provider = (await getProfileImageProviders(profile.id, userId)).find(isImageProviderEnabled);
-  const referenceHint = acctId ? await imageReferenceHint(acctId) : "";
-  const { base64, mediaType } = await generateImage(
+  const { provider, visualStyle, referenceHint } = await profileImageInputs(profile, userId);
+  const { imageUrl } = await renderAndSaveImage(
     opts.direction?.trim() || "A clean, on-brand visual that fits this post.",
     {
       postText: opts.postText?.trim() || undefined,
-      provider,
-      visualStyle: composeVisualLanguage({
-        preset: profile.visualPreset,
-        direction: profile.visualDirection,
-        derived: derived?.visualStyle,
-      }),
       size: "portrait",
+      visualStyle,
+      provider,
       referenceHint,
     },
   );
-  const { url } = await saveImage(base64, mediaType);
-  return { imageUrl: url };
+  return { imageUrl };
 }
 
 // NOTE on ownership: mirrors the prior /profile routes -- Hono's generics
