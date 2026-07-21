@@ -11,7 +11,7 @@ import { studioRoutes } from "./routes/studio.js";
 import { getObject } from "./storage.js";
 import { readContentCredentials } from "./c2pa.js";
 
-export type AppEnv = { Variables: { user: AuthUser | null } };
+export type AppEnv = { Variables: { user: AuthUser | null; orgId: string | null } };
 
 export function createApp() {
   const app = new Hono<AppEnv>();
@@ -45,10 +45,17 @@ export function createApp() {
   app.use("*", async (c, next) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     c.set("user", session?.user ?? null);
+    c.set("orgId", session?.session?.activeOrganizationId ?? null);
     await next();
   });
 
   app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+  app.get("/me", (c) => {
+    const user = c.get("user");
+    if (!user) return c.json({ error: "unauthorized" }, 401);
+    return c.json({ user: { id: user.id, email: user.email, name: user.name }, orgId: c.get("orgId") });
+  });
 
   // Protected route group guard
   app.use("/linkedin/*", async (c, next) => {
