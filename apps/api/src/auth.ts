@@ -3,6 +3,7 @@ import { organization } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@outreach/db";
 import { env } from "./env.js";
+import { sendEmail } from "./mailer.js";
 
 // Ensure the user has a personal org (owner membership). Idempotent + atomic:
 // returns the existing org's id if a membership already exists, else creates
@@ -40,7 +41,24 @@ export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   emailAndPassword: { enabled: true },
   trustedOrigins: [env.WEB_ORIGIN],
-  plugins: [organization()],
+  plugins: [
+    organization({
+      // Renders and sends the invitation email via the SMTP mailer. Better
+      // Auth doesn't generate invitation URLs itself, so we build the
+      // accept link from WEB_ORIGIN + the invitation id (matches the
+      // web app's /accept-invitation/[id] route).
+      sendInvitationEmail: async (data) => {
+        const acceptUrl = `${env.WEB_ORIGIN}/accept-invitation/${data.id}`;
+        const inviterName = data.inviter.user.name || data.inviter.user.email;
+        await sendEmail({
+          to: data.email,
+          subject: `${inviterName} invited you to ${data.organization.name}`,
+          text: `${inviterName} invited you to join ${data.organization.name} as ${data.role}.\n\nAccept the invitation: ${acceptUrl}`,
+          html: `<p>${inviterName} invited you to join <b>${data.organization.name}</b> as <b>${data.role}</b>.</p><p><a href="${acceptUrl}">Accept the invitation</a></p>`,
+        });
+      },
+    }),
+  ],
   databaseHooks: {
     user: {
       create: {
