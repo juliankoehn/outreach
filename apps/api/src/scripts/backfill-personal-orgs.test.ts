@@ -57,3 +57,46 @@ describe("backfillPersonalOrgs", () => {
     expect(orgsAfter.length).toBe(1);
   });
 });
+
+describe("backfillPersonalOrgs (default, zero-arg path)", () => {
+  const zeroArgUserId = `u_backfill_zeroarg_${Date.now() + Math.floor(Math.random() * 1e9)}`;
+
+  afterAll(async () => {
+    await prisma.member.deleteMany({ where: { userId: zeroArgUserId } });
+    await prisma.organization.deleteMany({ where: { slug: `u-${zeroArgUserId}` } });
+    await prisma.session.deleteMany({ where: { userId: zeroArgUserId } });
+    await prisma.user.delete({ where: { id: zeroArgUserId } }).catch(() => {});
+  });
+
+  it("is idempotent for a given user when run with no arguments (the CLI/default signature), scanning the whole User table", async () => {
+    await prisma.user.create({
+      data: { id: zeroArgUserId, email: `${zeroArgUserId}@ex.com`, name: "Zero Arg Person" },
+    });
+
+    // Run against the whole table (no `userIds` scope) since that's the
+    // signature the CLI entry point and the brief actually use. The dev DB
+    // has many other users, so we can't assert a global `created === 0` on
+    // the second run — instead assert the per-user invariant: this specific
+    // user ends up with exactly one Member/Organization, not duplicated.
+    const first = await backfillPersonalOrgs();
+    expect(first.created).toBeGreaterThanOrEqual(1);
+
+    const members = await prisma.member.findMany({ where: { userId: zeroArgUserId } });
+    expect(members.length).toBe(1);
+    expect(members[0]!.role).toBe("owner");
+
+    const org = await prisma.organization.findFirst({ where: { slug: `u-${zeroArgUserId}` } });
+    expect(org).toBeTruthy();
+    expect(members[0]!.organizationId).toBe(org!.id);
+
+    await backfillPersonalOrgs();
+
+    const membersAfter = await prisma.member.findMany({ where: { userId: zeroArgUserId } });
+    expect(membersAfter.length).toBe(1);
+    expect(membersAfter[0]!.id).toBe(members[0]!.id);
+    expect(membersAfter[0]!.organizationId).toBe(org!.id);
+
+    const orgsAfter = await prisma.organization.findMany({ where: { slug: `u-${zeroArgUserId}` } });
+    expect(orgsAfter.length).toBe(1);
+  });
+});
