@@ -99,6 +99,8 @@ model Post {
   publishedAt       DateTime
   metrics           Json?
   raw               Json?
+  analysis          Json?
+  analyzedAt        DateTime?
   createdAt         DateTime @default(now())
   ingestedAt        DateTime @default(now())
   account           LinkedInAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
