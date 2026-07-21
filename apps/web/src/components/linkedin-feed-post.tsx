@@ -166,11 +166,14 @@ export function FeedPostImage({
   regenerateLabel?: string;
   generateLabel?: string;
 }) {
-  // Load the image's embedded Content Credentials (C2PA) for the badge.
+  // Load the image's embedded Content Credentials (C2PA) for the badge. Only our
+  // own generated images carry a readable manifest and live behind that endpoint
+  // — skip external (e.g. LinkedIn CDN) images so we don't 404 the credentials call.
   const [cred, setCred] = useState<ContentCredentials | null>(null);
   useEffect(() => {
     setCred(null);
-    const name = src?.split("/").pop();
+    if (!src?.startsWith("/generated/")) return;
+    const name = src.split("/").pop();
     if (!name) return;
     let alive = true;
     void fetch(`/api/generated/${name}/credentials`, { credentials: "include" })
