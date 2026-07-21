@@ -31,4 +31,21 @@ describe("personal org on sign-up", () => {
     const session = await prisma.session.findFirstOrThrow({ where: { userId: user.id } });
     expect(session.activeOrganizationId).toBe(members[0]!.organizationId);
   });
+
+  it("is idempotent: a second session for the same user does not create a second org/member", async () => {
+    const { cookie, user } = await signUp();
+
+    // Trigger another session.create for the same user (self-heal path
+    // re-runs ensurePersonalOrg via session.create.before).
+    const res = await app.request("/api/auth/get-session", {
+      method: "GET",
+      headers: { Cookie: cookie, Origin: process.env.WEB_ORIGIN! },
+    });
+    expect(res.status).toBe(200);
+
+    const members = await prisma.member.findMany({ where: { userId: user.id } });
+    expect(members.length).toBe(1);
+    const orgs = await prisma.organization.findMany({ where: { slug: `u-${user.id}` } });
+    expect(orgs.length).toBe(1);
+  });
 });
