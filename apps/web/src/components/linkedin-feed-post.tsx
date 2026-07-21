@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Globe, ImageIcon, Loader2, MessageSquare, MoreHorizontal, RefreshCw, Repeat2, Send, ThumbsUp } from "lucide-react";
+import { Globe, ImageIcon, Loader2, MessageSquare, MoreHorizontal, RefreshCw, Repeat2, Send, ShieldCheck, ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function initials(name: string): string {
@@ -119,10 +119,38 @@ function RevealImage({ src, dimmed }: { src: string; dimmed?: boolean }) {
   );
 }
 
+interface ContentCredentials {
+  present: boolean;
+  aiGenerated: boolean;
+  generator: string | null;
+}
+
+// The "Content Credentials" (C2PA) badge — the same provenance LinkedIn surfaces,
+// read from the image the model embedded it in. Hover reveals the details.
+function ContentCredentialsBadge({ cred }: { cred: ContentCredentials }) {
+  const t = useTranslations();
+  return (
+    <div className="group/cr absolute bottom-2 left-2 z-10">
+      <div className="bg-background/80 text-foreground flex items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] font-medium shadow-sm backdrop-blur">
+        <ShieldCheck className="size-3.5" />
+        <span>Cr</span>
+      </div>
+      <div className="bg-popover text-popover-foreground pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 rounded-lg border p-3 text-xs opacity-0 shadow-md transition-opacity group-hover/cr:opacity-100">
+        <p className="font-medium">{t("credentials.title")}</p>
+        {cred.aiGenerated && <p className="text-muted-foreground mt-1">{t("credentials.aiGenerated")}</p>}
+        {cred.generator && (
+          <p className="text-muted-foreground mt-1">{t("credentials.generatedWith", { name: cred.generator })}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // The image slot for a feed post. Shows the whole image (never cropped), with a
 // blur-up reveal. When `onRegenerate` is set it also offers a hover regenerate
 // button (over an existing image) or a generate affordance (when empty), plus a
-// busy overlay while a new image is rendering.
+// busy overlay while a new image is rendering. Surfaces the embedded C2PA
+// Content Credentials as a corner badge.
 export function FeedPostImage({
   src,
   busy,
@@ -138,6 +166,24 @@ export function FeedPostImage({
   regenerateLabel?: string;
   generateLabel?: string;
 }) {
+  // Load the image's embedded Content Credentials (C2PA) for the badge.
+  const [cred, setCred] = useState<ContentCredentials | null>(null);
+  useEffect(() => {
+    setCred(null);
+    const name = src?.split("/").pop();
+    if (!name) return;
+    let alive = true;
+    void fetch(`/api/generated/${name}/credentials`, { credentials: "include" })
+      .then((r) => (r.ok ? (r.json() as Promise<ContentCredentials>) : null))
+      .then((d) => {
+        if (alive && d?.present) setCred(d);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [src]);
+
   if (!src && !busy) {
     if (!onRegenerate) return null;
     return (
@@ -155,6 +201,7 @@ export function FeedPostImage({
   return (
     <div className="group/img bg-muted relative mt-1 border-y">
       {src && <RevealImage src={src} dimmed={dimmed} />}
+      {src && !busy && cred && <ContentCredentialsBadge cred={cred} />}
       {busy && !src && (
         <div className="flex h-64 w-full items-center justify-center">
           <Loader2 className="text-muted-foreground size-5 animate-spin" />

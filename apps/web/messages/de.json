@@ -2,6 +2,11 @@
   "brand": {
     "vendorPrefix": "von"
   },
+  "credentials": {
+    "title": "Inhalts-Zeugnisse (C2PA)",
+    "aiGenerated": "Mit KI erstellt.",
+    "generatedWith": "App: {name}"
+  },
   "common": {
     "email": "E-Mail",
     "password": "Passwort",

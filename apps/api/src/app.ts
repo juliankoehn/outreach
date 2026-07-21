@@ -9,6 +9,7 @@ import { resourcesRoutes } from "./routes/resources.js";
 import { scheduleRoutes } from "./routes/schedule.js";
 import { studioRoutes } from "./routes/studio.js";
 import { getObject } from "./storage.js";
+import { readContentCredentials } from "./c2pa.js";
 
 export type AppEnv = { Variables: { user: AuthUser | null } };
 
@@ -29,6 +30,16 @@ export function createApp() {
     return new Response(obj.body, {
       headers: { "Content-Type": obj.contentType, "Cache-Control": "public, max-age=31536000" },
     });
+  });
+
+  // Public: the embedded C2PA Content Credentials of a generated image (what
+  // LinkedIn shows) — read-only, non-sensitive, mirrors the public image.
+  app.get("/generated/:name/credentials", async (c) => {
+    const name = c.req.param("name");
+    if (name.includes("/") || name.includes("\\")) return c.json({ error: "not_found" }, 404);
+    const obj = await getObject(`generated/${name}`);
+    if (!obj) return c.json({ error: "not_found" }, 404);
+    return c.json(readContentCredentials(obj.body), 200, { "Cache-Control": "public, max-age=31536000" });
   });
 
   app.use("*", async (c, next) => {

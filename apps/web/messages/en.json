@@ -2,6 +2,11 @@
   "brand": {
     "vendorPrefix": "by"
   },
+  "credentials": {
+    "title": "Content Credentials",
+    "aiGenerated": "Generated with AI.",
+    "generatedWith": "App: {name}"
+  },
   "common": {
     "email": "Email",
     "password": "Password",
