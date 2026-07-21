@@ -18,3 +18,5 @@ export type { ProfilePatch, ProfileStudioHandlers, StreamProfileStudioOptions } 
 export type { UIMessage } from "ai";
 export { extractText, chunkText } from "./ingest.js";
 export type { Chunk } from "./ingest.js";
+export { analyzePost, engagementRate, POST_ANALYSIS_SCHEMA } from "./analyze-post.js";
+export type { PostAnalysis, AnalyzePostInput, PostMetrics } from "./analyze-post.js";
