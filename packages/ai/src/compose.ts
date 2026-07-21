@@ -123,7 +123,7 @@ function insightsBlock(insights?: string): string {
 // reference consistent with it.
 export function currentDateNote(now: Date = new Date()): string {
   const iso = now.toISOString().slice(0, 10);
-  return `\n\nTODAY'S DATE is ${iso}. Ground EVERY time reference in it: never propose a deadline, event, "submit by", or "register until" date that is already in the past, and never call something upcoming when it has already passed. When you mention a year or timeframe, make sure it is consistent with today.`;
+  return `\n\nTODAY'S DATE is ${iso}. Ground EVERY time reference in it: never propose a deadline, event, "submit by", or "register until" date that is already in the past, and never call something upcoming when it has already passed. When you mention a year or timeframe, make sure it is consistent with today. This applies especially to dates COPIED FROM A SOURCE ARTICLE or provided material — a date that was in the future when the source was written may already be in the past now, so do NOT repeat a passed deadline/event date as if it is still open: drop it, generalise it, or note that it has passed.`;
 }
 
 // The creator's explicit no-gos, rendered as hard rules. Kept identical to the
