@@ -91,6 +91,36 @@ export async function listPosts(accountId: string) {
   return rows.map(({ raw, ...r }) => ({ ...r, imageUrl: imageUrlFromRaw(raw) }));
 }
 
+export interface PostDetail {
+  id: string;
+  text: string;
+  publishedAt: Date;
+  mediaType: string;
+  externalId: string | null;
+  metrics: unknown;
+  source: string;
+  imageUrl: string | null;
+  analysis: unknown;
+  analyzedAt: Date | null;
+}
+
+export async function getPostDetail(accountId: string, postId: string): Promise<PostDetail | null> {
+  const p = await prisma.post.findFirst({
+    where: { id: postId, linkedinAccountId: accountId },
+    select: {
+      id: true, text: true, publishedAt: true, mediaType: true, externalId: true,
+      metrics: true, source: true, raw: true, analysis: true, analyzedAt: true,
+    },
+  });
+  if (!p) return null;
+  const { raw, ...rest } = p;
+  return { ...rest, imageUrl: imageUrlFromRaw(raw) };
+}
+
+export async function setPostAnalysis(postId: string, analysis: object): Promise<void> {
+  await prisma.post.update({ where: { id: postId }, data: { analysis, analyzedAt: new Date() } });
+}
+
 function imageUrlFromRaw(raw: unknown): string | null {
   if (raw && typeof raw === "object" && "imageUrl" in raw) {
     const v = (raw as { imageUrl?: unknown }).imageUrl;
