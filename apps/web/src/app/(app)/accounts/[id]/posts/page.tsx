@@ -117,7 +117,7 @@ export default function AccountPostsPage() {
           ) : (
             <ul className="divide-y">
               {posts.map((p) => (
-                <PostRow key={p.id} post={p} />
+                <PostRow key={p.id} post={p} accountId={id} />
               ))}
             </ul>
           )}

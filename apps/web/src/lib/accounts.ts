@@ -35,3 +35,23 @@ export interface Post {
   source: PostSource;
   imageUrl?: string | null;
 }
+
+export interface PostAnalysis {
+  performance: { summary: string; verdict: "over" | "on-par" | "under" };
+  teardown: {
+    hook: string;
+    structure: string;
+    pillar: string;
+    format: string;
+    cta: string;
+    toneMatch: string;
+  };
+  goalFit: string;
+  learnings: string[];
+}
+
+export interface PostDetail extends Post {
+  analysis: (PostAnalysis & { basis?: { impressions?: number } }) | null;
+  analyzedAt: string | null;
+  engagementRate: number;
+}

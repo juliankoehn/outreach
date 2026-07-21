@@ -135,7 +135,7 @@ export default function AccountOverviewPage() {
           ) : (
             <ul className="divide-y">
               {posts.slice(0, 3).map((p) => (
-                <PostRow key={p.id} post={p} />
+                <PostRow key={p.id} post={p} accountId={id} />
               ))}
             </ul>
           )}
