@@ -25,11 +25,12 @@ import {
   getAnalyticsCache,
   setAnalyticsCache,
 } from "../repos/linkedin-account.js";
-import { upsertPosts, listPosts } from "../repos/post.js";
+import { upsertPosts, listPosts, getPostDetail, setPostAnalysis } from "../repos/post.js";
 import { enrichAccountMetrics } from "../analytics/enrich.js";
-import { getOrCreateAccountProfile } from "../repos/profile.js";
+import { getOrCreateAccountProfile, getAccountProfile, updateProfileById } from "../repos/profile.js";
 import { isPrivateOrLoopbackIp } from "../net.js";
-import { isImageProviderEnabled } from "@outreach/ai";
+import { isImageProviderEnabled, analyzePost, engagementRate, type PostMetrics } from "@outreach/ai";
+import type { DerivedInsights } from "@outreach/ai";
 
 export { isPrivateOrLoopbackIp };
 
@@ -181,6 +182,69 @@ export function linkedinRoutes() {
     const acct = await getDecryptedAccount(c.req.param("id"), user.id);
     if (!acct || acct.userId !== user.id) return c.json({ error: "not_found" }, 404);
     return c.json({ posts: await listPosts(acct.id) });
+  });
+
+  // Force a fresh analysis for one post, grounded in metrics + profile + baseline.
+  async function analyzeOne(accountId: string, userId: string, postId: string) {
+    const detail = await getPostDetail(accountId, postId);
+    if (!detail) return null;
+    const metrics = (detail.metrics ?? null) as PostMetrics | null;
+    const baseline = ((await getAnalyticsCache(accountId))?.analytics ?? null) as PostMetrics | null;
+    const profile = await getAccountProfile(accountId);
+    const analysis = await analyzePost({
+      text: detail.text,
+      mediaType: detail.mediaType,
+      publishedAt: detail.publishedAt.toISOString(),
+      metrics,
+      engagementRate: engagementRate(metrics),
+      baseline,
+      profile: profile
+        ? { goals: profile.goals, audience: profile.audience, pillars: profile.pillars, toneWords: profile.toneWords, noGos: profile.noGos, brandBrief: profile.brandBrief }
+        : null,
+    });
+    await setPostAnalysis(postId, { ...analysis, basis: { impressions: metrics?.impressions ?? 0 } });
+    return getPostDetail(accountId, postId);
+  }
+
+  r.get("/accounts/:id/posts/:postId", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("id");
+    if (!(await getAccountSummary(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const detail = await getPostDetail(accountId, c.req.param("postId"));
+    if (!detail) return c.json({ error: "not_found" }, 404);
+    const metrics = (detail.metrics ?? null) as PostMetrics | null;
+    const baseline = (await getAnalyticsCache(accountId))?.analytics ?? null;
+    return c.json({ post: { ...detail, engagementRate: engagementRate(metrics) }, baseline });
+  });
+
+  r.post("/accounts/:id/posts/:postId/analyze", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("id");
+    if (!(await getAccountSummary(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const post = await analyzeOne(accountId, user.id, c.req.param("postId"));
+    if (!post) return c.json({ error: "not_found" }, 404);
+    const metrics = (post.metrics ?? null) as PostMetrics | null;
+    return c.json({ post: { ...post, engagementRate: engagementRate(metrics) } });
+  });
+
+  r.post("/accounts/:id/posts/:postId/learnings", async (c) => {
+    const user = c.get("user")!;
+    const accountId = c.req.param("id");
+    if (!(await getAccountSummary(accountId, user.id))) return c.json({ error: "not_found" }, 404);
+    const body = await c.req.json<{ accepted?: string[] }>().catch(() => ({ accepted: [] as string[] }));
+    const accepted = (body.accepted ?? []).map((s) => s.trim()).filter(Boolean);
+
+    const profile = await getAccountProfile(accountId);
+    if (!profile) return c.json({ error: "no_profile" }, 400);
+    const derived = (profile.derived as unknown as DerivedInsights | null) ?? {
+      voiceSummary: "", visualStyle: "", themes: [], styleTraits: [], cadence: "", topPatterns: [],
+    };
+    const topPatterns = [...derived.topPatterns];
+    for (const v of accepted) {
+      if (!topPatterns.some((x) => x.toLowerCase() === v.toLowerCase())) topPatterns.push(v);
+    }
+    await updateProfileById(profile.id, user.id, { derived: { ...derived, topPatterns } });
+    return c.json({ topPatterns });
   });
 
   r.post("/accounts/:id/enrich", async (c) => {
