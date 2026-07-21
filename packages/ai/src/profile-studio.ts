@@ -12,7 +12,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { getTextModel } from "./provider.js";
-import { VISUAL_PRESET_IDS } from "./compose.js";
+import { VISUAL_PRESET_IDS, currentDateNote } from "./compose.js";
 
 // The fields the AI can propose/commit. There is no `voice` column on
 // CreatorProfile — the route folds `voice` into toneWords/brandBrief. The image
@@ -128,7 +128,7 @@ WHAT TO COVER (naturally, one step at a time): audience & the transformation the
 - At milestones (right after the brand brief first exists, or when asked) call "writeExamplePost" with a short concrete LinkedIn post in their voice — it renders on the canvas; never paste a post into the chat.
 - A post feels complete with a matching visual: right after you write or meaningfully revise an example post (and whenever the user asks for an image), call "generateExampleImage" with that post's text so a matching picture appears in the preview. It uses the creator's visual style. Don't regenerate the image on trivial text tweaks.
 - Keep messages short (1-2 sentences), human, specific. Mirror the creator's language and register (informal "du" if they use it).
-- You can call searchKnowledge to pull passages from the creator's uploaded documents (norms, guidelines). When you use them, ground your writing on the retrieved passages — but NEVER put citations, source names, section numbers, or quotes-with-attribution in the post text itself. The post must read clean; the sources are shown to the user separately in the UI.${lang}`;
+- You can call searchKnowledge to pull passages from the creator's uploaded documents (norms, guidelines). When you use them, ground your writing on the retrieved passages — but NEVER put citations, source names, section numbers, or quotes-with-attribution in the post text itself. The post must read clean; the sources are shown to the user separately in the UI.${currentDateNote()}${lang}`;
 }
 
 export async function streamProfileStudio(opts: StreamProfileStudioOptions): Promise<Response> {

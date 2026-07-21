@@ -118,6 +118,14 @@ function insightsBlock(insights?: string): string {
     : "";
 }
 
+// The AI has no clock — without this it invents dates and proposes deadlines
+// that are already in the past. Give it today, and tell it to keep every time
+// reference consistent with it.
+export function currentDateNote(now: Date = new Date()): string {
+  const iso = now.toISOString().slice(0, 10);
+  return `\n\nTODAY'S DATE is ${iso}. Ground EVERY time reference in it: never propose a deadline, event, "submit by", or "register until" date that is already in the past, and never call something upcoming when it has already passed. When you mention a year or timeframe, make sure it is consistent with today.`;
+}
+
 // The creator's explicit no-gos, rendered as hard rules. Kept identical to the
 // studio agent's phrasing so both paths honour "no emojis / no em-dashes" etc.
 function noGoBlock(noGos?: string[], toneWords?: string[]): string {
@@ -135,7 +143,7 @@ export async function draftPost(
   const model = opts?.model ?? getTextModel();
   const { text } = await generateText({
     model,
-    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}${insightsBlock(opts?.insights)}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
+    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}${insightsBlock(opts?.insights)}${currentDateNote()}\n\n${LINKEDIN_PLAYBOOK}\n\n${POST_INSTRUCTIONS}`,
     prompt: opts?.topic ? `Topic / angle: ${opts.topic}` : "Write a strong post on one of the creator's core pillars.",
   });
   return enforceNoGos(stripMarkdown(text), opts?.noGos);
@@ -150,7 +158,7 @@ export async function refinePost(
   const model = opts?.model ?? getTextModel();
   const { text } = await generateText({
     model,
-    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}${insightsBlock(opts?.insights)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
+    system: `${brandBrief}${noGoBlock(opts?.noGos, opts?.toneWords)}${insightsBlock(opts?.insights)}${currentDateNote()}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are revising an existing LinkedIn post draft in the creator's voice, per the user's instruction. Keep what already works; change only what the instruction asks. Output only the revised post text — no preamble, no surrounding quotes.`,
     prompt: `Current draft:\n"""${currentText}"""\n\nInstruction: ${instruction}`,
   });
   return enforceNoGos(stripMarkdown(text), opts?.noGos);
@@ -207,10 +215,11 @@ export async function reviewPost(opts: {
 5. OFF-TOPIC — drifts away from the source article's subject (only when an article is given).
 6. MARKDOWN — any Markdown syntax (LinkedIn renders plain text only).
 7. IGNORES WHAT WORKS — only when a "WHAT WORKS FOR THIS CREATOR" block is given below: flag it ONLY if the post clearly contradicts or wastes a proven engagement pattern (e.g. a known-strong hook style dropped, no CTA when CTAs reliably drive replies). Do NOT nitpick minor deviations; this is a soft check, never invent an issue just to apply it.
+8. PAST OR IMPOSSIBLE DATE — any deadline, event, "submit by" / "register until" date, or timeframe that is already in the past relative to TODAY'S DATE (given below), or a claim that a passed date is still upcoming. Flag the exact date and that it has passed.
 
 Be strict but fair: if the post genuinely clears the bar, set verdict "pass" with empty "issues" — do NOT invent nitpicks to justify another round. Otherwise set verdict "revise" and list each concrete defect as a short, actionable instruction the writer can act on (quote the offending phrase where it helps).
 LANGUAGE OF ISSUES: the ENTIRE text of every issue — the description, not just a quoted snippet — MUST be written in the SAME language as the draft post; these are shown to the creator in the UI. Do NOT use the English defect category names above ("Corporate Bloat", "No real value", etc.); describe the problem in the post's own language. For a German post, write fully German issues, e.g. "Corporate-Floskel: '…' sagt nichts Konkretes" or "Kein greifbarer Mehrwert — nenne eine konkrete Maßnahme".
-${brief}${noGoLine}${toneLine}${articleLine}${insightsBlock(opts.insights)}`,
+${brief}${noGoLine}${toneLine}${articleLine}${insightsBlock(opts.insights)}${currentDateNote()}`,
     prompt: `Review this draft post:\n"""${text}"""`,
   });
   return object;
@@ -240,7 +249,7 @@ export async function rewriteForReview(opts: {
   const issueList = opts.issues.length ? opts.issues.map((i) => `- ${i}`).join("\n") : "- Tighten and sharpen the post.";
   const { text } = await generateText({
     model,
-    system: `${brief}${noGoBlock(opts.noGos, opts.toneWords)}${insightsBlock(opts.insights)}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are the writer revising your own LinkedIn post after a strict editor flagged problems. Fix EVERY flagged problem while keeping the post's substance, angle, and authentic voice — do not blandify, do not drop real content, do not add new claims. Output only the revised post as PLAIN TEXT — no preamble, no surrounding quotes.${articleLine}`,
+    system: `${brief}${noGoBlock(opts.noGos, opts.toneWords)}${insightsBlock(opts.insights)}${currentDateNote()}\n\n${LINKEDIN_PLAYBOOK}\n\nYou are the writer revising your own LinkedIn post after a strict editor flagged problems. Fix EVERY flagged problem while keeping the post's substance, angle, and authentic voice — do not blandify, do not drop real content, do not add new claims. Output only the revised post as PLAIN TEXT — no preamble, no surrounding quotes.${articleLine}`,
     prompt: `Current draft:\n"""${opts.text.trim()}"""\n\nThe editor flagged these problems — fix all of them:\n${issueList}`,
   });
   return enforceNoGos(stripMarkdown(text), opts.noGos);

@@ -11,7 +11,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { getTextModel } from "./provider.js";
-import { LINKEDIN_PLAYBOOK, reviewPost, rewriteForReview, stripMarkdown, enforceNoGos } from "./compose.js";
+import { LINKEDIN_PLAYBOOK, reviewPost, rewriteForReview, stripMarkdown, enforceNoGos, currentDateNote } from "./compose.js";
 
 // How many writer↔reviewer rounds the review loop runs before shipping.
 const MAX_REWRITES = 2;
@@ -131,7 +131,7 @@ If you are about to type post text into the chat: STOP and call updatePost inste
 CREATOR BRAND BRIEF
 ${brief}${tone}${pillars}${noGos}
 ${learned}${article}
-${LINKEDIN_PLAYBOOK}
+${LINKEDIN_PLAYBOOK}${currentDateNote()}
 
 HOW YOU WORK
 - The canvas is the source of truth for the post. The chat is where you and the creator talk about it.

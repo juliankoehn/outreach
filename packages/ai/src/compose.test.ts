@@ -185,3 +185,31 @@ describe("insights threading (learnings reach every writer/fixer/image)", () => 
     expect(JSON.stringify(calls[0]!.prompt)).not.toContain("WHAT WORKS FOR THIS CREATOR");
   });
 });
+
+import { draftPost as _dp, reviewPost as _rp, currentDateNote as _cdn } from "./compose.js";
+import { recordingModel as _rm, textModel as _tm } from "./testing.js";
+
+describe("currentDateNote (give the AI today's date)", () => {
+  it("formats today as ISO and warns against past deadlines", () => {
+    const note = _cdn(new Date("2026-07-21T09:00:00Z"));
+    expect(note).toContain("2026-07-21");
+    expect(note).toMatch(/past/i);
+  });
+
+  it("draftPost puts today's date in the writer's system prompt", async () => {
+    const { model, calls } = _rm("post");
+    await _dp("Brief.", { model });
+    expect(JSON.stringify(calls[0]!.prompt)).toContain("TODAY'S DATE");
+  });
+
+  it("reviewPost gets today's date + a past-date check", async () => {
+    const model = _tm(JSON.stringify({ verdict: "pass", issues: [] }));
+    // reviewPost uses generateObject; assert via a recording-capable path instead:
+    const rec = _rm(JSON.stringify({ verdict: "pass", issues: [] }));
+    await _rp({ text: "hi", model: rec.model });
+    const s = JSON.stringify(rec.calls[0]!.prompt);
+    expect(s).toContain("TODAY'S DATE");
+    expect(s).toMatch(/PAST OR IMPOSSIBLE DATE/);
+    void model;
+  });
+});

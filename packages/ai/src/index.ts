@@ -7,7 +7,7 @@ export { synthesizeProfile, refineProfile, PROFILE_SCHEMA } from "./profile.js";
 export { suggestFacets, FACET_KINDS, FACET_SCHEMA } from "./facets.js";
 export type { ProfileFacet, FacetKind, SuggestFacetsInput } from "./facets.js";
 export { analyzePosts, DERIVED_SCHEMA, formatInsights } from "./analyze.js";
-export { draftPost, refinePost, reviewPost, rewriteForReview, generateImage, composeImageBrief, reviewImageBrief, getImageModel, IMAGE_PROVIDERS, enabledImageProviders, isImageProviderEnabled, VISUAL_PRESETS, VISUAL_PRESET_IDS, visualPresetPrompt, composeVisualLanguage, LINKEDIN_PLAYBOOK, stripMarkdown, enforceNoGos } from "./compose.js";
+export { draftPost, refinePost, reviewPost, rewriteForReview, generateImage, composeImageBrief, reviewImageBrief, getImageModel, IMAGE_PROVIDERS, enabledImageProviders, isImageProviderEnabled, VISUAL_PRESETS, VISUAL_PRESET_IDS, visualPresetPrompt, composeVisualLanguage, LINKEDIN_PLAYBOOK, currentDateNote, stripMarkdown, enforceNoGos } from "./compose.js";
 export type { ImageProviderId, VisualPresetId } from "./compose.js";
 export type { PostReview } from "./compose.js";
 export { describeImageReferences } from "./references.js";
